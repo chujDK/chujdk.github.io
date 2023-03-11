@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>如何向 Wsl 中的 Emacs 粘贴图片？</title>
+<meta name="generator" content="Org Mode" />
+<style>
+  #content { max-width: 60em; margin: auto; }
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #e6e6e6;
+    border-radius: 3px;
+    background-color: #f2f2f2;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: auto;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    padding: 3px;
+    color: #555;
+    background-color: #f2f2f299;
+  }
+  pre.src:hover:before { display: inline; margin-top: 14px;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-authinfo::before { content: 'Authinfo'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .equation-container {
+    display: table;
+    text-align: center;
+    width: 100%;
+  }
+  .equation {
+    vertical-align: middle;
+  }
+  .equation-label {
+    display: table-cell;
+    text-align: right;
+    vertical-align: middle;
+  }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { }
+</style>
+<meta name="author" content="chuj">
+        <meta name="referrer" content="no-referrer">
+        <link rel="stylesheet" href="/css/default.css" />
+</head>
+<body>
+<div id="preamble" class="status">
+<div class="header">
+              <a href="/index.html">chuj's Org Blog</a>
+</div>
+<div id="content" class="content">
+<h1 class="title">如何向 Wsl 中的 Emacs 粘贴图片？
+<br />
+<span class="subtitle">更好的使用 org-mode</span>
+</h1>
+
+<div id="outline-container-org6a95d9c" class="outline-2">
+<h2 id="org6a95d9c"><span class="section-number-2">1.</span> 问题是什么？</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+Doom Emacs 已经提供了对图片粘贴的支持：<a href="https://docs.doomemacs.org/latest/modules/lang/org/#/description/module-flags/dragndrop">org 模块的 dragndrop</a>，我一般在写文章需要加图片的情形都是截图（图片会进入剪贴版），就算是已有的图片，我也倾向于先复制。之前在使用 obsidian 的时候，有插件提供了粘贴即可出图，我希望在 emacs 中也能做到类似的效果。 <code>dragndrop</code> 也许可以做到，但是他依赖于 <code>xclip</code> 来获取剪贴板的内容。在现在<span class="timestamp-wrapper"><span class="timestamp">&lt;2022-12-10 Sat&gt;</span></span>，wsl 还不支持图片的共享（文字的共享效果非常不错），因此这个插件不能满足 wsl 用户的需求。
+</p>
+</div>
+</div>
+<div id="outline-container-org7c431c3" class="outline-2">
+<h2 id="org7c431c3"><span class="section-number-2">2.</span> 怎么办？</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+找到<a href="https://alexrampp.de/2020/11/07/how-to-paste-images-into-emacs-org-mode-running-in-windows-subsystem-for-linux/">这篇文章</a>，提供了解决方案，思路是由于 wsl 可以调用 windows 程序，这也包括了 powershell，而在 powershell 中提供了 <code>Get-Clipboard</code> 这个方法，可以导出图片（在 powershell 7.3 版本中这个方法似乎不能导出图片，所以我最后选择了调用 5.1 版本的 powershell）。添加以下的函数定义到 <code>~/.doom.d/config.el</code> （如果不是使用 doom emacs，添加到任何启动配置文件中就行，比如 <code>~/.emac.d/init.el</code> 等）。
+</p>
+<div class="org-src-container">
+<pre class="src src-elisp">(<span style="font-weight: bold;">defun</span> <span style="font-weight: bold;">org-paste-image-from-windows</span> ()
+  <span style="font-style: italic;">"Paste an image into a time stamped unique-named file in the ~/.org/picture</span>
+<span style="font-style: italic;">and insert a link to this file"</span>
+  (<span style="font-weight: bold;">interactive</span>)
+  (<span style="font-weight: bold;">let*</span> ((target-file
+          (concat
+           (make-temp-name
+            (concat
+             <span style="font-style: italic;">"~/.org/picture/"</span>
+             (format-time-string <span style="font-style: italic;">"%Y%m%d_%H%M%S_"</span>)))
+           <span style="font-style: italic;">"</span><span style="font-weight: bold; font-style: italic;">\</span><span style="font-style: italic;">.png"</span>))
+         (windows-path
+          (wsl-to-windows-path target-file))
+         (ps-script
+          (concat <span style="font-style: italic;">"(Get-Clipboard -Format image).Save('"</span> windows-path <span style="font-style: italic;">"')"</span>)))
+         (powershell ps-script)
+
+         (<span style="font-weight: bold;">if</span> (file-exists-p target-file)
+             (<span style="font-weight: bold;">progn</span> (insert (concat <span style="font-style: italic;">"[["</span> target-file <span style="font-style: italic;">"]]"</span>))
+                    (org-display-inline-images)
+                    (message (concat <span style="font-style: italic;">"saving to "</span> ps-script <span style="font-style: italic;">"..."</span>))
+                    )
+           (<span style="font-weight: bold;">user-error</span>
+            <span style="font-style: italic;">"Pasting the image failed.."</span>))
+         ))
+
+(<span style="font-weight: bold;">defun</span> <span style="font-weight: bold;">wsl-to-windows-path</span> (path)
+  <span style="font-style: italic;">"Conver a wsl unix path to its windows path"</span>
+  (substring
+   (shell-command-to-string (concat <span style="font-style: italic;">"wslpath -w "</span> path)) 0 -1))
+
+(<span style="font-weight: bold;">defun</span> <span style="font-weight: bold;">powershell</span> (script)
+  <span style="font-style: italic;">"Execute the given script within a powershell and return its return value.</span>
+<span style="font-style: italic;">Note: pwsh should be a valid command that can start a powershell, for example,</span>
+<span style="font-style: italic;">make a symblic link to powershell.exe to ~/.local/bin/powershell"</span>
+  (call-process <span style="font-style: italic;">"powershell"</span> nil nil nil
+                <span style="font-style: italic;">"-noprofile"</span>
+                <span style="font-style: italic;">"-Command"</span> (concat <span style="font-style: italic;">"&amp; {"</span> script <span style="font-style: italic;">"}"</span>)))
+</pre>
+</div>
+<p>
+在 wsl 中建立一个指向 windows powershell 的符号链接（由于 windows path 进入 wsl 后，zsh 的 syntax-highlight 和 auto-suggestion 都变得非常卡，所以我去除了 windows 的 path），把这个符号链接放到 path 中，通过 <code>powershell</code> 函数就可以使用 powershell 执行任意 powershell 脚本了。调用 <code>org-paste-image-from-windows</code> 函数就可以把剪贴板的图片复制到 <code>~/.org/picutre</code> 中，图片的格式为时间戳+随机字符串，然后自动插入图片链接。在 Doom Emacs + evil mode 的默认配置下，使用 <code>z i</code> 快捷键就可以显示出图片了。
+同时，可以用
+</p>
+<div class="org-src-container">
+<pre class="src src-elisp">(<span style="font-weight: bold;">when</span> (string-match-p <span style="font-style: italic;">"WSL"</span> (shell-command-to-string <span style="font-style: italic;">"uname -a"</span>))
+  ...
+)
+</pre>
+</div>
+<p>
+把这些函数包起来，这样就只对 wsl 起效。
+</p>
+</div>
+</div>
+<div id="outline-container-org156753b" class="outline-2">
+<h2 id="org156753b"><span class="section-number-2">3.</span> 仍然存在的问题</h2>
+<div class="outline-text-2" id="text-3">
+<ul class="org-ul">
+<li>调用 <code>org-paste-image-from-windows</code> 的时候会弹出 powershell 黑框
+我也有尝试使用 powershell 的 <code>-WindowStyle Hidden</code> 参数，但是还是会弹出，似乎没有特别好的内建解决方法。<a href="https://stackoverflow.com/questions/1802127/how-to-run-a-powershell-script-without-displaying-a-window">参考</a></li>
+<li>以函数定义的形式直接写入 <code>config.el</code> 中
+不够模块化，我有把他写成 package 的想法，之后学习一下。</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="creator"><a href="https://www.gnu.org/software/emacs/">Emacs</a> 29.0.60 (<a href="https://orgmode.org">Org</a> mode 9.6.1)</p>
+</div>
+</body>
+</html>

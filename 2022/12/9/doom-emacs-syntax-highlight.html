@@ -1,0 +1,525 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>如何让 Doom Emacs 高亮所有变量？</title>
+<meta name="generator" content="Org Mode" />
+<style>
+  #content { max-width: 60em; margin: auto; }
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #e6e6e6;
+    border-radius: 3px;
+    background-color: #f2f2f2;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: auto;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    padding: 3px;
+    color: #555;
+    background-color: #f2f2f299;
+  }
+  pre.src:hover:before { display: inline; margin-top: 14px;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-authinfo::before { content: 'Authinfo'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .equation-container {
+    display: table;
+    text-align: center;
+    width: 100%;
+  }
+  .equation {
+    vertical-align: middle;
+  }
+  .equation-label {
+    display: table-cell;
+    text-align: right;
+    vertical-align: middle;
+  }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { }
+</style>
+<meta name="author" content="chuj">
+        <meta name="referrer" content="no-referrer">
+        <link rel="stylesheet" href="/css/default.css" />
+</head>
+<body>
+<div id="preamble" class="status">
+<div class="header">
+              <a href="/index.html">chuj's Org Blog</a>
+</div>
+<div id="content" class="content">
+<h1 class="title">如何让 Doom Emacs 高亮所有变量？
+<br />
+<span class="subtitle">with or without tree-sitter in Doom Emacs</span>
+</h1>
+
+<div id="outline-container-org84a6131" class="outline-2">
+<h2 id="org84a6131"><span class="section-number-2">1.</span> 太长不看</h2>
+<div class="outline-text-2" id="text-1">
+</div>
+<div id="outline-container-org8e1aab2" class="outline-3">
+<h3 id="org8e1aab2"><span class="section-number-3">1.1.</span> 使用 lsp 进行高亮</h3>
+<div class="outline-text-3" id="text-1-1">
+<p>
+<b>如果你只是想让 C/C++/Rust 拥有不亚于 Vscode 的补全体验</b>
+</p>
+
+<p>
+首先要安装启用 lsp mode，然后安装对应语言的 lsp 服务器。支持 lsp 的语言都可以通过开启 <code>lsp-semantic-token-mode</code> 来使用 lsp 服务器进行语义级别的高亮，这就和 vscode 中使用 clangd 进行高亮一样，所以启用他就好了，这主要针对 C/C++/rust，会拥有比 <code>tree-sitter</code> 好许多的体验
+</p>
+
+<p>
+如果想要自动开启，根据 lsp-mode <a href="https://emacs-lsp.github.io/lsp-mode/manual-language-docs/lsp-terraform-ls/#semantic-token-support">文档</a>，在配置文件中设置这两个变量即可
+</p>
+<div class="org-src-container">
+<pre class="src src-emacs-lisp">(<span style="font-weight: bold;">setq</span> lsp-semantic-tokens-enable t) <span style="font-weight: bold; font-style: italic;">; </span><span style="font-weight: bold; font-style: italic;">&#21551;&#29992; lsp &#35821;&#20041;&#39640;&#20142;</span>
+(<span style="font-weight: bold;">setq</span> lsp-semantic-tokens-honor-refresh-requests t) <span style="font-weight: bold; font-style: italic;">; </span><span style="font-weight: bold; font-style: italic;">&#33258;&#21160;&#21047;&#26032;</span>
+</pre>
+</div>
+
+<p>
+如果是别的语言，lsp 的高亮没那么强，可能就得考虑使用 tree-sitter 了。
+</p>
+</div>
+</div>
+
+<div id="outline-container-orga443a0e" class="outline-3">
+<h3 id="orga443a0e"><span class="section-number-3">1.2.</span> 使用 tree-sitter</h3>
+<div class="outline-text-3" id="text-1-2">
+<p>
+如果你还是想用 <code>tree-sitter</code> 进行高亮，或者只能用 <code>tree-sitter</code> （比如 go 似乎就无法用 <code>lsp-semantic-token-mode</code> 达到更好的高亮，而且 <code>tree-sitter</code> 本身就是一个很棒的工具），可以这样开启，非常的容易
+</p>
+
+<p>
+在 <code>~/.doom.d/init.el</code> 中，取消 tree-sitter 的注释。
+</p>
+
+<p>
+然后在 <code>~/.doom.d/config.el</code> 中，添加
+</p>
+
+<div class="org-src-container">
+<pre class="src src-elisp">(global-tree-sitter-mode)
+(add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode)
+</pre>
+</div>
+
+<p>
+第一行可以全局启用 tree-sitter，但是并不会真正进行高亮，第二行可以让他对任何 major mode 都生效。参考<a href="https://emacs-tree-sitter.github.io/getting-started/">emacs tree-sitter 文档</a>。
+</p>
+
+<p>
+doom emacs 是默认使用 <code>tree-sitter-langs</code> 提供的“高亮策略”的，而这个高亮策略下，变量引用使用的是 buffer 的默认颜色，所以看起来就和没有高亮一样（如果你不介意这个，也就没必要读这篇文章了）。想要解决这个问题，可以尝试下面两种方法（我个人觉得第二种效果比较好）
+</p>
+</div>
+<div id="outline-container-orgd8023ae" class="outline-4">
+<h4 id="orgd8023ae"><span class="section-number-4">1.2.1.</span> 一个不怎么好的解决方法</h4>
+<div class="outline-text-4" id="text-1-2-1">
+<p>
+在 <code>~/.doom.d/config.el</code> 中添加
+</p>
+
+<div class="org-src-container">
+<pre class="src src-elisp">(tree-sitter-hl-add-patterns 'c <span style="font-weight: bold; font-style: italic;">; </span><span style="font-weight: bold; font-style: italic;">change c to your language's name</span>
+  [(identifier) @variable])
+(tree-sitter-hl-add-patterns 'cpp
+  [(identifier) @variable])
+(tree-sitter-hl-add-patterns 'rust
+  [(identifier) @variable])
+</pre>
+</div>
+</div>
+</div>
+<div id="outline-container-org5712e9e" class="outline-4">
+<h4 id="org5712e9e"><span class="section-number-4">1.2.2.</span> 一个比较 Dirty 但是相对比较好的解决方法</h4>
+<div class="outline-text-4" id="text-1-2-2">
+<p>
+在 <code>~/.doom.d/config.el</code> 中添加
+</p>
+
+<div class="org-src-container">
+<pre class="src src-elisp">(add-hook 'prog-mode-hook (<span style="font-weight: bold;">lambda</span> ()
+                            <span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">set the foreground color</span>
+                            (<span style="font-weight: bold;">setq</span> buffer-face-mode-face '(<span style="font-weight: bold;">:foreground</span> <span style="font-style: italic;">"DeepSkyBlue"</span>))
+                            (buffer-face-mode)))
+</pre>
+</div>
+
+<p>
+这种方法是通过设置 buffer 的字体默认颜色，把 <code>DeepSkyBlue</code> 换成你想要的颜色就可以了。这样原来的，看起来没高亮的地方，看起来就都高亮了。
+</p>
+</div>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org4140035" class="outline-2">
+<h2 id="org4140035"><span class="section-number-2">2.</span> Doom Emacs 不是本来就有变量高亮吗？</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+doom emacs 有 tree-sitter 的模块，也支持了许多语言的高亮，可以起到不错的代码高亮效果，我的 doom emacs 效果如下
+</p>
+
+
+<div id="org322083d" class="figure">
+<p><img src="https://raw.githubusercontent.com/chujDK/ImageHost/main/PicGoIMage/202302221144896.png" alt="202302221144896.png" />
+</p>
+</div>
+
+<p>
+但是有一个小问题，可以看到每个变量在引用处有时不会高亮
+</p>
+</div>
+</div>
+<div id="outline-container-org3d56232" class="outline-2">
+<h2 id="org3d56232"><span class="section-number-2">3.</span> tree-sitter 这么弱？</h2>
+<div class="outline-text-2" id="text-3">
+<p>
+tree-sitter 在 Doom Emacs 中，大抵是这样的工作逻辑：
+</p>
+<ol class="org-ol">
+<li>tree-sitter 工作时，都是使用一个由 scheme 写成的描述文件进行 parse，而在进行高亮的时候，他会去搜索 <code>highlights.scm</code>
+<i>这个 <code>.scm</code> ，就好像 flex 的 <code>.l</code></i></li>
+<li>Doom Emacs 为每个语言提供的 <code>highlights.scm</code> 是由 <a href="https://github.com/emacs-tree-sitter/tree-sitter-langs">tree-sitter-langs</a> 整理的</li>
+<li>我们可以发现这个仓库中，至少 c 语言的 <code>highlights.scm</code> 与 <a href="https://github.com/tree-sitter/tree-sitter-c/blob/7175a6dd5fc1cee660dce6fe23f6043d75af424a/queries/highlights.scm">tree-sitter-c 仓库中的 highlights.scm</a> 是不一样的</li>
+<li>如果使用 tree-sitter-c 仓库（也就是 <code>tree-sitter-langs</code> 的上游仓库之一）的 <code>highlights.scm</code> ，可以起到（我认为）更不错的效果</li>
+</ol>
+
+<p>
+也就是说，tree-sitter 是能分辨变量的（废话，一个基于 parse 的语法高亮器怎么可能不能分辨！）。然后看了一眼 <code>tree-sitter-langs</code> 的文档，才发现原来是这样的
+</p>
+<blockquote>
+<p>
+Highlighting query patterns for a language are in the file queries/&lt;lang&gt;/highlights.scm. Most of them are intentionally different from those from upstream repositories, which are more geared towards GitHub’s use cases. We try to be more consistent with Emacs’s existing conventions. (For some languages, this is WIP, so their patterns may look similar to upstream’s.)
+</p>
+</blockquote>
+<p>
+看来这是 <code>tree-sitter-langs</code> 故意搞的。让对变量的读和写拥有不一样的高亮
+</p>
+
+<p>
+所以我们就知道解决方案了——直接改掉 tree-sitter 的高亮策略就行了
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgee8f4ba" class="outline-2">
+<h2 id="orgee8f4ba"><span class="section-number-2">4.</span> 如何配置 emacs tree-sitter？</h2>
+<div class="outline-text-2" id="text-4">
+<p>
+那么问题就变成了配置 <code>tree-sitter</code> 使用的 <code>highlight.scm</code> ，让他对变量的引用和定义用同样方式高亮。尴尬的是我看不太懂他的文档上的<a href="https://emacs-tree-sitter.github.io/syntax-highlighting/customization/">配置方法</a>，也不想为了配个语法高亮学一个 parser generator 怎么写
+</p>
+
+<p>
+所以我选择 diff <code>tree-sitter-c</code> 和 <code>tree-sitter-langs</code> 中的 <code>highlight.scm</code> 。发现主要不同就是他多了一行 <code>(identifier) @variable]</code> ，所以我的尝试，是这样的：
+</p>
+<div class="org-src-container">
+<pre class="src src-elisp">(tree-sitter-hl-add-patterns 'c
+  [(identifier) @variable])
+(tree-sitter-hl-add-patterns 'cpp
+  [(identifier) @variable])
+(tree-sitter-hl-add-patterns 'rust
+  [(identifier) @variable])
+</pre>
+</div>
+<p>
+这样的的确可以让变量的所有引用都高亮，效果是这样的
+</p>
+
+
+<div id="org8cacdc1" class="figure">
+<p><img src="https://raw.githubusercontent.com/chujDK/ImageHost/main/PicGoIMage/202302221145789.png" alt="202302221145789.png" />
+</p>
+</div>
+
+<p>
+但是还是不够好：在这种情况下非成员函数变成了和变量一样的颜色，只是加粗了。
+</p>
+
+<p>
+<del>但是我已经满意了，因为我实在不会了！</del>
+</p>
+</div>
+
+<div id="outline-container-orgaa57dbe" class="outline-3">
+<h3 id="orgaa57dbe"><span class="section-number-3">4.1.</span> 不够五光十色</h3>
+<div class="outline-text-3" id="text-4-1">
+<p>
+实际用了几天后我发现，其实我并不满意，变量和函数颜色一样，辨识度很低，看起来满屏就是一个颜色，和没高亮一样，所以为了解决这个问题，我直接 patch 了 <code>tree-sitter-langs</code> 的 <code>highlights.scm</code> ，强制使用上游仓库的高亮策略。即修改 <code>~/.emacs.d/.local/straight/repos/tree-sitter-langs/queries/&lt;language name&gt;/highlight.scm</code> 。比如 C 语言，就直接改成 <a href="https://github.com/tree-sitter/tree-sitter-c">tree-sitter-c</a> 的 <a href="https://github.com/tree-sitter/tree-sitter-c/blob/master/queries/highlights.scm">highlights.scm</a>。
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgae93efe" class="outline-2">
+<h2 id="orgae93efe"><span class="section-number-2">5.</span> 太不优雅了</h2>
+<div class="outline-text-2" id="text-5">
+<p>
+直接 patch 掉人家仓库的代码，为 Doom 的未来更新留下了隐患，而且这么做非常不优雅。另外，让变量的读和写有不一样的高亮，这也很酷啊，所以我的想法就转变了：与其修改 <code>tree-sitter</code> ，不如先看看如何配置 emacs 的 <code>font-lock</code> 这个 minor-mode，毕竟 <code>tree-sitter</code> 是继承他的嘛！看了一会，实话说没怎么看明白。。
+</p>
+
+<p>
+所以我又想到了一个更 dirty 的解决方法，反正我主要不爽的是有白色，而没有被高亮的也只有变量引用了，所以我直接把 buffer 的字体默认颜色改掉不就好了。要修改 buffer 的字体颜色，可以启用 <code>buffer-face-mode</code> 然后设置 <code>buffer-face-mode-face</code> ，添加 <code>'(:foreground "color name")</code> ，所以我在 config.el 中添加了这样的配置，展示配置成深天蓝色（DeepSkyBlue）
+</p>
+<div class="org-src-container">
+<pre class="src src-elisp">(add-hook 'prog-mode-hook (<span style="font-weight: bold;">lambda</span> ()
+                            <span style="font-weight: bold; font-style: italic;">;; </span><span style="font-weight: bold; font-style: italic;">set the foreground color</span>
+                            (<span style="font-weight: bold;">setq</span> buffer-face-mode-face '(<span style="font-weight: bold;">:foreground</span> <span style="font-style: italic;">"DeepSkyBlue"</span>))
+                            (buffer-face-mode)))
+</pre>
+</div>
+<p>
+直接设置前景色，这样高亮的效果就是这样了
+</p>
+
+
+<div id="org5cf93ab" class="figure">
+<p><img src="https://raw.githubusercontent.com/chujDK/ImageHost/main/PicGoIMage/202302221146655.png" alt="202302221146655.png" />
+</p>
+</div>
+
+<p>
+颜色就出来了。这样子剩余的问题就是由于我是 vscode 迁移过来的，看到这个颜色，很像 vscode 中对枚举的高亮，于是我看了一眼 <code>tree-sitter</code> 对枚举的高亮，关掉 <code>buffer-face-mode</code>
+</p>
+
+
+<div id="org39d7e1a" class="figure">
+<p><img src="https://raw.githubusercontent.com/chujDK/ImageHost/main/PicGoIMage/202302221146353.png" alt="202302221146353.png" />
+</p>
+</div>
+
+<p>
+好家伙，根本就是没有高亮。。所以我准备就保留这个配置了，当然之后可以考虑换一个更合适的颜色（现在我看着就感觉满屏全是枚举），甚至直接换成和变量定义这样一样的颜色也没关系。
+</p>
+
+<p>
+最后检查一下别的语言，rust 下
+</p>
+
+
+<div id="org868f5a9" class="figure">
+<p><img src="https://raw.githubusercontent.com/chujDK/ImageHost/main/PicGoIMage/202302221146650.png" alt="202302221146650.png" />
+</p>
+</div>
+
+<p>
+没什么问题，rust 的高亮规则本来就把枚举当成类型。也不再存在白色啦！
+</p>
+
+<p>
+好了，这个解决方案更不优雅，但是我很满意。
+</p>
+
+<p>
+而且实际上，如果到没有高亮的变量因用上 <code>M-x describe-face</code> 一下，也会发现，在这种情况下 face 就是 default
+</p>
+
+
+<div id="org151fba3" class="figure">
+<p><img src="https://raw.githubusercontent.com/chujDK/ImageHost/main/PicGoIMage/202302221146673.png" alt="202302221146673.png" />
+</p>
+</div>
+
+<p>
+如上是光标放到 <code>printf</code> 上，然后 describe-face 的结果。那么如果未来 <code>tree-sitter-langs</code> 不准备把变量引用等一系列情况都加入到 parse 规则里的话，这就是我能想到唯一的解决方法了。
+</p>
+</div>
+</div>
+<div id="outline-container-orgaeb0814" class="outline-2">
+<h2 id="orgaeb0814"><span class="section-number-2">6.</span> 凭啥 lsp 不能帮我高亮？</h2>
+<div class="outline-text-2" id="text-6">
+<p>
+没错，我过去在使用 vscode 的时候，C/C++ 的高亮都是 clangd 帮我做的，在 emacs 中当然也可以： <code>LSP Mode</code> 提供了 <code>lsp-semantic-token-mode</code> ，这个模式对 C/C++/rust 的提升看起来非常巨大。
+</p>
+
+<p>
+不过现在看起来，如果想要使用 lsp 提供高亮，首先性能会下降（个人感觉会卡一点），另外对于比较复杂的 C++ 项目，也需要等 clangd index 完了才能开始高亮，相比之下 <code>tree-sitter</code> 就会快很多。
+</p>
+
+<p>
+但是用 lsp 的高亮，效果真的很好啊！一开始我还没搞明白怎么自动开启，直接在 <code>prog-mode-hook</code> 上加一行 <code>lsp-semantic-token-mode</code> 并不行，他似乎并不会自动刷新的样子。事实证明还是要多看<a href="https://emacs-lsp.github.io/lsp-mode/manual-language-docs/lsp-terraform-ls/#semantic-token-support">文档</a>，里面说到，添加这两行即可
+</p>
+<div class="org-src-container">
+<pre class="src src-emacs-lisp">(<span style="font-weight: bold;">setq</span> lsp-semantic-tokens-enable t)
+(<span style="font-weight: bold;">setq</span> lsp-semantic-tokens-honor-refresh-requests t)
+</pre>
+</div>
+
+<p>
+另外，参考这个 <a href="https://github.com/emacs-lsp/lsp-mode/issues/3765">issue</a>，其实确实会碰到一点小坑——对定义变量时的高亮出错了，我在 <code>custom-set-faces</code> 中加入了这个
+</p>
+
+<div class="org-src-container">
+<pre class="src src-emacs-lisp">'(lsp-face-semhl-interface
+  ((t (<span style="font-weight: bold;">:inherit</span> font-lock-variable-name-face))))
+</pre>
+</div>
+
+<p>
+（似乎 doom emacs 中并不应该使用 <code>custom-set-faces</code> ，但是我先暂时用着了）
+</p>
+
+<p>
+我最近折腾了很久工具，代码反而是没写几行，这样不是好。我决定就暂时使用 <code>tree-sitter</code> 加我的 dirty solution 了。
+</p>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="creator"><a href="https://www.gnu.org/software/emacs/">Emacs</a> 29.0.60 (<a href="https://orgmode.org">Org</a> mode 9.6.1)</p>
+</div>
+</body>
+</html>
