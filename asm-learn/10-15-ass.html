@@ -8,4 +8,5 @@
 mov ds,ax</code></pre><p>同时<code>mov [0],1000</code>同样不合法，要用与上类似的方法。</p><p><span class="has-inline-color has-cyan-bluish-gray-color">注：[立即数]表示物理地址，仅仅在debug中可以使用，汇编程序中，则要加上段前缀</span></p><hr class=wp-block-separator><h3>几种合法操作</h3><pre class=wp-block-code><code>mov ax,ds ;段寄存器赋值到通用寄存器
 mov [0],ds ;段寄存器复制到内存单元
 mov ds,[0] ;内存单元复制到段寄存器</code></pre><p>然而书上要求实验的<code>add ds,ax</code>则是不合法的，加法运算一般只能用通用寄存器完成。</p><hr class=wp-block-separator><h3>数据段</h3><p>其实我觉得这个没什么特别的，权当介绍了一下内存段可以做的一种思路。即把一段内存都当做数据来看，通过[address]的方法调用这些数据。（现在我猜也许数组就是这么整的）</p><p></p></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a><a class=soc href=https://twitter.com/jchu95495236 rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

@@ -953,4 +953,5 @@ rop 时执行 <code>switch_task_namespaces(find_task_by_vpid(1), init_nsproxy)</
 </span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
 </span></span><span style=display:flex><span>}
 </span></span></code></pre></div><p>这个 exp 可以修改 /usr/bin/mount 的 0x1775 开始的 3 个字节为 0xCC（写这个地址是因为我在 qemu 中自己编译了一个 fake root owned suid mount ，这个程序的 main 函数在 0x1775 处）。</p></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a><a class=soc href=https://twitter.com/jchu95495236 rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

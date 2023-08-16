@@ -112,4 +112,5 @@ edit(2,len(payload),payload)
 sh.send(p64(bin_sh_addr))
 sh.interactive()
 </code></pre><p>总结：</p><ul><li>使用unlink的前提：<ul><li>UAF，或者可以伪造一个需要的chunk（比如能够堆溢出的时候）</li><li>存在一个地址已知的，指向UAF chunk的指针</li></ul></li><li>unlink的效果：<code>*p=p-3*sizeof(size_t)</code>(sizeof(size_t)即机器字长)</li></ul></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a><a class=soc href=https://twitter.com/jchu95495236 rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

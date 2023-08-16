@@ -42,4 +42,5 @@ sh.sendlineafter(">>","3")
 sh.send('\x00'*0x40)                                                                              
                                                                                                   
 sh.interactive()                                                                                  </code></pre><p>最后我想强调一下，类似于<strong><a href="https://www.cjovi.icu/?p=527">BUU-wustctf2020_closed-WP</a></strong>这道题，都关闭了stdout，现在有的解决方法有</p><ul><li>使用<code>exec 1>&amp;0</code>将标准输出重定向到标准输入</li><li>劫持stdout的指针指向如stderr等可泄露的输出流。</li></ul></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a><a class=soc href=https://twitter.com/jchu95495236 rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>
