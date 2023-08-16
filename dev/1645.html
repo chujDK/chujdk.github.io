@@ -1,0 +1,832 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>compose-a-tetris 使用 compose API 在安卓上实现一个俄罗斯方块 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="写在前面 为了应付安卓课的大作业，又写了一个俄罗斯方块。很幸运的是，确实学到了很多知识，虽然这些知识可能没什么用，但是还是非常的有意思。上一次"><meta property="og:image" content><meta property="og:title" content="compose-a-tetris 使用 compose API 在安卓上实现一个俄罗斯方块"><meta property="og:description" content="写在前面 为了应付安卓课的大作业，又写了一个俄罗斯方块。很幸运的是，确实学到了很多知识，虽然这些知识可能没什么用，但是还是非常的有意思。上一次"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/dev/1645.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-05-26T11:26:00+00:00"><meta property="article:modified_time" content="2022-05-26T11:26:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="compose-a-tetris 使用 compose API 在安卓上实现一个俄罗斯方块"><meta name=twitter:description content="写在前面 为了应付安卓课的大作业，又写了一个俄罗斯方块。很幸运的是，确实学到了很多知识，虽然这些知识可能没什么用，但是还是非常的有意思。上一次"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>compose-a-tetris 使用 compose API 在安卓上实现一个俄罗斯方块</h1><div class=meta>Posted on May 26, 2022</div></div><section class=body><h2 id=写在前面>写在前面</h2><p>为了应付安卓课的大作业，又写了一个俄罗斯方块。很幸运的是，确实学到了很多知识，<del>虽然这些知识可能没什么用</del>，但是还是非常的有意思。上一次写俄罗斯方块是高三的时候是在 hp-39gii 图形机上拿着简陋的 hp-basic 写的，最后写出来的结果是这样的</p><p><img src=https://www.cjovi.icu/usr/uploads/2022/05/2726082610.jpg alt="陪我度过高三的 hp-39gii"></p><p>遗憾的是当时的源代码已经丢失了，编译后的字节码<a href=https://github.com/chujDK/TETRIX-HP39GII>倒还是在</a>，重新导入回计算器还能把源码找回来，但是我已经懒得折腾这个了，属于是时代的眼泪了。</p><p>话说回来，这学期选了一节安卓移动开发的专业选修课，当时是有打算入门一下安卓，之后浏览器或者内核安全研究不下去了，也可以试试移动安全。不过上了课发现这课主要的可能还是偏向于让我们能写出来一个 app，而不是了解安卓的思想。学到的东西也是 api 怎么用，gui 怎么调。不能说没意思吧，其实做点实际的东西出来还是很有成就感的。期末作业有许多选择，都不太感兴趣。然后正好看到这篇文章：<a href=https://blog.csdn.net/vitaviva/article/details/115878190>用Jetpack Compose做一个俄罗斯方块游戏机</a>，我也不知道 jetpack 或者 compose 是什么，里面还提到了 MVI 架构，都是没接触过的名词，为了学习也好，为了以后吹牛皮也好，为了抄起来方便也好，我就选择了拿 compose 写俄罗斯方块这个作业。真的非常感谢这位作者：），我吹爆！</p><p>功能实现方面呢，参考的文章里面只实现了一个很炫酷的游戏界面，课程的要求为了让我们涉及更多的东西，还要求要做到</p><ul><li>只能有五种方块，这个好解决，生成的时候限制一下范围就行</li><li>需要能把分数存到数据库里面</li><li>需要能够按名称和按起止时间搜索记录</li><li>挂了之后要能播放音乐</li></ul><p>首先照着文章抄，把游戏主体逻辑实现了，这里我花的时间最少，（<strong>绝对不是因为有的抄！</strong>），俄罗斯方块这个游戏的特点就是不断地等待用户输入，输入了之后渲染界面（spirit 会持续下落，也可以理解为是用户的输入），这种模型据说非常符号前端的开发思想，数据驱动。</p><h2 id=mvi>MVI</h2><p>这里使用的主要就是 MVI 架构了，即</p><ul><li><strong>Model</strong>：主要指 UI 的状态。UI 本质就是一堆控件分布在各个位置上。我们稍微抽象一下就可以把 UI 状态存到一个数据类中，我们称之为一个 state。</li><li><strong>View</strong>：与 MV* 中的 View 一样，指任意一个 Activity、Fragment 等 UI 承载单元。在这个项目中，使用了 compose 这套较新的 API，其自动、智能重组的特性也很适合做 View 层。</li><li><strong>Intent</strong>：这个 intent 指的是用户的操作的意图（和 Activity 中的那个 Intent 不是一个东西）。把它封装到一个 Action 中再发送给 Model 进行数据请求（一次 reduce 操作）。</li></ul><p>这个架构模式满足单向数据流，整个流向如下</p><p><img src=https://www.cjovi.icu/usr/uploads/2022/05/236817953.png alt=mvi></p><p>也就是说流程为：用户输入封装为 intent 发送给 ViewModel，ViewModel 根据 intent 进行 reduce 更新 state，View 根据 state 刷新 UI，再显示给用户。</p><p>抄下一下网络上总结的架构优缺点</p><p>优点：</p><ul><li>UI的所有变化来自State，所以只需聚焦State，架构更简单、易于调试</li><li>数据单向流动，很容易对状态变化进行跟踪和回溯</li><li>state实例都是不可变的，确保线程安全</li><li>UI只是反应State的变化，没有额外逻辑，可以被轻松替换或复用</li></ul><p>缺点：</p><ul><li>所有的操作最终都会转换成State，所以当复杂页面的State容易膨胀</li><li>state是不变的，每当state需要更新时都要创建新对象替代老对象，这会带来一定内存开销</li><li>有些事件类的UI变化不适合用state描述，例如弹出一个 toast 或者 snackbar</li></ul><p>安卓为开发者提供了非常多的基础类，让 MVI 的实现变得十分容易，接下来我以此俄罗斯方块项目为例展示一下。</p><h3 id=view>View</h3><p>首先来实现 view 层，这里使用 compose 这个函数式、声明式的 api。</p><p>先实现一个方块的绘制</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// this function can draw a single Brick
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// to a single Brick, there is there part
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// |--------|
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// ||------||
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// |||----|||
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// |||    |||
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// |||----|||
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// ||------||
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// |--------|
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// 1.0 0.8 0.5
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// here we should draw the inner two part
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// named inner part and outer part
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>private</span> <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>DrawScope</span>.drawBrick(
+</span></span><span style=display:flex><span>    brickSize : Float,
+</span></span><span style=display:flex><span>    relativeOffset : Offset,
+</span></span><span style=display:flex><span>    color : Color
+</span></span><span style=display:flex><span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> location = Offset(
+</span></span><span style=display:flex><span>        relativeOffset.x * brickSize,
+</span></span><span style=display:flex><span>        relativeOffset.y * brickSize
+</span></span><span style=display:flex><span>    )
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> outerSize = brickSize * <span style=color:#40a070>0.8f</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> outerOffset = (brickSize - outerSize) / <span style=color:#40a070>2f</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    drawRect(
+</span></span><span style=display:flex><span>        color = color,
+</span></span><span style=display:flex><span>        topLeft = location + Offset(outerOffset, outerOffset),
+</span></span><span style=display:flex><span>        size = Size(outerSize, outerSize),
+</span></span><span style=display:flex><span>        style = Stroke(outerSize / <span style=color:#40a070>10f</span>)
+</span></span><span style=display:flex><span>    )
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> innerSize = brickSize * <span style=color:#40a070>0.5f</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> innerOffset = (brickSize - innerSize) / <span style=color:#40a070>2f</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    drawRect(
+</span></span><span style=display:flex><span>        color = color,
+</span></span><span style=display:flex><span>        topLeft = location + Offset(innerOffset, innerOffset),
+</span></span><span style=display:flex><span>        size = Size(innerSize, innerSize),
+</span></span><span style=display:flex><span>    )
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>preview 出来看看</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#555;font-weight:700>@Preview</span>(showBackground = <span style=color:#007020;font-weight:700>true</span>)
+</span></span><span style=display:flex><span><span style=color:#555;font-weight:700>@Composable</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>BrickPreview</span>() {
+</span></span><span style=display:flex><span>    Canvas(modifier = <span style=color:#0e84b5;font-weight:700>Modifier</span>.fillMaxSize()) {
+</span></span><span style=display:flex><span>        drawBrick(size.width, Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>0f</span>), <span style=color:#0e84b5;font-weight:700>Color</span>.Green)
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><img src=https://www.cjovi.icu/usr/uploads/2022/05/4275261622.png alt="single brick"></p><p>效果不错。compose 的一大优点就是能够实时预览 UI 形状，效果和真机的差距也不是很大。</p><p>然后把整个背景板画出来</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>DrawScope</span>.drawGrid(
+</span></span><span style=display:flex><span>    blockSize : Float,
+</span></span><span style=display:flex><span>    gridSize : Pair&lt;Int, Int&gt;
+</span></span><span style=display:flex><span>) {
+</span></span><span style=display:flex><span>    (<span style=color:#40a070>0</span> until gridSize.first).forEach { x <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>        (<span style=color:#40a070>0</span> until gridSize.second).forEach { y <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>            drawBrick(
+</span></span><span style=display:flex><span>                blockSize,
+</span></span><span style=display:flex><span>                Offset(x.toFloat(), y.toFloat()),
+</span></span><span style=display:flex><span>                BrickGrid
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>preview 一下效果如下</p><p><img src=https://www.cjovi.icu/usr/uploads/2022/05/2784982806.png alt=background></p><p>然后我们定义所有的下落方块（spirit）的形状，形状通过一个 Offset 链表描述</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>val</span> SpiritType = listOf(
+</span></span><span style=display:flex><span>    listOf(Offset(<span style=color:#40a070>1f</span>, -<span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>1f</span>, <span style=color:#40a070>0f</span>), Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>0f</span>), Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>1f</span>)),<span style=color:#60a0b0;font-style:italic>//Z
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    listOf(Offset(<span style=color:#40a070>0f</span>, -<span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>0f</span>), Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>2f</span>)),<span style=color:#60a0b0;font-style:italic>//I
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    listOf(Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>0f</span>), Offset(<span style=color:#40a070>0f</span>, -<span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>1f</span>, <span style=color:#40a070>0f</span>)),<span style=color:#60a0b0;font-style:italic>//T
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    listOf(Offset(<span style=color:#40a070>1f</span>, <span style=color:#40a070>0f</span>), Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>0f</span>), Offset(<span style=color:#40a070>1f</span>, -<span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>0f</span>, -<span style=color:#40a070>1f</span>)),<span style=color:#60a0b0;font-style:italic>//O
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    listOf(Offset(<span style=color:#40a070>1f</span>, -<span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>0f</span>, -<span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>0f</span>), Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>1f</span>)),<span style=color:#60a0b0;font-style:italic>//J
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// here starts the unwanted
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    listOf(Offset(<span style=color:#40a070>0f</span>, -<span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>1f</span>, -<span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>1f</span>, <span style=color:#40a070>0f</span>), Offset(<span style=color:#40a070>1f</span>, <span style=color:#40a070>1f</span>)),<span style=color:#60a0b0;font-style:italic>//L
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    listOf(Offset(<span style=color:#40a070>0f</span>, -<span style=color:#40a070>1f</span>), Offset(<span style=color:#40a070>0f</span>, <span style=color:#40a070>0f</span>), Offset(<span style=color:#40a070>1f</span>, <span style=color:#40a070>0f</span>), Offset(<span style=color:#40a070>1f</span>, <span style=color:#40a070>1f</span>)),<span style=color:#60a0b0;font-style:italic>//S
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>)
+</span></span></code></pre></div><p>课程的作业要求只能有前五种方块，很好解决，生成的时候限制一下随机数的范围即可。然后定义一下他们的颜色</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>val</span> SpiritColor = listOf(
+</span></span><span style=display:flex><span>    <span style=color:#0e84b5;font-weight:700>Color</span>.Blue,
+</span></span><span style=display:flex><span>    <span style=color:#0e84b5;font-weight:700>Color</span>.Red,
+</span></span><span style=display:flex><span>    <span style=color:#0e84b5;font-weight:700>Color</span>.Yellow,
+</span></span><span style=display:flex><span>    <span style=color:#0e84b5;font-weight:700>Color</span>.Green,
+</span></span><span style=display:flex><span>    <span style=color:#0e84b5;font-weight:700>Color</span>.Magenta,
+</span></span><span style=display:flex><span>    <span style=color:#0e84b5;font-weight:700>Color</span>.Cyan,
+</span></span><span style=display:flex><span>    <span style=color:#0e84b5;font-weight:700>Color</span>.Black
+</span></span><span style=display:flex><span>)
+</span></span></code></pre></div><p>实现 spirit 的绘制</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>DrawScope</span>.drawSpirit(spirit: Spirit, brickSize: Float, gridSize: Pair&lt;Int, Int&gt;) {
+</span></span><span style=display:flex><span>    clipRect(<span style=color:#40a070>0f</span>, <span style=color:#40a070>0f</span>, gridSize.first * brickSize, gridSize.second * brickSize) {
+</span></span><span style=display:flex><span>        spirit.location.forEach {
+</span></span><span style=display:flex><span>            drawBrick(
+</span></span><span style=display:flex><span>                brickSize,
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>it</span>,
+</span></span><span style=display:flex><span>                spirit.color
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>遍历一遍链表就可以了。</p><p>然后我们把三者结合起来</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#555;font-weight:700>@Composable</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>GridScreen</span>(modifier: Modifier = Modifier) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> viewModel = viewModel&lt;GameViewModel&gt;()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> viewState = viewModel.viewState.<span style=color:#007020;font-weight:700>value</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    Box(
+</span></span><span style=display:flex><span>        modifier = modifier
+</span></span><span style=display:flex><span>            .background(<span style=color:#0e84b5;font-weight:700>Color</span>.White)
+</span></span><span style=display:flex><span>    ) {
+</span></span><span style=display:flex><span>        Canvas(modifier = <span style=color:#0e84b5;font-weight:700>Modifier</span>.fillMaxSize()) {
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>val</span> brickSize = min(
+</span></span><span style=display:flex><span>                size.width / viewState.grid.first,
+</span></span><span style=display:flex><span>                size.height / viewState.grid.second)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>            drawGrid(blockSize = brickSize, gridSize = viewState.grid)
+</span></span><span style=display:flex><span>            drawSpirit(
+</span></span><span style=display:flex><span>                spirit = viewState.spirit,
+</span></span><span style=display:flex><span>                brickSize = brickSize,
+</span></span><span style=display:flex><span>                gridSize = viewState.grid)
+</span></span><span style=display:flex><span>            drawBricks(brickSize = brickSize, bricks = viewState.bricks)
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>注意开头取得了 viewModel。我没有深究过其实现，因为不懂 Java，kotlin 对我来说更像是黑魔法。不过大概能猜出来大概是一个单例+被观察者（即<em>主题</em>）。编译器可能会做点什么操作让这个函数自动变成一个 observer，然后每当 viewModel 改变的时候都会重新调用这个函数（也就是进行 compose 中的重组）。这里也能感受到 kotlin 真的是一个很方便的语言，很多设计模式都隐藏好了，甚至已经做到了对开发者透明（代价就是不知道他到底做了什么，让人感觉就是某种黑魔法）。这样 view 层基本完事了，还差一些按钮来与用户交互，首先定义一个 clickable 类，描述所有的可点击操作</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>data</span> <span style=color:#007020;font-weight:700>class</span> <span style=color:#0e84b5;font-weight:700>Clickable</span> <span style=color:#007020;font-weight:700>constructor</span>(
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> onMove: (Direction) <span style=color:#666>-&gt;</span> Unit,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> onRotate: () <span style=color:#666>-&gt;</span> Unit,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> onPause: () <span style=color:#666>-&gt;</span> Unit,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> onReset: () <span style=color:#666>-&gt;</span> Unit,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> onExit: () <span style=color:#666>-&gt;</span> Unit,
+</span></span><span style=display:flex><span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>combineClickable</span> (
+</span></span><span style=display:flex><span>    onMove: (Direction) <span style=color:#666>-&gt;</span> Unit = {},
+</span></span><span style=display:flex><span>    onRotate: () <span style=color:#666>-&gt;</span> Unit = {},
+</span></span><span style=display:flex><span>    onPause: () <span style=color:#666>-&gt;</span> Unit = {},
+</span></span><span style=display:flex><span>    onReset: () <span style=color:#666>-&gt;</span> Unit = {},
+</span></span><span style=display:flex><span>    onExit: () <span style=color:#666>-&gt;</span> Unit = {},
+</span></span><span style=display:flex><span>) = Clickable(onMove, onRotate, onPause, onReset, onExit)
+</span></span></code></pre></div><p>然后绘制出“状态改变按钮”，并注册相应的 onClick 方法</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#555;font-weight:700>@Composable</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>GameStateController</span>(
+</span></span><span style=display:flex><span>    clickable: Clickable = combineClickable(),
+</span></span><span style=display:flex><span>    modifier: Modifier = Modifier
+</span></span><span style=display:flex><span>) {
+</span></span><span style=display:flex><span>    Box(modifier = modifier
+</span></span><span style=display:flex><span>        .padding(<span style=color:#40a070>5.</span>dp)
+</span></span><span style=display:flex><span>        .width(StateButtonWidth * <span style=color:#40a070>3f</span> * <span style=color:#40a070>1.5f</span>)
+</span></span><span style=display:flex><span>        .height(StateButtonHeight)
+</span></span><span style=display:flex><span>    ) {
+</span></span><span style=display:flex><span>        Button(
+</span></span><span style=display:flex><span>            onClick = clickable.onPause,
+</span></span><span style=display:flex><span>            modifier = Modifier
+</span></span><span style=display:flex><span>                .align(<span style=color:#0e84b5;font-weight:700>Alignment</span>.Center)
+</span></span><span style=display:flex><span>                .height(StateButtonHeight)
+</span></span><span style=display:flex><span>                .width(StateButtonWidth)
+</span></span><span style=display:flex><span>        ) {
+</span></span><span style=display:flex><span>            Text(
+</span></span><span style=display:flex><span>                text = stringResource(id = <span style=color:#0e84b5;font-weight:700>R</span>.string.button_pause_str),
+</span></span><span style=display:flex><span>                fontSize = <span style=color:#40a070>10.</span>sp
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        Button(
+</span></span><span style=display:flex><span>            onClick = clickable.onReset,
+</span></span><span style=display:flex><span>            modifier = Modifier
+</span></span><span style=display:flex><span>                .align(<span style=color:#0e84b5;font-weight:700>Alignment</span>.CenterStart)
+</span></span><span style=display:flex><span>                .height(StateButtonHeight)
+</span></span><span style=display:flex><span>                .width(StateButtonWidth)
+</span></span><span style=display:flex><span>        ) {
+</span></span><span style=display:flex><span>            Text(
+</span></span><span style=display:flex><span>                text = stringResource(id = <span style=color:#0e84b5;font-weight:700>R</span>.string.button_reset_str),
+</span></span><span style=display:flex><span>                fontSize = <span style=color:#40a070>12.</span>sp
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        Button(
+</span></span><span style=display:flex><span>            onClick = clickable.onExit,
+</span></span><span style=display:flex><span>            modifier = Modifier
+</span></span><span style=display:flex><span>                .align(<span style=color:#0e84b5;font-weight:700>Alignment</span>.CenterEnd)
+</span></span><span style=display:flex><span>                .height(StateButtonHeight)
+</span></span><span style=display:flex><span>                .width(StateButtonWidth)
+</span></span><span style=display:flex><span>        ) {
+</span></span><span style=display:flex><span>            Text(
+</span></span><span style=display:flex><span>                text = stringResource(id = <span style=color:#0e84b5;font-weight:700>R</span>.string.button_exit_str),
+</span></span><span style=display:flex><span>                fontSize = <span style=color:#40a070>12.</span>sp
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>再绘制出方向键</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#555;font-weight:700>@Composable</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>DirectionButtonAssembly</span>(
+</span></span><span style=display:flex><span>    directionButtonSize : Dp,
+</span></span><span style=display:flex><span>    modifier: Modifier = Modifier,
+</span></span><span style=display:flex><span>    onMove: (Direction) <span style=color:#666>-&gt;</span> Unit = {}
+</span></span><span style=display:flex><span>) {
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> buttonText = <span style=color:#555;font-weight:700>@Composable</span> {
+</span></span><span style=display:flex><span>            textModifier : Modifier,
+</span></span><span style=display:flex><span>            text : String <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>        Text(
+</span></span><span style=display:flex><span>            text = text,
+</span></span><span style=display:flex><span>            color = <span style=color:#0e84b5;font-weight:700>Color</span>.White,
+</span></span><span style=display:flex><span>            fontSize = <span style=color:#40a070>25.</span>sp,
+</span></span><span style=display:flex><span>            modifier = textModifier
+</span></span><span style=display:flex><span>        )
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    Box(modifier = modifier.size(directionButtonSize * <span style=color:#40a070>2.5f</span>)
+</span></span><span style=display:flex><span>        ) {
+</span></span><span style=display:flex><span>        BasicButton(
+</span></span><span style=display:flex><span>            modifier = <span style=color:#0e84b5;font-weight:700>Modifier</span>.align(<span style=color:#0e84b5;font-weight:700>Alignment</span>.TopCenter),
+</span></span><span style=display:flex><span>            size = directionButtonSize,
+</span></span><span style=display:flex><span>            onClick = { onMove(<span style=color:#0e84b5;font-weight:700>Direction</span>.Up) }
+</span></span><span style=display:flex><span>        ) {
+</span></span><span style=display:flex><span>            buttonText(<span style=color:#007020;font-weight:700>it</span>.align(<span style=color:#0e84b5;font-weight:700>Alignment</span>.Center), stringResource(id = <span style=color:#0e84b5;font-weight:700>R</span>.string.button_up_str))
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        BasicButton(
+</span></span><span style=display:flex><span>            modifier = <span style=color:#0e84b5;font-weight:700>Modifier</span>.align(<span style=color:#0e84b5;font-weight:700>Alignment</span>.CenterStart),
+</span></span><span style=display:flex><span>            size = directionButtonSize,
+</span></span><span style=display:flex><span>            onClick = { onMove(<span style=color:#0e84b5;font-weight:700>Direction</span>.Left) }
+</span></span><span style=display:flex><span>        ) {
+</span></span><span style=display:flex><span>            buttonText(<span style=color:#007020;font-weight:700>it</span>, stringResource(id = <span style=color:#0e84b5;font-weight:700>R</span>.string.button_left_str))
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        BasicButton(
+</span></span><span style=display:flex><span>            modifier = <span style=color:#0e84b5;font-weight:700>Modifier</span>.align(<span style=color:#0e84b5;font-weight:700>Alignment</span>.CenterEnd),
+</span></span><span style=display:flex><span>            size = directionButtonSize,
+</span></span><span style=display:flex><span>            onClick = { onMove(<span style=color:#0e84b5;font-weight:700>Direction</span>.Right) }
+</span></span><span style=display:flex><span>        ) {
+</span></span><span style=display:flex><span>            buttonText(<span style=color:#007020;font-weight:700>it</span>, stringResource(id = <span style=color:#0e84b5;font-weight:700>R</span>.string.button_right_str))
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        BasicButton(
+</span></span><span style=display:flex><span>            modifier = <span style=color:#0e84b5;font-weight:700>Modifier</span>.align(<span style=color:#0e84b5;font-weight:700>Alignment</span>.BottomCenter),
+</span></span><span style=display:flex><span>            size = directionButtonSize,
+</span></span><span style=display:flex><span>            onClick = { onMove(<span style=color:#0e84b5;font-weight:700>Direction</span>.Down) }
+</span></span><span style=display:flex><span>        ) {
+</span></span><span style=display:flex><span>            buttonText(<span style=color:#007020;font-weight:700>it</span>, stringResource(id = <span style=color:#0e84b5;font-weight:700>R</span>.string.button_down_str))
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>还有 Rotate</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#555;font-weight:700>@Composable</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>RotateButton</span>(rotateButtonSize : Dp, modifier: Modifier, onRotate: () <span style=color:#666>-&gt;</span> Unit = {}) {
+</span></span><span style=display:flex><span>    BasicButton(
+</span></span><span style=display:flex><span>        modifier = modifier,
+</span></span><span style=display:flex><span>        size = rotateButtonSize,
+</span></span><span style=display:flex><span>        onClick = onRotate
+</span></span><span style=display:flex><span>    ) {
+</span></span><span style=display:flex><span>        Text(
+</span></span><span style=display:flex><span>            text = stringResource(id = <span style=color:#0e84b5;font-weight:700>R</span>.string.button_rotate_str),
+</span></span><span style=display:flex><span>            color = <span style=color:#0e84b5;font-weight:700>Color</span>.White,
+</span></span><span style=display:flex><span>            fontSize = <span style=color:#40a070>22.</span>sp,
+</span></span><span style=display:flex><span>            modifier = <span style=color:#007020;font-weight:700>it</span>
+</span></span><span style=display:flex><span>        )
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#555;font-weight:700>@Composable</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>GameMoveController</span>(
+</span></span><span style=display:flex><span>    clickable: Clickable = combineClickable(),
+</span></span><span style=display:flex><span>    modifier: Modifier = Modifier
+</span></span><span style=display:flex><span>) {
+</span></span><span style=display:flex><span>    Box(modifier = modifier
+</span></span><span style=display:flex><span>        .width(DirectionButtonSize * <span style=color:#40a070>2.5f</span> + RotateButtonSize * <span style=color:#40a070>1.5f</span>)
+</span></span><span style=display:flex><span>        .height(DirectionButtonSize * <span style=color:#40a070>2.5f</span>)
+</span></span><span style=display:flex><span>    ) {
+</span></span><span style=display:flex><span>        DirectionButtonAssembly(
+</span></span><span style=display:flex><span>            directionButtonSize = DirectionButtonSize,
+</span></span><span style=display:flex><span>            modifier = <span style=color:#0e84b5;font-weight:700>Modifier</span>.align(<span style=color:#0e84b5;font-weight:700>Alignment</span>.CenterStart),
+</span></span><span style=display:flex><span>            onMove = clickable.onMove
+</span></span><span style=display:flex><span>        )
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        RotateButton(
+</span></span><span style=display:flex><span>            rotateButtonSize = RotateButtonSize,
+</span></span><span style=display:flex><span>            modifier = <span style=color:#0e84b5;font-weight:700>Modifier</span>.align(<span style=color:#0e84b5;font-weight:700>Alignment</span>.CenterEnd),
+</span></span><span style=display:flex><span>            onRotate = clickable.onRotate
+</span></span><span style=display:flex><span>        )
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>还有一些对于分数、下一个 spirit 的绘制，这里不一一赘述了，最后的 preview 是这样</p><p><img src=https://www.cjovi.icu/usr/uploads/2022/05/2889288616.png alt="game screen"></p><h3 id=viewmodel>ViewModel</h3><p>然后我们实现 viewModel。首先定义 UI 样式的 state</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>data</span> <span style=color:#007020;font-weight:700>class</span> <span style=color:#0e84b5;font-weight:700>ViewState</span>(
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> bricks : List&lt;Brick&gt; = emptyList(),
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> spirit: Spirit = Empty,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> nextSpirit : Spirit = Empty,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> grid : Pair&lt;Int, Int&gt; = GridWidth to GridHeight,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> gameStatus : GameStatus = <span style=color:#0e84b5;font-weight:700>GameStatus</span>.OnBoard,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> score : Int = <span style=color:#40a070>0</span>,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> linesCleared : Int = <span style=color:#40a070>0</span>,
+</span></span><span style=display:flex><span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> isRunning
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>get</span>() = gameStatus <span style=color:#666>==</span> <span style=color:#0e84b5;font-weight:700>GameStatus</span>.Running
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> isPaused
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>get</span>() = gameStatus <span style=color:#666>==</span> <span style=color:#0e84b5;font-weight:700>GameStatus</span>.Paused
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> isOnBoard
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>get</span>() = gameStatus <span style=color:#666>==</span> <span style=color:#0e84b5;font-weight:700>GameStatus</span>.OnBoard
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> isGameOver
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>get</span>() = gameStatus <span style=color:#666>==</span> <span style=color:#0e84b5;font-weight:700>GameStatus</span>.GameOver
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> isOnGameOverAnimation
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>get</span>() = gameStatus <span style=color:#666>==</span> <span style=color:#0e84b5;font-weight:700>GameStatus</span>.OnGameOverAnimation
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>然后在 viewModel 里面存上这个 mutableState</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>class</span> <span style=color:#0e84b5;font-weight:700>GameViewModel</span> : ViewModel() {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>private</span> <span style=color:#007020;font-weight:700>val</span> _viewState : MutableState&lt;ViewState&gt; = mutableStateOf(ViewState())
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> viewState : State&lt;ViewState&gt; = _viewState
+</span></span></code></pre></div><p>暴露出一个只读的 viewState 让 UI 层读取。</p><p>然后只要实现 reduce 方法来更新数据就可以了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span>    <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>dispatch</span>(action: Action) {
+</span></span><span style=display:flex><span>        _viewState.<span style=color:#007020;font-weight:700>value</span> = reduce(viewState.<span style=color:#007020;font-weight:700>value</span>, action)
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>private</span> <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>reduce</span>(state: ViewState, action: Action): ViewState =
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>when</span>(action) {
+</span></span><span style=display:flex><span>            <span style=color:#0e84b5;font-weight:700>Action</span>.Reset <span style=color:#666>-&gt;</span> {
+</span></span><span style=display:flex><span>                <span style=color:#666>..</span>.
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>            <span style=color:#0e84b5;font-weight:700>Action</span>.Move <span style=color:#666>-&gt;</span> {
+</span></span><span style=display:flex><span>                <span style=color:#666>..</span>.
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>            <span style=color:#666>..</span>.
+</span></span><span style=display:flex><span>        }
+</span></span></code></pre></div><p>具体代码这里就不放了，俄罗斯方块的底层逻辑不在我们的讨论范围内</p><p>然后就可以写出所有的 click 方法了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span>combineClickable (
+</span></span><span style=display:flex><span>    onMove = {direction : Direction <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span>(direction <span style=color:#666>==</span> <span style=color:#0e84b5;font-weight:700>Direction</span>.Up) viewModel.dispatch(<span style=color:#0e84b5;font-weight:700>Action</span>.DropImm)
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>else</span> viewModel.dispatch(<span style=color:#0e84b5;font-weight:700>Action</span>.Move(direction))
+</span></span><span style=display:flex><span>    },
+</span></span><span style=display:flex><span>    onReset = {
+</span></span><span style=display:flex><span>        viewModel.dispatch(<span style=color:#0e84b5;font-weight:700>Action</span>.Reset)
+</span></span><span style=display:flex><span>    },
+</span></span><span style=display:flex><span>    onRotate = {
+</span></span><span style=display:flex><span>        viewModel.dispatch(<span style=color:#0e84b5;font-weight:700>Action</span>.Rotate)
+</span></span><span style=display:flex><span>    },
+</span></span><span style=display:flex><span>    onPause = {
+</span></span><span style=display:flex><span>        viewModel.dispatch(<span style=color:#0e84b5;font-weight:700>Action</span>.Pause)
+</span></span><span style=display:flex><span>    },
+</span></span><span style=display:flex><span>    onExit = {
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>// go the main activity
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>        <span style=color:#007020;font-weight:700>val</span> intent = Intent(context, MainActivity<span style=color:#666>::</span><span style=color:#007020;font-weight:700>class</span>.java)
+</span></span><span style=display:flex><span>        context.startActivity(intent)
+</span></span><span style=display:flex><span>    }
+</span></span></code></pre></div><h3 id=intent>Intent</h3><p>这里 intent 就比较简单了，一个 action 即可描述</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>sealed</span> <span style=color:#007020;font-weight:700>interface</span> <span style=color:#0e84b5;font-weight:700>Action</span> {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>data</span> <span style=color:#007020;font-weight:700>class</span> <span style=color:#0e84b5;font-weight:700>Move</span>(<span style=color:#007020;font-weight:700>val</span> direction: Direction) : Action
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>object</span> <span style=color:#0e84b5;font-weight:700>Reset</span> : Action
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>object</span> <span style=color:#0e84b5;font-weight:700>Pause</span> : Action
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>object</span> <span style=color:#0e84b5;font-weight:700>Rotate</span> : Action
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>object</span> <span style=color:#0e84b5;font-weight:700>DropImm</span> : Action
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>object</span> <span style=color:#0e84b5;font-weight:700>Exit</span> : Action
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>object</span> <span style=color:#0e84b5;font-weight:700>Tick</span>: Action
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h2 id=其他主题>其他主题</h2><p>MVI 到这里就结束了，这个俄罗斯方块写到这里就可以跑了。不过之后还有一些别的需求，这里就没有代码可以参考了，我们一个个来讨论</p><h3 id=分数存储>分数存储</h3><p>首先挂的时候，弹一个 alert 出来要求用户输入名字，这个 alert 在 jetpack compose 中也有，也就是 AlertDialog</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#555;font-weight:700>@Preview</span>(showBackground = <span style=color:#007020;font-weight:700>true</span>)
+</span></span><span style=display:flex><span><span style=color:#555;font-weight:700>@Composable</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>GameOverAlert</span>() {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> context = <span style=color:#0e84b5;font-weight:700>LocalContext</span>.current
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> openDialog = remember { mutableStateOf(<span style=color:#007020;font-weight:700>true</span>) }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> viewModel = viewModel&lt;GameViewModel&gt;()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> viewState = viewModel.viewState.<span style=color:#007020;font-weight:700>value</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> userName = remember { mutableStateOf(<span style=color:#4070a0>&#34;&#34;</span>) }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> dbHelper = ScoreDBHelper(context)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (openDialog.<span style=color:#007020;font-weight:700>value</span>) {
+</span></span><span style=display:flex><span>        AlertDialog(
+</span></span><span style=display:flex><span>            onDismissRequest = {
+</span></span><span style=display:flex><span>                openDialog.<span style=color:#007020;font-weight:700>value</span> = <span style=color:#007020;font-weight:700>false</span>
+</span></span><span style=display:flex><span>            },
+</span></span><span style=display:flex><span>            title = {
+</span></span><span style=display:flex><span>                Text(text = GAME_OVER_ALERT_TITLE)
+</span></span><span style=display:flex><span>            },
+</span></span><span style=display:flex><span>            text = {
+</span></span><span style=display:flex><span>                Column {
+</span></span><span style=display:flex><span>                    Text(text = INPUT_NAME_HINT)
+</span></span><span style=display:flex><span>                    TextField(
+</span></span><span style=display:flex><span>                        <span style=color:#007020;font-weight:700>value</span> = userName.<span style=color:#007020;font-weight:700>value</span>,
+</span></span><span style=display:flex><span>                        onValueChange = {
+</span></span><span style=display:flex><span>                            userName.<span style=color:#007020;font-weight:700>value</span> = <span style=color:#007020;font-weight:700>it</span>
+</span></span><span style=display:flex><span>                        },
+</span></span><span style=display:flex><span>                        maxLines = <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>                    )
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            },
+</span></span><span style=display:flex><span>            confirmButton = {
+</span></span><span style=display:flex><span>                TextButton(onClick = {
+</span></span><span style=display:flex><span>                    openDialog.<span style=color:#007020;font-weight:700>value</span> = <span style=color:#007020;font-weight:700>false</span>
+</span></span><span style=display:flex><span>                    <span style=color:#0e84b5;font-weight:700>Toast</span>.makeText(context, <span style=color:#4070a0>&#34;saving..&#34;</span>, <span style=color:#0e84b5;font-weight:700>Toast</span>.LENGTH_SHORT).show()
+</span></span><span style=display:flex><span>                    <span style=color:#007020;font-weight:700>val</span> record = <span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record(
+</span></span><span style=display:flex><span>                        viewState.score,
+</span></span><span style=display:flex><span>                        <span style=color:#0e84b5;font-weight:700>System</span>.currentTimeMillis(),
+</span></span><span style=display:flex><span>                        userName.<span style=color:#007020;font-weight:700>value</span>
+</span></span><span style=display:flex><span>                    )
+</span></span><span style=display:flex><span>                    dbHelper.insertScore(record)
+</span></span><span style=display:flex><span>                }) {
+</span></span><span style=display:flex><span>                    Text(<span style=color:#4070a0>&#34;Save&#34;</span>)
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            },
+</span></span><span style=display:flex><span>            dismissButton = {
+</span></span><span style=display:flex><span>                TextButton(onClick = {
+</span></span><span style=display:flex><span>                    openDialog.<span style=color:#007020;font-weight:700>value</span> = <span style=color:#007020;font-weight:700>false</span>
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>                ) {
+</span></span><span style=display:flex><span>                    Text(<span style=color:#4070a0>&#34;Don&#39;t Save&#34;</span>)
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>        )
+</span></span><span style=display:flex><span>    } <span style=color:#007020;font-weight:700>else</span> {
+</span></span><span style=display:flex><span>        viewModel.reset()
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>preview 的效果如下</p><p><img src=https://www.cjovi.icu/usr/uploads/2022/05/504548923.png alt="lost alert"></p><p>在 text 中组合一个 TextField 用于输入名字，用一个 mutableState 来维护名字。存储的时候，在 onClick 方法中插入数据库</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span>                    openDialog.<span style=color:#007020;font-weight:700>value</span> = <span style=color:#007020;font-weight:700>false</span>
+</span></span><span style=display:flex><span>                    <span style=color:#0e84b5;font-weight:700>Toast</span>.makeText(context, <span style=color:#4070a0>&#34;saving..&#34;</span>, <span style=color:#0e84b5;font-weight:700>Toast</span>.LENGTH_SHORT).show()
+</span></span><span style=display:flex><span>                    <span style=color:#007020;font-weight:700>val</span> record = <span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record(
+</span></span><span style=display:flex><span>                        viewState.score,
+</span></span><span style=display:flex><span>                        <span style=color:#0e84b5;font-weight:700>System</span>.currentTimeMillis(),
+</span></span><span style=display:flex><span>                        userName.<span style=color:#007020;font-weight:700>value</span>
+</span></span><span style=display:flex><span>                    )
+</span></span><span style=display:flex><span>                    dbHelper.insertScore(record)
+</span></span></code></pre></div><p>这里没有搞协程来做，因为懒。</p><p>然后是数据库操作，参考着谷歌的文档，首先搞个 contract</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>object</span> <span style=color:#0e84b5;font-weight:700>ScoreContract</span> {
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>object</span> <span style=color:#0e84b5;font-weight:700>ScoreEntry</span> : BaseColumns {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>val</span> TABLE_NAME = <span style=color:#4070a0>&#34;TetrisScore&#34;</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>val</span> COLUMN_TIME = <span style=color:#4070a0>&#34;time&#34;</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>val</span> COLUMN_NAME = <span style=color:#4070a0>&#34;name&#34;</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>val</span> COLUMN_SCORE = <span style=color:#4070a0>&#34;score&#34;</span>
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>data</span> <span style=color:#007020;font-weight:700>class</span> <span style=color:#0e84b5;font-weight:700>Record</span>(<span style=color:#007020;font-weight:700>val</span> score : Int, <span style=color:#007020;font-weight:700>val</span> currentTimeMillis : Long, <span style=color:#007020;font-weight:700>val</span> name : String)
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>然后实现 dbHelper</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>class</span> <span style=color:#0e84b5;font-weight:700>ScoreDBHelper</span>(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, <span style=color:#007020;font-weight:700>null</span>, DATABASE_VERSION){
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>private</span> <span style=color:#007020;font-weight:700>val</span> SQL_CREATE_ENTRYS =
+</span></span><span style=display:flex><span>        <span style=color:#4070a0>&#34;CREATE TABLE </span><span style=color:#70a0d0>${ScoreContract.ScoreEntry.TABLE_NAME}</span><span style=color:#4070a0> (&#34;</span> +
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>${ScoreContract.ScoreEntry.COLUMN_TIME}</span><span style=color:#4070a0> INTEGER PRIMARY KEY,&#34;</span> +
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>${ScoreContract.ScoreEntry.COLUMN_NAME}</span><span style=color:#4070a0> TEXT,&#34;</span> +
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>${ScoreContract.ScoreEntry.COLUMN_SCORE}</span><span style=color:#4070a0> INTEGER)&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>private</span> <span style=color:#007020;font-weight:700>val</span> SQL_DELETE_ENTRYS = <span style=color:#4070a0>&#34;DROP TABLE IF EXISTS </span><span style=color:#70a0d0>${ScoreContract.ScoreEntry.TABLE_NAME}</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>override</span> <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>onCreate</span>(p0: SQLiteDatabase) {
+</span></span><span style=display:flex><span>        p0.execSQL(SQL_CREATE_ENTRYS)
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>override</span> <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>onUpgrade</span>(p0: SQLiteDatabase, p1: Int, p2: Int) {
+</span></span><span style=display:flex><span>        p0.execSQL(SQL_DELETE_ENTRYS)
+</span></span><span style=display:flex><span>        onCreate(p0)
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>override</span> <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>onDowngrade</span>(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+</span></span><span style=display:flex><span>        onUpgrade(db, oldVersion, newVersion)
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>insertScore</span>(record : <span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record) {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>val</span> db = writableDatabase
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>val</span> values = ContentValues().apply {
+</span></span><span style=display:flex><span>            put(<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.COLUMN_SCORE, record.score)
+</span></span><span style=display:flex><span>            put(<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.COLUMN_TIME, record.currentTimeMillis)
+</span></span><span style=display:flex><span>            put(<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.COLUMN_NAME, record.name)
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        db.insert(<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.TABLE_NAME, <span style=color:#007020;font-weight:700>null</span>, values)
+</span></span><span style=display:flex><span>        db.close()
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>private</span> <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>rawSearch</span>(selection : String) : MutableList&lt;<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record&gt; {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>val</span> db = writableDatabase
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>try</span> {
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>val</span> cursor = db.query(
+</span></span><span style=display:flex><span>                <span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.TABLE_NAME,
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>null</span>,
+</span></span><span style=display:flex><span>                selection,
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>null</span>,
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>null</span>,
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>null</span>,
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>null</span>
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>val</span> records = mutableListOf&lt;<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record&gt;()
+</span></span><span style=display:flex><span>            with(cursor) {
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>while</span> (moveToNext()) {
+</span></span><span style=display:flex><span>                    <span style=color:#007020;font-weight:700>val</span> record = <span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record(
+</span></span><span style=display:flex><span>                        getInt(getColumnIndexOrThrow(<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.COLUMN_SCORE)),
+</span></span><span style=display:flex><span>                        getLong(getColumnIndexOrThrow(<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.COLUMN_TIME)),
+</span></span><span style=display:flex><span>                        getString(getColumnIndexOrThrow(<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.COLUMN_NAME))
+</span></span><span style=display:flex><span>                    )
+</span></span><span style=display:flex><span>                    records.add(record)
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>return</span> records
+</span></span><span style=display:flex><span>        } <span style=color:#007020;font-weight:700>catch</span> (e : SQLiteException) {
+</span></span><span style=display:flex><span>            db.close()
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>return</span> mutableListOf()
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>searchScoreByName</span>(name : String) : MutableList&lt;<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record&gt; {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>val</span> selection = <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>${ScoreContract.ScoreEntry.COLUMN_NAME}</span><span style=color:#4070a0> = </span><span style=color:#4070a0;font-weight:700>\&#34;</span><span style=color:#70a0d0>$name</span><span style=color:#4070a0;font-weight:700>\&#34;</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> rawSearch(selection)
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>searchScoreByTime</span>(start : Long, end : Long) : MutableList&lt;<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record&gt; {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>val</span> selection = <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>${ScoreContract.ScoreEntry.COLUMN_TIME}</span><span style=color:#4070a0> &lt;= </span><span style=color:#70a0d0>$end</span><span style=color:#4070a0> and &#34;</span> +
+</span></span><span style=display:flex><span>                <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>${ScoreContract.ScoreEntry.COLUMN_TIME}</span><span style=color:#4070a0> &gt;= </span><span style=color:#70a0d0>$start</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> rawSearch(selection)
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>selectAll</span>() : List&lt;<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record&gt; {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>val</span> selection = <span style=color:#4070a0>&#34;SELECT * FROM </span><span style=color:#70a0d0>${ScoreContract.ScoreEntry.TABLE_NAME}</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>val</span> db = writableDatabase
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>try</span> {
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>val</span> cursor = db.rawQuery(selection, <span style=color:#007020;font-weight:700>null</span>)
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>val</span> records = mutableListOf&lt;<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record&gt;()
+</span></span><span style=display:flex><span>            with(cursor) {
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>while</span> (moveToNext()) {
+</span></span><span style=display:flex><span>                    <span style=color:#007020;font-weight:700>val</span> record = <span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record(
+</span></span><span style=display:flex><span>                        getInt(getColumnIndexOrThrow(<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.COLUMN_SCORE)),
+</span></span><span style=display:flex><span>                        getLong(getColumnIndexOrThrow(<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.COLUMN_TIME)),
+</span></span><span style=display:flex><span>                        getString(getColumnIndexOrThrow(<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.<span style=color:#0e84b5;font-weight:700>ScoreEntry</span>.COLUMN_NAME))
+</span></span><span style=display:flex><span>                    )
+</span></span><span style=display:flex><span>                    records.add(record)
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>return</span> records
+</span></span><span style=display:flex><span>        } <span style=color:#007020;font-weight:700>catch</span> (e : SQLiteException) {
+</span></span><span style=display:flex><span>            db.close()
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>return</span> mutableListOf()
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>companion</span> <span style=color:#007020;font-weight:700>object</span> {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>val</span> DATABASE_NAME = <span style=color:#4070a0>&#34;tetris_score&#34;</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>val</span> DATABASE_VERSION = <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这里面实现了朴素的查询插入方法。</p><p>存储就这么解决了。</p><h3 id=分数显示>分数显示</h3><p>为了显示分数，自然的想法是用一个 list 显示出来，在传统的 view 系统里面，有 LIstView 和 RecycleView，compose 中则类似的，有 Column 和 LazyColumn，如此即可</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#555;font-weight:700>@Composable</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>ScoreList</span>(modifier: Modifier = Modifier) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> viewModel = viewModel&lt;ScoreSearchViewModel&gt;()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> viewState = viewModel.viewState
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> records = remember { mutableStateListOf&lt;<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record&gt;() }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    records.clear()
+</span></span><span style=display:flex><span>    records.addAll(viewState.<span style=color:#007020;font-weight:700>value</span>.records)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    LazyColumn(
+</span></span><span style=display:flex><span>        modifier = modifier,
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ) {
+</span></span><span style=display:flex><span>        items(records) { record <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>            ScoreItem(score = record, modifier = Modifier
+</span></span><span style=display:flex><span>                .fillMaxWidth()
+</span></span><span style=display:flex><span>                .height(<span style=color:#40a070>60.</span>dp))
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>他会自动根据 modifier 显示出对应大小的区域，滚动时也会自动刷新，比起 RecycleView 要实现一个 adapter 来说，要方便许多。</p><p>然后单个分数，compose 一个框就行了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#555;font-weight:700>@Preview</span>(showBackground = <span style=color:#007020;font-weight:700>true</span>)
+</span></span><span style=display:flex><span><span style=color:#555;font-weight:700>@Composable</span>
+</span></span><span style=display:flex><span><span style=color:#555;font-weight:700>@SuppressLint</span>(<span style=color:#4070a0>&#34;SimpleDateFormat&#34;</span>)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>ScoreItem</span>(
+</span></span><span style=display:flex><span>    modifier: Modifier = Modifier,
+</span></span><span style=display:flex><span>    score : <span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record = <span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record(<span style=color:#40a070>100</span>, <span style=color:#40a070>1653213538</span>, <span style=color:#4070a0>&#34;chuj&#34;</span>)
+</span></span><span style=display:flex><span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> gradientBrush = <span style=color:#0e84b5;font-weight:700>Brush</span>.horizontalGradient(
+</span></span><span style=display:flex><span>        colors = listOf(<span style=color:#0e84b5;font-weight:700>Color</span>.Red, <span style=color:#0e84b5;font-weight:700>Color</span>.Blue, <span style=color:#0e84b5;font-weight:700>Color</span>.Green),
+</span></span><span style=display:flex><span>    )
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    Column(
+</span></span><span style=display:flex><span>        modifier = modifier
+</span></span><span style=display:flex><span>            .fillMaxSize()
+</span></span><span style=display:flex><span>            .border(
+</span></span><span style=display:flex><span>                brush = gradientBrush,
+</span></span><span style=display:flex><span>                width = <span style=color:#40a070>2.</span>dp,
+</span></span><span style=display:flex><span>                shape = CircleShape
+</span></span><span style=display:flex><span>            ),
+</span></span><span style=display:flex><span>        horizontalAlignment = <span style=color:#0e84b5;font-weight:700>Alignment</span>.CenterHorizontally,
+</span></span><span style=display:flex><span>        verticalArrangement = <span style=color:#0e84b5;font-weight:700>Arrangement</span>.SpaceBetween
+</span></span><span style=display:flex><span>    ) {
+</span></span><span style=display:flex><span>        Row(
+</span></span><span style=display:flex><span>            modifier = <span style=color:#0e84b5;font-weight:700>Modifier</span>.fillMaxWidth(),
+</span></span><span style=display:flex><span>            verticalAlignment = <span style=color:#0e84b5;font-weight:700>Alignment</span>.CenterVertically,
+</span></span><span style=display:flex><span>            horizontalArrangement = <span style=color:#0e84b5;font-weight:700>Arrangement</span>.SpaceAround
+</span></span><span style=display:flex><span>        ) {
+</span></span><span style=display:flex><span>            Text(
+</span></span><span style=display:flex><span>                text = score.name,
+</span></span><span style=display:flex><span>                fontSize = <span style=color:#40a070>22.</span>sp
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>            Text(
+</span></span><span style=display:flex><span>                text = score.score.toString(),
+</span></span><span style=display:flex><span>                fontSize = <span style=color:#40a070>20.</span>sp,
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        Text(text = SimpleDateFormat(<span style=color:#4070a0>&#34;yy/MM/dd HH:mm:ss&#34;</span>).format(score.currentTimeMillis))
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>预览出来是这样的效果</p><p><img src=https://www.cjovi.icu/usr/uploads/2022/05/392871297.png alt="single score item"></p><p>嗯，看起来效果很差，主要是 Modifer.fillMaxSize 了，占满了整个屏幕，之后调用的时候会限制大小，效果还是可以的。</p><p>这个彩色的渐变也是通过 brush 来的，挺有意思的。</p><p>显示分数我是实现了一个新的 activity 专门实现（实际上 compose 的时候，并不需要用多 activity，可以通过 mutableState 来直接 switch 多个屏幕，实现 activity 的效果。为什么我没这么做呢，emmm，好问题）。这里我也新弄了一个 viewModel 来做，</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>class</span> <span style=color:#0e84b5;font-weight:700>ScoreSearchViewModel</span> : ViewModel() {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>private</span> <span style=color:#007020;font-weight:700>val</span> _viewState = mutableStateOf(ScoreSearchViewState())
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> viewState : State&lt;ScoreSearchViewState&gt; = _viewState
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>private</span> <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>reduce</span>(newViewState: ScoreSearchViewState) {
+</span></span><span style=display:flex><span>        _viewState.<span style=color:#007020;font-weight:700>value</span> = newViewState
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>reduceSearchAlert</span>(onSearchAlert: Boolean) {
+</span></span><span style=display:flex><span>        reduce(viewState.<span style=color:#007020;font-weight:700>value</span>.copy(onSearchAlert = onSearchAlert))
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>reduceRecords</span>(records: List&lt;<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record&gt;) {
+</span></span><span style=display:flex><span>        reduce(viewState.<span style=color:#007020;font-weight:700>value</span>.copy(
+</span></span><span style=display:flex><span>            records = records,
+</span></span><span style=display:flex><span>            recordsWasSet = <span style=color:#007020;font-weight:700>true</span>,
+</span></span><span style=display:flex><span>        ))
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>reduceSearchTime</span>(
+</span></span><span style=display:flex><span>        timeStart : Long = viewState.<span style=color:#007020;font-weight:700>value</span>.searchTimeStart,
+</span></span><span style=display:flex><span>        timeEnd : Long = viewState.<span style=color:#007020;font-weight:700>value</span>.searchTimeEnd
+</span></span><span style=display:flex><span>    ) {
+</span></span><span style=display:flex><span>        _viewState.<span style=color:#007020;font-weight:700>value</span> = viewState.<span style=color:#007020;font-weight:700>value</span>.copy(
+</span></span><span style=display:flex><span>            searchTimeEnd = timeEnd,
+</span></span><span style=display:flex><span>            searchTimeStart = timeStart
+</span></span><span style=display:flex><span>        )
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>data</span> <span style=color:#007020;font-weight:700>class</span> <span style=color:#0e84b5;font-weight:700>ScoreSearchViewState</span> (
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> records: List&lt;<span style=color:#0e84b5;font-weight:700>ScoreContract</span>.Record&gt; = emptyList(),
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> searchTimeStart : Long = <span style=color:#40a070>0L</span>,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> searchTimeEnd : Long = <span style=color:#40a070>0L</span>,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> onSearchAlert : Boolean = <span style=color:#007020;font-weight:700>false</span>,
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> recordsWasSet : Boolean = <span style=color:#007020;font-weight:700>false</span>,
+</span></span><span style=display:flex><span>)
+</span></span></code></pre></div><p>*最后没用上这个 <code>searchTimeStart</code> 和 <code>searchTimeEnd</code>，因为整个搜索都在之后的 alertDialog 里面实现了，实际上违反了单向数据流，对于用户的输入在 View 层内解决了，Intent 变成了 records。不过懒得重构了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#555;font-weight:700>@Preview</span>(showBackground = <span style=color:#007020;font-weight:700>true</span>)
+</span></span><span style=display:flex><span><span style=color:#555;font-weight:700>@Composable</span>
+</span></span><span style=display:flex><span><span style=color:#555;font-weight:700>@SuppressLint</span>(<span style=color:#4070a0>&#34;SimpleDateFormat&#34;</span>)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>fun</span> <span style=color:#06287e>SearchAlert</span>() {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> context = <span style=color:#0e84b5;font-weight:700>LocalContext</span>.current
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> searchType <span style=color:#007020;font-weight:700>by</span> remember { mutableStateOf(<span style=color:#0e84b5;font-weight:700>SearchType</span>.OnDeciding)}
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> viewModel = viewModel&lt;ScoreSearchViewModel&gt;()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> viewState = viewModel.viewState
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> dbHelper = ScoreDBHelper(context)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> searchName <span style=color:#007020;font-weight:700>by</span> remember { mutableStateOf(<span style=color:#4070a0>&#34;&#34;</span>) }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> timeSetState <span style=color:#007020;font-weight:700>by</span> remember { mutableStateOf(<span style=color:#0e84b5;font-weight:700>TimeSetState</span>.OnInit) }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> timeInput <span style=color:#007020;font-weight:700>by</span> remember { mutableStateOf(<span style=color:#4070a0>&#34;00:00&#34;</span>) }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> dateInput <span style=color:#007020;font-weight:700>by</span> remember { mutableStateOf(<span style=color:#4070a0>&#34;2000/01/01&#34;</span>) }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> currentStartYear = dateInput.subSequence(<span style=color:#40a070>0</span>, <span style=color:#40a070>4</span>).toString().toInt()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> currentStartMonth = dateInput.subSequence(<span style=color:#40a070>5</span>, <span style=color:#40a070>7</span>).toString().toInt()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> currentStartDay = dateInput.subSequence(<span style=color:#40a070>8</span>, <span style=color:#40a070>10</span>).toString().toInt()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> currentStartHour = timeInput.subSequence(<span style=color:#40a070>0</span>, <span style=color:#40a070>2</span>).toString().toInt()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> currentStartMinute = timeInput.subSequence(<span style=color:#40a070>3</span>, <span style=color:#40a070>5</span>).toString().toInt()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> timePickerDialog = TimePickerDialog(
+</span></span><span style=display:flex><span>        context,
+</span></span><span style=display:flex><span>        {_, hour : Int, minute : Int <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>            timeInput = <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>${hour.toString().padStart(2, &#39;0&#39;)}</span><span style=color:#4070a0>:</span><span style=color:#70a0d0>${minute.toString().padStart(2, &#39;0&#39;)}</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>        }, currentStartHour, currentStartMinute, <span style=color:#007020;font-weight:700>false</span>
+</span></span><span style=display:flex><span>    )
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> datePickerDialog = DatePickerDialog(
+</span></span><span style=display:flex><span>        context,
+</span></span><span style=display:flex><span>        {_, year : Int, month : Int, dayOfMonth : Int <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>            dateInput = <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>$year</span><span style=color:#4070a0>/</span><span style=color:#70a0d0>${(month + 1).toString().padStart(2, &#39;0&#39;)}</span><span style=color:#4070a0>/</span><span style=color:#70a0d0>${dayOfMonth.toString().padStart(2, &#39;0&#39;)}</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>        }, currentStartYear, currentStartMonth, currentStartDay
+</span></span><span style=display:flex><span>    )
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> searchStartTime <span style=color:#007020;font-weight:700>by</span> remember { mutableStateOf(<span style=color:#40a070>0L</span>) }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> searchEndTime <span style=color:#007020;font-weight:700>by</span> remember { mutableStateOf(<span style=color:#40a070>0L</span>) }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>val</span> timeToParse = <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>$dateInput</span><span style=color:#4070a0> </span><span style=color:#70a0d0>$timeInput</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>    println(<span style=color:#4070a0>&#34;[!] </span><span style=color:#70a0d0>$timeToParse</span><span style=color:#4070a0>&#34;</span>)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (timeSetState <span style=color:#666>==</span> <span style=color:#0e84b5;font-weight:700>TimeSetState</span>.OnSetStartTime <span style=color:#666>||</span> timeSetState <span style=color:#666>==</span> <span style=color:#0e84b5;font-weight:700>TimeSetState</span>.OnInit) {
+</span></span><span style=display:flex><span>        searchStartTime = SimpleDateFormat(<span style=color:#4070a0>&#34;yyyy/MM/dd HH:mm&#34;</span>).parse(timeToParse).time
+</span></span><span style=display:flex><span>        println(<span style=color:#4070a0>&#34;[+] start time set </span><span style=color:#70a0d0>$searchStartTime</span><span style=color:#4070a0>&#34;</span>)
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (timeSetState <span style=color:#666>==</span> <span style=color:#0e84b5;font-weight:700>TimeSetState</span>.OnSetEndTime <span style=color:#666>||</span> timeSetState <span style=color:#666>==</span> <span style=color:#0e84b5;font-weight:700>TimeSetState</span>.OnInit) {
+</span></span><span style=display:flex><span>        searchEndTime = SimpleDateFormat(<span style=color:#4070a0>&#34;yyyy/MM/dd HH:mm&#34;</span>).parse(timeToParse).time
+</span></span><span style=display:flex><span>        println(<span style=color:#4070a0>&#34;[+] end time set </span><span style=color:#70a0d0>$searchStartTime</span><span style=color:#4070a0>&#34;</span>)
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (viewState.<span style=color:#007020;font-weight:700>value</span>.onSearchAlert) {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>when</span>(searchType) {
+</span></span><span style=display:flex><span>            <span style=color:#0e84b5;font-weight:700>SearchType</span>.OnDeciding <span style=color:#666>-&gt;</span> AlertDialog(
+</span></span><span style=display:flex><span>                onDismissRequest = { viewModel.reduceSearchAlert(<span style=color:#007020;font-weight:700>false</span>) },
+</span></span><span style=display:flex><span>                title = {
+</span></span><span style=display:flex><span>                    Text(text = <span style=color:#4070a0>&#34;Search&#34;</span>)
+</span></span><span style=display:flex><span>                },
+</span></span><span style=display:flex><span>                text = {
+</span></span><span style=display:flex><span>                    Text(text = <span style=color:#4070a0>&#34;What you want to search by?&#34;</span>)
+</span></span><span style=display:flex><span>                },
+</span></span><span style=display:flex><span>                confirmButton = {
+</span></span><span style=display:flex><span>                    TextButton(
+</span></span><span style=display:flex><span>                        onClick = { searchType = <span style=color:#0e84b5;font-weight:700>SearchType</span>.ByName }
+</span></span><span style=display:flex><span>                    ) {
+</span></span><span style=display:flex><span>                        Text(text = <span style=color:#4070a0>&#34;By Name&#34;</span>)
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                },
+</span></span><span style=display:flex><span>                dismissButton = {
+</span></span><span style=display:flex><span>                    TextButton(
+</span></span><span style=display:flex><span>                        onClick = { searchType = <span style=color:#0e84b5;font-weight:700>SearchType</span>.ByTime }
+</span></span><span style=display:flex><span>                    ) {
+</span></span><span style=display:flex><span>                        Text(text = <span style=color:#4070a0>&#34;By Time&#34;</span>)
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>            <span style=color:#0e84b5;font-weight:700>SearchType</span>.ByTime <span style=color:#666>-&gt;</span> AlertDialog(
+</span></span><span style=display:flex><span>                onDismissRequest = { viewModel.reduceSearchAlert(<span style=color:#007020;font-weight:700>false</span>) },
+</span></span><span style=display:flex><span>                title = {
+</span></span><span style=display:flex><span>                    Text(text = <span style=color:#4070a0>&#34;Search By Time&#34;</span>)
+</span></span><span style=display:flex><span>                },
+</span></span><span style=display:flex><span>                text = {
+</span></span><span style=display:flex><span>                    Row(
+</span></span><span style=display:flex><span>                        horizontalArrangement = <span style=color:#0e84b5;font-weight:700>Arrangement</span>.SpaceAround,
+</span></span><span style=display:flex><span>                        verticalAlignment = <span style=color:#0e84b5;font-weight:700>Alignment</span>.CenterVertically
+</span></span><span style=display:flex><span>                    ) {
+</span></span><span style=display:flex><span>                        ClickableText(
+</span></span><span style=display:flex><span>                            text = AnnotatedString(SimpleDateFormat(<span style=color:#4070a0>&#34;yy/MM/dd &#34;</span>)
+</span></span><span style=display:flex><span>                                .format(searchStartTime)),
+</span></span><span style=display:flex><span>                            onClick = {
+</span></span><span style=display:flex><span>                                timeSetState = <span style=color:#0e84b5;font-weight:700>TimeSetState</span>.OnSetStartTime
+</span></span><span style=display:flex><span>                                datePickerDialog.show()
+</span></span><span style=display:flex><span>                            }
+</span></span><span style=display:flex><span>                        )
+</span></span><span style=display:flex><span>                        ClickableText(
+</span></span><span style=display:flex><span>                            text = AnnotatedString(SimpleDateFormat(<span style=color:#4070a0>&#34;HH:mm&#34;</span>)
+</span></span><span style=display:flex><span>                                .format(searchStartTime)),
+</span></span><span style=display:flex><span>                            onClick = {
+</span></span><span style=display:flex><span>                                timeSetState = <span style=color:#0e84b5;font-weight:700>TimeSetState</span>.OnSetStartTime
+</span></span><span style=display:flex><span>                                timePickerDialog.show()
+</span></span><span style=display:flex><span>                            }
+</span></span><span style=display:flex><span>                        )
+</span></span><span style=display:flex><span>                        Text(
+</span></span><span style=display:flex><span>                            text = <span style=color:#4070a0>&#34;   To   &#34;</span>
+</span></span><span style=display:flex><span>                        )
+</span></span><span style=display:flex><span>                        ClickableText(
+</span></span><span style=display:flex><span>                            text = AnnotatedString(SimpleDateFormat(<span style=color:#4070a0>&#34;yy/MM/dd &#34;</span>)
+</span></span><span style=display:flex><span>                                .format(searchEndTime)),
+</span></span><span style=display:flex><span>                            onClick = {
+</span></span><span style=display:flex><span>                                timeSetState = <span style=color:#0e84b5;font-weight:700>TimeSetState</span>.OnSetEndTime
+</span></span><span style=display:flex><span>                                datePickerDialog.show()
+</span></span><span style=display:flex><span>                            }
+</span></span><span style=display:flex><span>                        )
+</span></span><span style=display:flex><span>                        ClickableText(
+</span></span><span style=display:flex><span>                            text = AnnotatedString(SimpleDateFormat(<span style=color:#4070a0>&#34;HH:mm&#34;</span>)
+</span></span><span style=display:flex><span>                                .format(searchEndTime)),
+</span></span><span style=display:flex><span>                            onClick = {
+</span></span><span style=display:flex><span>                                timeSetState = <span style=color:#0e84b5;font-weight:700>TimeSetState</span>.OnSetEndTime
+</span></span><span style=display:flex><span>                                timePickerDialog.show()
+</span></span><span style=display:flex><span>                            }
+</span></span><span style=display:flex><span>                        )
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                },
+</span></span><span style=display:flex><span>                confirmButton = {
+</span></span><span style=display:flex><span>                    TextButton(onClick = {
+</span></span><span style=display:flex><span>                        <span style=color:#007020;font-weight:700>val</span> records = dbHelper.searchScoreByTime(searchStartTime, searchEndTime)
+</span></span><span style=display:flex><span>                        viewModel.reduceRecords(records = records)
+</span></span><span style=display:flex><span>                        viewModel.reduceSearchAlert(<span style=color:#007020;font-weight:700>false</span>)
+</span></span><span style=display:flex><span>                    }) {
+</span></span><span style=display:flex><span>                        Text(text = <span style=color:#4070a0>&#34;Search!&#34;</span>)
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                },
+</span></span><span style=display:flex><span>                dismissButton = {
+</span></span><span style=display:flex><span>                    TextButton(onClick = { viewModel.reduceSearchAlert(<span style=color:#007020;font-weight:700>false</span>) }) {
+</span></span><span style=display:flex><span>                        Text(text = <span style=color:#4070a0>&#34;Cancel&#34;</span>)
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>            <span style=color:#0e84b5;font-weight:700>SearchType</span>.ByName <span style=color:#666>-&gt;</span> AlertDialog(
+</span></span><span style=display:flex><span>                onDismissRequest = { viewModel.reduceSearchAlert(<span style=color:#007020;font-weight:700>false</span>) },
+</span></span><span style=display:flex><span>                title = {
+</span></span><span style=display:flex><span>                    Text(text = <span style=color:#4070a0>&#34;Search By Name&#34;</span>)
+</span></span><span style=display:flex><span>                },
+</span></span><span style=display:flex><span>                text = {
+</span></span><span style=display:flex><span>                    Text(text = <span style=color:#4070a0>&#34;Enter a name&#34;</span>)
+</span></span><span style=display:flex><span>                    TextField(
+</span></span><span style=display:flex><span>                        <span style=color:#007020;font-weight:700>value</span> = searchName,
+</span></span><span style=display:flex><span>                        onValueChange = {
+</span></span><span style=display:flex><span>                            searchName = <span style=color:#007020;font-weight:700>it</span>
+</span></span><span style=display:flex><span>                        }
+</span></span><span style=display:flex><span>                    )
+</span></span><span style=display:flex><span>                },
+</span></span><span style=display:flex><span>                confirmButton = {
+</span></span><span style=display:flex><span>                    TextButton(onClick = {
+</span></span><span style=display:flex><span>                        <span style=color:#007020;font-weight:700>val</span> records = dbHelper.searchScoreByName(name = searchName)
+</span></span><span style=display:flex><span>                        viewModel.reduceRecords(records = records)
+</span></span><span style=display:flex><span>                        viewModel.reduceSearchAlert(<span style=color:#007020;font-weight:700>false</span>)
+</span></span><span style=display:flex><span>                    }) {
+</span></span><span style=display:flex><span>                        Text(text = <span style=color:#4070a0>&#34;Search!&#34;</span>)
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                },
+</span></span><span style=display:flex><span>                dismissButton = {
+</span></span><span style=display:flex><span>                    TextButton(onClick = { viewModel.reduceSearchAlert(<span style=color:#007020;font-weight:700>false</span>) }) {
+</span></span><span style=display:flex><span>                        Text(text = <span style=color:#4070a0>&#34;Cancel&#34;</span>)
+</span></span><span style=display:flex><span>                    }
+</span></span><span style=display:flex><span>                }
+</span></span><span style=display:flex><span>            )
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这就是整个搜索的 dialog。在 compose 中还没有 Material Design 的 time 和 date picker，查了点资料发现了 DatePickerDialog 和 TimePickerDialog，感觉长得挺像 Material Design 的，我也不知道是什么，anyway，用起来比较容易</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span><span style=color:#007020;font-weight:700>val</span> timePickerDialog = TimePickerDialog(
+</span></span><span style=display:flex><span>    context,
+</span></span><span style=display:flex><span>    {_, hour : Int, minute : Int <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>        timeInput = <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>${hour.toString().padStart(2, &#39;0&#39;)}</span><span style=color:#4070a0>:</span><span style=color:#70a0d0>${minute.toString().padStart(2, &#39;0&#39;)}</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>    }, currentStartHour, currentStartMinute, <span style=color:#007020;font-weight:700>false</span>
+</span></span><span style=display:flex><span>)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>val</span> datePickerDialog = DatePickerDialog(
+</span></span><span style=display:flex><span>    context,
+</span></span><span style=display:flex><span>    {_, year : Int, month : Int, dayOfMonth : Int <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>        dateInput = <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>$year</span><span style=color:#4070a0>/</span><span style=color:#70a0d0>${(month + 1).toString().padStart(2, &#39;0&#39;)}</span><span style=color:#4070a0>/</span><span style=color:#70a0d0>${dayOfMonth.toString().padStart(2, &#39;0&#39;)}</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>    }, currentStartYear, currentStartMonth, currentStartDay
+</span></span><span style=display:flex><span>)
+</span></span></code></pre></div><p>第二个参数就是一个 listener 了，在这里根据输入更新相关的变量即可。</p><h3 id=播放音乐>播放音乐</h3><p>挂了之后要放个小曲，本来是想在失败动画的协程中放的，也就是这里面</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span>viewModelScope.launch {
+</span></span><span style=display:flex><span>    (<span style=color:#40a070>0</span> until viewState.<span style=color:#007020;font-weight:700>value</span>.grid.second).reversed().forEach { y <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>        delay(<span style=color:#40a070>120</span>)
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>// A. create black bricks
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>        <span style=color:#007020;font-weight:700>val</span> brickLine = mutableListOf&lt;Brick&gt;()
+</span></span><span style=display:flex><span>        (<span style=color:#40a070>0</span> until viewState.<span style=color:#007020;font-weight:700>value</span>.grid.first).forEach { x <span style=color:#666>-&gt;</span>
+</span></span><span style=display:flex><span>            brickLine.add(Brick(Offset(x.toFloat(), y.toFloat()), <span style=color:#0e84b5;font-weight:700>Color</span>.Black))
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>val</span> bricks = _viewState.<span style=color:#007020;font-weight:700>value</span>.bricks.toMutableList()
+</span></span><span style=display:flex><span>        bricks.addAll(brickLine)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        _viewState.<span style=color:#007020;font-weight:700>value</span> = _viewState.<span style=color:#007020;font-weight:700>value</span>.copy(
+</span></span><span style=display:flex><span>            bricks = bricks
+</span></span><span style=display:flex><span>        )
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    _viewState.<span style=color:#007020;font-weight:700>value</span> = _viewState.<span style=color:#007020;font-weight:700>value</span>.copy(gameStatus = <span style=color:#0e84b5;font-weight:700>GameStatus</span>.GameOver)
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>但是我拿不到 context，起不来，没搞懂，可能音乐播放不应该在这里面做，最后我给 state 加了 onGameOverAnimation 状态，在持续发送下落的 game ticking 协程里面才起了 mediaPlay，也就是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-kotlin data-lang=kotlin><span style=display:flex><span>LaunchedEffect(key1 = Unit) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> musicPlaying = <span style=color:#007020;font-weight:700>false</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> (<span style=color:#007020;font-weight:700>true</span>) {
+</span></span><span style=display:flex><span>        delay(
+</span></span><span style=display:flex><span>            <span style=color:#40a070>450</span> - min(viewState.linesCleared.toLong() * <span style=color:#40a070>10</span>, <span style=color:#40a070>250</span>)
+</span></span><span style=display:flex><span>        )
+</span></span><span style=display:flex><span>        viewModel.dispatch(<span style=color:#0e84b5;font-weight:700>Action</span>.Tick)
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (!musicPlaying <span style=color:#666>&amp;&amp;</span> viewModel.viewState.<span style=color:#007020;font-weight:700>value</span>.isOnGameOverAnimation) {
+</span></span><span style=display:flex><span>            musicPlaying = <span style=color:#007020;font-weight:700>true</span>
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>val</span> lostMusicPlayer = <span style=color:#0e84b5;font-weight:700>MediaPlayer</span>.create(context, <span style=color:#0e84b5;font-weight:700>R</span>.raw.on_lost_animation_music)
+</span></span><span style=display:flex><span>            lostMusicPlayer.start()
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h2 id=最后>最后</h2><p>好了，到这里差不多就结束了。前前后后可能花了三四十个小时写这个项目（还不包括查资料的时间）。幸运的是，学到了许多知识。之前一直在弄安全，二进制安全其实是比较偏向底层的，很多时候可能并不会关心宏观的架构，只会深入研究一个子模块，而且在开发方面的经验也是比较少。通过这个项目，受着 MVI 的指导，踩着谷歌 jetpack compose 的大火箭，感受了便捷开发的快乐。也是把以前学的抽象的设计模式用到了实际的工程中。收获颇多，非常开心hhh。</p><p><em>文章写的比较简略，等我过段时间再来看看，发现我看不懂了的话就再补充一点</em></p><h3 id=src>src</h3><ul><li>我的源码：<a href=https://github.com/chujDK/compose-a-tetris>github</a></li><li>主要参考：<a href=https://github.com/vitaviva/compose-tetris>github</a></li></ul></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/android>Android</a></li><li><a href=/tags/develop>develop</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

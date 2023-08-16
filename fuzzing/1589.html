@@ -1,0 +1,691 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>BYTECTF2021-byteview - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="漏洞分析 比赛的时候分析了很久这道题，结果也没做出来，现在想想主要 C++ 逆向不熟悉。 在 new content 时，如果之前已经 new 过了，就会进 case1。 case 1u: // new content v17 ="><meta property="og:image" content><meta property="og:title" content="BYTECTF2021-byteview"><meta property="og:description" content="漏洞分析 比赛的时候分析了很久这道题，结果也没做出来，现在想想主要 C++ 逆向不熟悉。 在 new content 时，如果之前已经 new 过了，就会进 case1。 case 1u: // new content v17 ="><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/fuzzing/1589.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-12-20T13:56:00+00:00"><meta property="article:modified_time" content="2021-12-20T13:56:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BYTECTF2021-byteview"><meta name=twitter:description content="漏洞分析 比赛的时候分析了很久这道题，结果也没做出来，现在想想主要 C++ 逆向不熟悉。 在 new content 时，如果之前已经 new 过了，就会进 case1。 case 1u: // new content v17 ="><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>BYTECTF2021-byteview</h1><div class=meta>Posted on Dec 20, 2021</div></div><section class=body><h3 id=漏洞分析>漏洞分析</h3><p>比赛的时候分析了很久这道题，结果也没做出来，现在想想主要 C++ 逆向不熟悉。</p><p>在 new content 时，如果之前已经 new 过了，就会进 case1。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>      <span style=color:#007020;font-weight:700>case</span> <span style=color:#40a070>1u</span><span style=color:#666>:</span>                                  <span style=color:#60a0b0;font-style:italic>// new content
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>        v17 <span style=color:#666>=</span> <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)v5;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> ( <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)v5 )
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>          v21 <span style=color:#666>=</span> <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)v5;
+</span></span><span style=display:flex><span>          v7[<span style=color:#40a070>6</span>].m128i_i64[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int64</span>)menu <span style=color:#666>^</span> v17 <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFFFFFF0000LL</span>;
+</span></span><span style=display:flex><span>          v7[<span style=color:#40a070>6</span>].m128i_i32[<span style=color:#40a070>2</span>] <span style=color:#666>=</span> <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)(v17 <span style=color:#666>+</span> <span style=color:#40a070>32</span>);
+</span></span><span style=display:flex><span>          v18 <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uniq_ptr_task_req</span> <span style=color:#666>*</span>)<span style=color:#007020;font-weight:700>operator</span> <span style=color:#007020;font-weight:700>new</span>(<span style=color:#40a070>0x18uLL</span>);
+</span></span><span style=display:flex><span>          v18<span style=color:#666>-&gt;</span>choice <span style=color:#666>=</span> <span style=color:#40a070>1</span>;                      <span style=color:#60a0b0;font-style:italic>// 另外一种 add 的情况
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>          ref <span style=color:#666>=</span> v18;
+</span></span><span style=display:flex><span>          <span style=color:#666>*</span>(<span style=color:#007020;font-weight:700>__m128i</span> <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>v18<span style=color:#666>-&gt;</span>old_content <span style=color:#666>=</span> _mm_unpacklo_epi64((<span style=color:#007020;font-weight:700>__m128i</span>)v21, (<span style=color:#007020;font-weight:700>__m128i</span>)(<span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int64</span>)v7);<span style=color:#60a0b0;font-style:italic>// old content
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>        }
+</span></span></code></pre></div><p>这里面有个 v18->old_content，引用了上一个 content。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#002070;font-weight:700>LABEL_5</span>:
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> ( ref )
+</span></span><span style=display:flex><span>          std<span style=color:#666>::</span>default_delete<span style=color:#666>&lt;</span>page_hander<span style=color:#666>&gt;::</span><span style=color:#007020;font-weight:700>operator</span>()((<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uniq_ptr_task_req</span> <span style=color:#666>*</span>)ref);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>break</span>;
+</span></span></code></pre></div><p>在每个 switch 结束时，会跳到这里，如果 std::move 过去的指针在 task_handle 函数中没有被析构，就会在这里析构，比赛的时候没把析构函数点开来，感觉非常可惜。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#007020;font-weight:700>__fastcall</span> std<span style=color:#666>::</span>default_delete<span style=color:#666>&lt;</span>page_hander<span style=color:#666>&gt;::</span><span style=color:#007020;font-weight:700>operator</span>()(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uniq_ptr_task_req</span> <span style=color:#666>*</span>a1)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> <span style=color:#666>*</span>v2; <span style=color:#60a0b0;font-style:italic>// rbp
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>__int64</span> <span style=color:#666>**</span>v3; <span style=color:#60a0b0;font-style:italic>// rbx
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  _QWORD <span style=color:#666>*</span>v4; <span style=color:#60a0b0;font-style:italic>// rbx
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>void</span> <span style=color:#666>*</span>v5; <span style=color:#60a0b0;font-style:italic>// rdi
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> <span style=color:#666>*</span>v6; <span style=color:#60a0b0;font-style:italic>// rdi
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  _QWORD <span style=color:#666>*</span>v7; <span style=color:#60a0b0;font-style:italic>// rbx
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>void</span> <span style=color:#666>*</span>v8; <span style=color:#60a0b0;font-style:italic>// rdi
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> <span style=color:#666>*</span>v9; <span style=color:#60a0b0;font-style:italic>// rdi
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> ( a1 )
+</span></span><span style=display:flex><span>  {
+</span></span><span style=display:flex><span>    v2 <span style=color:#666>=</span> a1<span style=color:#666>-&gt;</span>old_content;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( a1<span style=color:#666>-&gt;</span>old_content )
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      v3 <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>__int64</span> <span style=color:#666>**</span>)<span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>for</span> ( <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>=</span> content<span style=color:#666>::</span>add_func_ptr; v3; v3 <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>__int64</span> <span style=color:#666>**</span>)<span style=color:#666>*</span>v3 )
+</span></span><span style=display:flex><span>        free(v3[<span style=color:#40a070>2</span>]);
+</span></span><span style=display:flex><span>      v4 <span style=color:#666>=</span> (_QWORD <span style=color:#666>*</span>)<span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>10</span>);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>while</span> ( v4 )
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        v5 <span style=color:#666>=</span> v4;
+</span></span><span style=display:flex><span>        v4 <span style=color:#666>=</span> (_QWORD <span style=color:#666>*</span>)<span style=color:#666>*</span>v4;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>operator</span> <span style=color:#06287e>delete</span>(v5);
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      memset(<span style=color:#666>*</span>((<span style=color:#902000>void</span> <span style=color:#666>**</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>8</span>), <span style=color:#40a070>0</span>, <span style=color:#40a070>8LL</span> <span style=color:#666>*</span> <span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>9</span>));
+</span></span><span style=display:flex><span>      v6 <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> <span style=color:#666>*</span>)<span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>8</span>);
+</span></span><span style=display:flex><span>      <span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>11</span>) <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>      <span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>10</span>) <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( v6 <span style=color:#666>!=</span> v2 <span style=color:#666>+</span> <span style=color:#40a070>28</span> )
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>operator</span> <span style=color:#007020;font-weight:700>delete</span>(v6);
+</span></span><span style=display:flex><span>      v7 <span style=color:#666>=</span> (_QWORD <span style=color:#666>*</span>)<span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>while</span> ( v7 )
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        v8 <span style=color:#666>=</span> v7;
+</span></span><span style=display:flex><span>        v7 <span style=color:#666>=</span> (_QWORD <span style=color:#666>*</span>)<span style=color:#666>*</span>v7;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>operator</span> <span style=color:#06287e>delete</span>(v8);
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      memset(<span style=color:#666>*</span>((<span style=color:#902000>void</span> <span style=color:#666>**</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>1</span>), <span style=color:#40a070>0</span>, <span style=color:#40a070>8LL</span> <span style=color:#666>*</span> <span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>2</span>));
+</span></span><span style=display:flex><span>      v9 <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> <span style=color:#666>*</span>)<span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>      <span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>4</span>) <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>      <span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)v2 <span style=color:#666>+</span> <span style=color:#40a070>3</span>) <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( v9 <span style=color:#666>!=</span> v2 <span style=color:#666>+</span> <span style=color:#40a070>14</span> )
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>operator</span> <span style=color:#007020;font-weight:700>delete</span>(v9);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>operator</span> <span style=color:#06287e>delete</span>(v2, <span style=color:#40a070>0x80uLL</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>operator</span> <span style=color:#06287e>delete</span>(a1, <span style=color:#40a070>0x18uLL</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>old_content 一起析构掉。显然析构函数是优化过的，该智能指针应当是由 std::move 传递给 task_handle 的，在 task_handle 后指针生命周期结束，应当被析构。这里优化过后就变成了 task_handle 获取资源后就自动销毁该指针了。</p><p>当 add content 的时候，申请了超过 9 的 data 个数，就会直接结束</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>  <span style=color:#007020;font-weight:700>else</span>                                          <span style=color:#60a0b0;font-style:italic>// request more than 10, fuck
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  {
+</span></span><span style=display:flex><span><span style=color:#002070;font-weight:700>LABEL_34</span>:
+</span></span><span style=display:flex><span>    std<span style=color:#666>::</span>__ostream_insert<span style=color:#666>&lt;</span><span style=color:#902000>char</span>,std<span style=color:#666>::</span>char_traits<span style=color:#666>&lt;</span><span style=color:#902000>char</span><span style=color:#666>&gt;&gt;</span>(std<span style=color:#666>::</span>cout, v6);<span style=color:#60a0b0;font-style:italic>// v6 = &#34;too many!&#34;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    v30 <span style=color:#666>=</span> <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)(std<span style=color:#666>::</span>cout[<span style=color:#40a070>0</span>] <span style=color:#666>-</span> <span style=color:#40a070>24LL</span>);
+</span></span><span style=display:flex><span>    v31 <span style=color:#666>=</span> <span style=color:#666>*</span>(_BYTE <span style=color:#666>**</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>std<span style=color:#666>::</span>cout[<span style=color:#40a070>30</span>] <span style=color:#666>+</span> v30);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( <span style=color:#666>!</span>v31 )
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>goto</span> throw_bad_cast_lable;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( v31[<span style=color:#40a070>56</span>] )
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      v32 <span style=color:#666>=</span> v31[<span style=color:#40a070>67</span>];
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      std<span style=color:#666>::</span>ctype<span style=color:#666>&lt;</span><span style=color:#902000>char</span><span style=color:#666>&gt;::</span>_M_widen_init(<span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>std<span style=color:#666>::</span>cout[<span style=color:#40a070>30</span>] <span style=color:#666>+</span> v30));
+</span></span><span style=display:flex><span>      v32 <span style=color:#666>=</span> <span style=color:#4070a0>&#39;\n&#39;</span>;
+</span></span><span style=display:flex><span>      v35 <span style=color:#666>=</span> <span style=color:#666>*</span>(<span style=color:#007020;font-weight:700>__int64</span> (<span style=color:#007020;font-weight:700>__fastcall</span> <span style=color:#666>**</span>)(<span style=color:#007020;font-weight:700>__int64</span>, <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>))(<span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)v31 <span style=color:#666>+</span> <span style=color:#40a070>48LL</span>);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( v35 <span style=color:#666>!=</span> std<span style=color:#666>::</span>ctype<span style=color:#666>&lt;</span><span style=color:#902000>char</span><span style=color:#666>&gt;::</span>do_widen )
+</span></span><span style=display:flex><span>        v32 <span style=color:#666>=</span> v35((<span style=color:#007020;font-weight:700>__int64</span>)v31, <span style=color:#4070a0>&#39;\n&#39;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    v33 <span style=color:#666>=</span> (std<span style=color:#666>::</span>ostream <span style=color:#666>*</span>)std<span style=color:#666>::</span>ostream<span style=color:#666>::</span>put((std<span style=color:#666>::</span>ostream <span style=color:#666>*</span>)std<span style=color:#666>::</span>cout, v32);
+</span></span><span style=display:flex><span>    std<span style=color:#666>::</span>ostream<span style=color:#666>::</span>flush(v33);                   <span style=color:#60a0b0;font-style:italic>// &lt;=&gt; puts(&#34;too many!\n&#34;)
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    result <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> result;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>注意这里没有获得指针的所有权，也就是没有做正常流程下的 deque 的 emplace_back 操作。task_handle 返回后，原指针被析构，存储的 old_content 也被析构。但是 old_content 实际上不应该被析构因为下一个 add 的 content 也会把这个 old_content 当作它的 old_content，此时就可以做到 UAF，修改函数指针 xchg 栈迁移后 rop 即可 getshell。</p><p>这道题套了一大堆壳，实际上漏洞就是一个单纯的 UAF，伪代码应类似于</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>foo</span>(unique_ptr<span style=color:#666>&lt;</span>task<span style=color:#666>&gt;</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (fail)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        deque<span style=color:#666>&lt;</span>task<span style=color:#666>&gt;</span>.emplace_back(std<span style=color:#666>::</span>move(unique_ptr<span style=color:#666>&lt;</span>task<span style=color:#666>&gt;</span>));
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>class</span> <span style=color:#0e84b5;font-weight:700>task</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    ...
+</span></span><span style=display:flex><span>    content<span style=color:#666>*</span> old_content;
+</span></span><span style=display:flex><span>    <span style=color:#666>~</span>task()
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        ...
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>delete</span> <span style=color:#666>*</span>old_content;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span>(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>            unique_ptr<span style=color:#666>&lt;</span>task<span style=color:#666>&gt;</span> a;
+</span></span><span style=display:flex><span>        	<span style=color:#007020;font-weight:700>if</span> (old_content)
+</span></span><span style=display:flex><span>            {
+</span></span><span style=display:flex><span>            	a<span style=color:#666>-&gt;</span>old_content <span style=color:#666>=</span> old_content;
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>    		foo(std<span style=color:#666>::</span>move(a));
+</span></span><span style=display:flex><span>        	<span style=color:#60a0b0;font-style:italic>// a 生命周期结束，析构
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>官方 WP 是这样说的</p><blockquote><ul><li>在task_handle中涉及到了page_handle的所有权传递，首先page_handle通过std::move的形式传递到了task_handle中，当page已经拥有一个content时，再次创建新的content时，在task_handle中会创建一个新的content，并且开始调用content的add函数来创建堆块，如果在这里执行失败就会直接return，没有完成page_handle的所有权传递，之后page_handle将会随着函数的结束被释放。</li></ul></blockquote><p>看起来挺炫酷，似乎是 std::move 使用不当、没有接受 move 来的资源之类的 C++ 陷阱，其实完全就是他代码的逻辑错误。事实上这里在 foo 里面不处理有什么关系吗？没有任何关系！只要 task 做好了析构，就不会内存泄露。本身 a 是希望被 move 给 deque 的，但是 foo 中由于错误，deque 不接受 a，所以不接受 move 的资源，这有问题吗，没有任何问题，foo 返回后 a 是会被正常析构的，那就没事，不会内存泄露。这里真正的问题，是 task 结构体中存储了 old_content，用来维护上一个 content，这当然也没问题，但是他在最开始的时候就把 old_content 给了 a，丝毫不管新的 content 是否是合法的，这才是问题所在。在发现新的 content 不合法时，他也没有拿走 a 对 old_content 的引用，那 a 被析构后自然就 UAF 了。正确的做法应该是 add 成功后，再把 old_content 给 a 进行引用，不过这里 old content 存在外层，所以只能提前给，那么 add 失败的时候自然要把这个引用置 0，这才是真正引发漏洞的地方。</p><p>修改一下官方 WP 可能会更明确</p><blockquote><p>当page已经拥有一个content时，再次创建新的content时，会在 page_handle 里面保留对 old_content 的引用（has-a 的关系）在task_handle中会创建一个新的content，并且开始调用content的add函数来创建堆块，如果在这里执行失败就会直接return，没有将 old_content 引用置 0，之后page_handle将会随着函数的结束被释放，然后把这个 old_content free 掉。</p></blockquote><p>和那些乱七八糟的 stl 其实没有任何关系。</p><p>不过对于这样的代码，直接分析可能难以有成效，主要是因为各个类各个字段的含义难以分析，也许可以考虑进行一下 fuzz。</p><h3 id=结构化-fuzz>结构化 fuzz</h3><p>最开始的时候，我使用的是 libprotobuf-mutator 和 AFLplusplus 结合的方式，不过最后我发现根本没有必要，这里我还是都总结一下。</p><p>首先，可以用 protobuf 来描述我们的输入，为了描述堆菜单题的输入，不需要特别复杂的东西，参考一下网络上的教程就可以写了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-protobuf data-lang=protobuf><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// out.proto
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>syntax <span style=color:#666>=</span> <span style=color:#4070a0>&#34;proto2&#34;</span>;<span>
+</span></span></span><span style=display:flex><span><span>
+</span></span></span><span style=display:flex><span><span></span><span style=color:#007020;font-weight:700>package</span> <span style=color:#0e84b5;font-weight:700>menuctf</span>;<span>
+</span></span></span><span style=display:flex><span><span>
+</span></span></span><span style=display:flex><span><span></span><span style=color:#007020;font-weight:700>message</span> <span style=color:#0e84b5;font-weight:700>New_content</span><span>
+</span></span></span><span style=display:flex><span><span></span>{<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> choice_id <span style=color:#666>=</span> <span style=color:#40a070>1</span> [<span style=color:#007020;font-weight:700>default</span> <span style=color:#666>=</span> <span style=color:#40a070>1</span>];<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> sum_of_datas <span style=color:#666>=</span> <span style=color:#40a070>2</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>message</span> <span style=color:#0e84b5;font-weight:700>data</span><span>
+</span></span></span><span style=display:flex><span><span></span>    {<span>
+</span></span></span><span style=display:flex><span><span></span>        <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> key <span style=color:#666>=</span> <span style=color:#40a070>1</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>        <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> size <span style=color:#666>=</span> <span style=color:#40a070>2</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>    }<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>repeated</span> data datas <span style=color:#666>=</span> <span style=color:#40a070>3</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>}<span>
+</span></span></span><span style=display:flex><span><span>
+</span></span></span><span style=display:flex><span><span></span><span style=color:#007020;font-weight:700>message</span> <span style=color:#0e84b5;font-weight:700>Edit_message</span><span>
+</span></span></span><span style=display:flex><span><span></span>{<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> choice_id <span style=color:#666>=</span> <span style=color:#40a070>1</span> [<span style=color:#007020;font-weight:700>default</span> <span style=color:#666>=</span> <span style=color:#40a070>2</span>];<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> key <span style=color:#666>=</span> <span style=color:#40a070>2</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>string</span> content <span style=color:#666>=</span> <span style=color:#40a070>3</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>}<span>
+</span></span></span><span style=display:flex><span><span>
+</span></span></span><span style=display:flex><span><span></span><span style=color:#007020;font-weight:700>message</span> <span style=color:#0e84b5;font-weight:700>Show_message</span><span>
+</span></span></span><span style=display:flex><span><span></span>{<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> choice_id <span style=color:#666>=</span> <span style=color:#40a070>1</span> [<span style=color:#007020;font-weight:700>default</span> <span style=color:#666>=</span> <span style=color:#40a070>3</span>];<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> key <span style=color:#666>=</span> <span style=color:#40a070>2</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>}<span>
+</span></span></span><span style=display:flex><span><span>
+</span></span></span><span style=display:flex><span><span></span><span style=color:#007020;font-weight:700>message</span> <span style=color:#0e84b5;font-weight:700>Old_content</span><span>
+</span></span></span><span style=display:flex><span><span></span>{<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> choice_id <span style=color:#666>=</span> <span style=color:#40a070>1</span> [<span style=color:#007020;font-weight:700>default</span> <span style=color:#666>=</span> <span style=color:#40a070>4</span>];<span>
+</span></span></span><span style=display:flex><span><span></span>}<span>
+</span></span></span><span style=display:flex><span><span>
+</span></span></span><span style=display:flex><span><span></span><span style=color:#007020;font-weight:700>message</span> <span style=color:#0e84b5;font-weight:700>Content_info</span><span>
+</span></span></span><span style=display:flex><span><span></span>{<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> choice_id <span style=color:#666>=</span> <span style=color:#40a070>1</span> [<span style=color:#007020;font-weight:700>default</span> <span style=color:#666>=</span> <span style=color:#40a070>5</span>];<span>
+</span></span></span><span style=display:flex><span><span></span>}<span>
+</span></span></span><span style=display:flex><span><span>
+</span></span></span><span style=display:flex><span><span></span><span style=color:#007020;font-weight:700>message</span> <span style=color:#0e84b5;font-weight:700>Exit</span><span>
+</span></span></span><span style=display:flex><span><span></span>{<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>required</span> <span style=color:#902000>int32</span> choice_id <span style=color:#666>=</span> <span style=color:#40a070>1</span> [<span style=color:#007020;font-weight:700>default</span> <span style=color:#666>=</span> <span style=color:#40a070>6</span>];<span>
+</span></span></span><span style=display:flex><span><span></span>}<span>
+</span></span></span><span style=display:flex><span><span>
+</span></span></span><span style=display:flex><span><span></span><span style=color:#007020;font-weight:700>message</span> <span style=color:#0e84b5;font-weight:700>Choices</span><span>
+</span></span></span><span style=display:flex><span><span></span>{<span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>message</span> <span style=color:#0e84b5;font-weight:700>Choice</span><span>
+</span></span></span><span style=display:flex><span><span></span>    {<span>
+</span></span></span><span style=display:flex><span><span></span>        <span style=color:#007020;font-weight:700>oneof</span> all_choices<span>
+</span></span></span><span style=display:flex><span><span></span>        {<span>
+</span></span></span><span style=display:flex><span><span></span>            New_content new_content <span style=color:#666>=</span> <span style=color:#40a070>1</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>            Edit_message edit_message <span style=color:#666>=</span> <span style=color:#40a070>2</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>            Show_message show_message <span style=color:#666>=</span> <span style=color:#40a070>3</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>            Old_content old_content <span style=color:#666>=</span> <span style=color:#40a070>4</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>            Content_info content_info <span style=color:#666>=</span> <span style=color:#40a070>5</span>; <span>
+</span></span></span><span style=display:flex><span><span></span>            Exit exit <span style=color:#666>=</span> <span style=color:#40a070>6</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>        }<span>
+</span></span></span><span style=display:flex><span><span></span>    }<span>
+</span></span></span><span style=display:flex><span><span>
+</span></span></span><span style=display:flex><span><span></span>    <span style=color:#007020;font-weight:700>repeated</span> Choice choice <span style=color:#666>=</span> <span style=color:#40a070>1</span>;<span>
+</span></span></span><span style=display:flex><span><span></span>}<span>
+</span></span></span></code></pre></div><p>为了和 AFL 整合，可以在 <a href=https://github.com/thebabush/afl-libprotobuf-mutator>afl-libprotobuf-mutator</a> 的框架上进行修改，需要替换 <code>gen</code> 下的 <code>out.proto</code> 为我们为目标编写的 protobuf，<code>mutator.cc</code> 中需要实现 AFLplusplus 需要的 API，由于 AFLplusplus 的 API 有变更，所以需要重新实现，这里参考了这篇<a href=https://kiprey.github.io/2021/09/protobuf_ctf_fuzz/>文章</a>。</p><p>按照 AFLplusplus <a href=https://github.com/AFLplusplus/AFLplusplus/blob/dev/docs/custom_mutators.md>文档</a>所要求的，我们需要一个实现了这些 API 的 *.so 文件</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#666>*</span><span style=color:#06287e>afl_custom_init</span>(afl_state_t <span style=color:#666>*</span>afl, <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> seed);
+</span></span><span style=display:flex><span><span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> <span style=color:#06287e>afl_custom_fuzz_count</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>buf, size_t buf_size);
+</span></span><span style=display:flex><span>size_t <span style=color:#06287e>afl_custom_fuzz</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>buf, size_t buf_size, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>**</span>out_buf, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>add_buf, size_t add_buf_size, size_t max_size);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span><span style=color:#06287e>afl_custom_describe</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, size_t max_description_len);
+</span></span><span style=display:flex><span>size_t <span style=color:#06287e>afl_custom_post_process</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>buf, size_t buf_size, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>**</span>out_buf);
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>afl_custom_init_trim</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>buf, size_t buf_size);
+</span></span><span style=display:flex><span>size_t <span style=color:#06287e>afl_custom_trim</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>**</span>out_buf);
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>afl_custom_post_trim</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> success);
+</span></span><span style=display:flex><span>size_t <span style=color:#06287e>afl_custom_havoc_mutation</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>buf, size_t buf_size, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>**</span>out_buf, size_t max_size);
+</span></span><span style=display:flex><span><span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#06287e>afl_custom_havoc_mutation_probability</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data);
+</span></span><span style=display:flex><span><span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#06287e>afl_custom_queue_get</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>filename);
+</span></span><span style=display:flex><span>u8 <span style=color:#06287e>afl_custom_queue_new_entry</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>filename_new_queue, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> <span style=color:#666>*</span>filename_orig_queue);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span><span style=color:#666>*</span> <span style=color:#06287e>afl_custom_introspection</span>(my_mutator_t <span style=color:#666>*</span>data);
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>afl_custom_deinit</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data);
+</span></span></code></pre></div><p>这里只有 <code>afl_custom_fuzz</code> <code>afl_custom_post_process</code> 两个 API 需要进行特殊的实现，这里我是这样实现的</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// mutator.cc
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>...
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>int</span> sum_of_datas <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>int</span> size_of_data[<span style=color:#40a070>11</span>];
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>char</span> content_buf[<span style=color:#40a070>0xE0</span>];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>new_content</span>(menuctf<span style=color:#666>::</span>Choices<span style=color:#666>&amp;</span> msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	std<span style=color:#666>::</span>random_device rd;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>auto</span> choice <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> menuctf<span style=color:#666>::</span>New_content();
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> sum <span style=color:#666>=</span> rd() <span style=color:#666>%</span> <span style=color:#40a070>11</span>;
+</span></span><span style=display:flex><span>	choice<span style=color:#666>-&gt;</span>set_sum_of_datas(sum);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (sum_of_datas <span style=color:#666>&lt;</span> <span style=color:#40a070>10</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		sum_of_datas <span style=color:#666>=</span> sum;
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> sum_of_datas; i<span style=color:#666>++</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>auto</span> data <span style=color:#666>=</span> choice<span style=color:#666>-&gt;</span>add_datas();
+</span></span><span style=display:flex><span>			data<span style=color:#666>-&gt;</span>set_key(i);
+</span></span><span style=display:flex><span>			<span style=color:#902000>int</span> size <span style=color:#666>=</span> rd() <span style=color:#666>%</span> <span style=color:#40a070>0xCF</span> <span style=color:#666>+</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>			size_of_data[i] <span style=color:#666>=</span> size;
+</span></span><span style=display:flex><span>			data<span style=color:#666>-&gt;</span>set_size(size);
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	msg.add_choice()<span style=color:#666>-&gt;</span>set_allocated_new_content(choice);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>edit_message</span>(menuctf<span style=color:#666>::</span>Choices<span style=color:#666>&amp;</span> msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>sum_of_datas) 
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span>;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>auto</span> choice <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> menuctf<span style=color:#666>::</span>Edit_message();
+</span></span><span style=display:flex><span>	std<span style=color:#666>::</span>random_device rd;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> idx <span style=color:#666>=</span> rd() <span style=color:#666>%</span> sum_of_datas;
+</span></span><span style=display:flex><span>	choice<span style=color:#666>-&gt;</span>set_key(idx);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> size_of_data[idx]; i<span style=color:#666>++</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		content_buf[i] <span style=color:#666>=</span> rd() <span style=color:#666>%</span> <span style=color:#40a070>127</span> <span style=color:#666>+</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>while</span> (content_buf[i] <span style=color:#666>==</span> <span style=color:#4070a0>&#39;\n&#39;</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			content_buf[i] <span style=color:#666>=</span> rd() <span style=color:#666>%</span> <span style=color:#40a070>127</span> <span style=color:#666>+</span> <span style=color:#40a070>1</span>; <span style=color:#60a0b0;font-style:italic>// 换行可能会造成读取出错
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	content_buf[size_of_data[idx]] <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	choice<span style=color:#666>-&gt;</span>set_content(content_buf);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	msg.add_choice()<span style=color:#666>-&gt;</span>set_allocated_edit_message(choice);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>show_message</span>(menuctf<span style=color:#666>::</span>Choices<span style=color:#666>&amp;</span> msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>sum_of_datas)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span>;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>auto</span> choice <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> menuctf<span style=color:#666>::</span>Show_message();
+</span></span><span style=display:flex><span>	std<span style=color:#666>::</span>random_device rd;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> idx <span style=color:#666>=</span> rd() <span style=color:#666>%</span> sum_of_datas;
+</span></span><span style=display:flex><span>	choice<span style=color:#666>-&gt;</span>set_key(idx);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	msg.add_choice()<span style=color:#666>-&gt;</span>set_allocated_show_message(choice);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>old_content</span>(menuctf<span style=color:#666>::</span>Choices<span style=color:#666>&amp;</span> msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>auto</span> choice <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> menuctf<span style=color:#666>::</span>Old_content();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	msg.add_choice()<span style=color:#666>-&gt;</span>set_allocated_old_content(choice);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>content_info</span>(menuctf<span style=color:#666>::</span>Choices<span style=color:#666>&amp;</span> msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>auto</span> choice <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> menuctf<span style=color:#666>::</span>Content_info();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	msg.add_choice()<span style=color:#666>-&gt;</span>set_allocated_content_info(choice);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>exit_choice</span>(menuctf<span style=color:#666>::</span>Choices<span style=color:#666>&amp;</span> msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>auto</span> choice <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> menuctf<span style=color:#666>::</span>Exit();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	msg.add_choice()<span style=color:#666>-&gt;</span>set_allocated_exit(choice);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// AFLPlusPlus interface
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020;font-weight:700>extern</span> <span style=color:#4070a0>&#34;C&#34;</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>static</span> std<span style=color:#666>::</span>default_random_engine engine_pro;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>static</span> std<span style=color:#666>::</span>uniform_int_distribution<span style=color:#666>&lt;</span><span style=color:#902000>unsigned</span> <span style=color:#902000>int</span><span style=color:#666>&gt;</span> dis(<span style=color:#40a070>0</span>, UINT32_MAX);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> <span style=color:#666>*</span><span style=color:#06287e>afl_custom_init</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>afl, <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> seed)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span><span style=color:#007020>#pragma unused(afl)
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>		engine_pro.seed(seed);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#007020;font-weight:700>nullptr</span>;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> <span style=color:#06287e>afl_custom_deinit</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		assert(<span style=color:#666>!</span>data);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/**
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * Perform custom mutations on a given input
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 *
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * (Optional for now. Required in the future)
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 *
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * @param[in] data pointer returned in afl_custom_init for this fuzz case
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * @param[in] buf Pointer to input data to be mutated
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * @param[in] buf_size Size of input data
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * @param[out] out_buf the buffer we will work on. we can reuse *buf. NULL on
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * error.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * @param[in] add_buf Buffer containing the additional test case
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * @param[in] add_buf_size Size of the additional test case
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * @param[in] max_size Maximum size of the mutated output. The mutation must not
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 *     produce data larger than max_size.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 * @return Size of the mutated output.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 */</span>
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// afl_custom_fuzz
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	size_t <span style=color:#06287e>afl_custom_fuzz</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>buf, size_t buf_size, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>**</span>out_buf,
+</span></span><span style=display:flex><span>						   <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>add_buf, size_t add_buf_size, size_t max_size)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span><span style=color:#007020>#pragma unused(data)
+</span></span></span><span style=display:flex><span><span style=color:#007020>#pragma unused(buf)
+</span></span></span><span style=display:flex><span><span style=color:#007020>#pragma unused(buf_size)
+</span></span></span><span style=display:flex><span><span style=color:#007020>#pragma unused(add_buf)
+</span></span></span><span style=display:flex><span><span style=color:#007020>#pragma unused(add_buf_size)
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>		menuctf<span style=color:#666>::</span>Choices msg;
+</span></span><span style=display:flex><span>		std<span style=color:#666>::</span>random_device rd;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>while</span> (i<span style=color:#666>++</span> <span style=color:#666>&lt;</span> <span style=color:#40a070>100</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (rd() <span style=color:#666>%</span> <span style=color:#40a070>100</span> <span style=color:#666>&gt;</span> <span style=color:#40a070>80</span>)
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				exit_choice(msg);
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>switch</span> (rd() <span style=color:#666>%</span> <span style=color:#40a070>5</span>)
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>case</span> <span style=color:#40a070>0</span><span style=color:#666>:</span>
+</span></span><span style=display:flex><span>				new_content(msg);
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>case</span> <span style=color:#40a070>1</span><span style=color:#666>:</span>
+</span></span><span style=display:flex><span>				edit_message(msg);
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>case</span> <span style=color:#40a070>2</span><span style=color:#666>:</span>
+</span></span><span style=display:flex><span>				show_message(msg);
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>case</span> <span style=color:#40a070>3</span><span style=color:#666>:</span>
+</span></span><span style=display:flex><span>				old_content(msg);
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>case</span> <span style=color:#40a070>4</span><span style=color:#666>:</span>
+</span></span><span style=display:flex><span>				content_info(msg);
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>default</span><span style=color:#666>:</span>
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>saved_buf <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>nullptr</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		assert(buf_size <span style=color:#666>&lt;=</span> max_size);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		<span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>new_buf <span style=color:#666>=</span> (<span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>)realloc((<span style=color:#902000>void</span> <span style=color:#666>*</span>)saved_buf, max_size);
+</span></span><span style=display:flex><span>		saved_buf <span style=color:#666>=</span> new_buf;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		std<span style=color:#666>::</span>string serialize_data;
+</span></span><span style=display:flex><span>		msg.SerializePartialToString(<span style=color:#666>&amp;</span>serialize_data);
+</span></span><span style=display:flex><span>		memcpy(new_buf, serialize_data.c_str(), msg.ByteSizeLong());
+</span></span><span style=display:flex><span>		<span style=color:#666>*</span>out_buf <span style=color:#666>=</span> new_buf;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> msg.ByteSizeLong();
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	size_t <span style=color:#06287e>afl_custom_post_process</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>buf, size_t buf_size, <span style=color:#902000>uint8_t</span> <span style=color:#666>**</span>out_buf)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span><span style=color:#007020>#pragma unused(data)
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>		<span style=color:#60a0b0;font-style:italic>// new_data is never free&#39;d by pre_save_handler
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#60a0b0;font-style:italic>// I prefer a slow but clearer implementation for now
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>saved_buf <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		menuctf<span style=color:#666>::</span>Choices msg;
+</span></span><span style=display:flex><span>		std<span style=color:#666>::</span>stringstream stream;
+</span></span><span style=display:flex><span>		<span style=color:#60a0b0;font-style:italic>// 如果加载成功
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#007020;font-weight:700>if</span> (protobuf_mutator<span style=color:#666>::</span>libfuzzer<span style=color:#666>::</span>LoadProtoInput(<span style=color:#007020>true</span>, buf, buf_size, <span style=color:#666>&amp;</span>msg))
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			ProtoToDataHelper(stream, msg);
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#60a0b0;font-style:italic>// printf(&#34;[afl_custom_post_process] LoadProtoInput Error\n&#34;);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>			<span style=color:#60a0b0;font-style:italic>// std::ofstream err_bin(&#34;err.bin&#34;);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>			<span style=color:#60a0b0;font-style:italic>// err_bin.write((char*)buf, buf_size);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>			<span style=color:#60a0b0;font-style:italic>// abort();
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>			<span style=color:#60a0b0;font-style:italic>// 如果加载失败，则返回 Exit Choice
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>			<span style=color:#60a0b0;font-style:italic>/// NOTE: 错误的变异 + 错误的 trim 将会导致 post process 加载失败，尤其是 trim 逻辑。
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>			<span style=color:#60a0b0;font-style:italic>/// TODO: 由于默认的 trim 会破坏样例，因此需要手动实现一个 trim，这里实现了一个空 trim，不进行任何操作
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>			ProtoToDataHelper(stream, menuctf<span style=color:#666>::</span>Exit());
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>const</span> std<span style=color:#666>::</span>string str <span style=color:#666>=</span> stream.str();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		<span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>new_buf <span style=color:#666>=</span> (<span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>)realloc((<span style=color:#902000>void</span> <span style=color:#666>*</span>)saved_buf, str.size());
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>new_buf)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#666>*</span>out_buf <span style=color:#666>=</span> buf;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>return</span> buf_size;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#666>*</span>out_buf <span style=color:#666>=</span> saved_buf <span style=color:#666>=</span> new_buf;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		memcpy((<span style=color:#902000>void</span> <span style=color:#666>*</span>)new_buf, str.c_str(), str.size());
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> str.size();
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>int32_t</span> <span style=color:#06287e>afl_custom_init_trim</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>buf, size_t buf_size)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#60a0b0;font-style:italic>/// NOTE: disable trim
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	size_t <span style=color:#06287e>afl_custom_trim</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>data, <span style=color:#902000>uint8_t</span> <span style=color:#666>**</span>out_buf)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#60a0b0;font-style:italic>/// NOTE: unreachable
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这里的 <code>afl_custom_fuzz</code> 就是实现自己的变异逻辑了，参考的文章中使用 libprotobuf-mutator 来进行变异，这个的变异原理似乎是对序列化的 protobuf 直接进行变异，我认为这样变异的效率不甚理想，所以干脆直接完全随机了，有点类似于远古时期的 fuzzing。这样做的理由是，对于 ctf 中大多数的无聊堆题，输入的字符串一般不会影响到结果，最容易出现漏洞的还是堆块的申请和释放，以及堆块的大小，所以这里直接完全随机反而可以更高效率的找到洞。</p><p>然后实现一个把 protobuf 转为格式化的输出的函数</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// mutator.cc
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>...
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> ProtoToDataHelper(std<span style=color:#666>::</span>stringstream <span style=color:#666>&amp;</span>out, <span style=color:#007020;font-weight:700>const</span> google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>Message <span style=color:#666>&amp;</span>msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>Descriptor <span style=color:#666>*</span>desc <span style=color:#666>=</span> msg.GetDescriptor();
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>Reflection <span style=color:#666>*</span>refl <span style=color:#666>=</span> msg.GetReflection();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>unsigned</span> fields <span style=color:#666>=</span> desc<span style=color:#666>-&gt;</span>field_count();
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>unsigned</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> fields; <span style=color:#666>++</span>i)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>const</span> google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>FieldDescriptor <span style=color:#666>*</span>field <span style=color:#666>=</span> desc<span style=color:#666>-&gt;</span>field(i);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (field<span style=color:#666>-&gt;</span>cpp_type() <span style=color:#666>==</span> google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>FieldDescriptor<span style=color:#666>::</span>CPPTYPE_MESSAGE)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (field<span style=color:#666>-&gt;</span>is_repeated())
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				<span style=color:#60a0b0;font-style:italic>// maybe choice list or data list
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>				<span style=color:#007020;font-weight:700>const</span> google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>RepeatedFieldRef<span style=color:#666>&lt;</span>google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>Message<span style=color:#666>&gt;</span> <span style=color:#666>&amp;</span>ptr <span style=color:#666>=</span> refl<span style=color:#666>-&gt;</span>GetRepeatedFieldRef<span style=color:#666>&lt;</span>google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>Message<span style=color:#666>&gt;</span>(msg, field);
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>for</span> (<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>auto</span> <span style=color:#666>&amp;</span><span style=color:#002070;font-weight:700>child</span> : ptr)
+</span></span><span style=display:flex><span>				{
+</span></span><span style=display:flex><span>					ProtoToDataHelper(out, child);
+</span></span><span style=display:flex><span>				}
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (refl<span style=color:#666>-&gt;</span>HasField(msg, field))
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				<span style=color:#60a0b0;font-style:italic>// maybe one choice or one data
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>				<span style=color:#007020;font-weight:700>const</span> google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>Message <span style=color:#666>&amp;</span>child <span style=color:#666>=</span> refl<span style=color:#666>-&gt;</span>GetMessage(msg, field);
+</span></span><span style=display:flex><span>				ProtoToDataHelper(out, child);
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (field<span style=color:#666>-&gt;</span>cpp_type() <span style=color:#666>==</span>
+</span></span><span style=display:flex><span>				 google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>FieldDescriptor<span style=color:#666>::</span>CPPTYPE_INT32)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			out.width(<span style=color:#40a070>8</span>);
+</span></span><span style=display:flex><span>			out <span style=color:#666>&lt;&lt;</span> refl<span style=color:#666>-&gt;</span>GetInt32(msg, field);
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (field<span style=color:#666>-&gt;</span>cpp_type() <span style=color:#666>==</span>
+</span></span><span style=display:flex><span>				 google<span style=color:#666>::</span>protobuf<span style=color:#666>::</span>FieldDescriptor<span style=color:#666>::</span>CPPTYPE_STRING)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			out <span style=color:#666>&lt;&lt;</span> refl<span style=color:#666>-&gt;</span>GetString(msg, field) <span style=color:#666>&lt;&lt;</span> <span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			abort();
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>...
+</span></span></code></pre></div><p>由于目标程序使用 read 读入，所以最好填充满 read，所以这里在对 int32 进行输出的时候，设置了 8 的场宽，填充空格即可，因为程序使用 strtol 这类的函数，所以仍然可以正常输入。</p><p>为了方便调试，还可以实现一个 <code>dumper.cc</code>，参照 protobuf_ctf_fuzz，针对我的 afl_custom_fuzz 我稍微修改了一下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>(<span style=color:#902000>int</span> argc, <span style=color:#902000>char</span> <span style=color:#666>*</span>argv[])
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	menuctf<span style=color:#666>::</span>Choices msg;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// 测试变异逻辑
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	<span style=color:#902000>int</span> rand_fd;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> ((rand_fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/random&#34;</span>, O_RDONLY)) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>		abort();
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> seed;
+</span></span><span style=display:flex><span>	read(rand_fd, <span style=color:#666>&amp;</span>seed, <span style=color:#007020;font-weight:700>sizeof</span>(seed));
+</span></span><span style=display:flex><span>	close(rand_fd);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> <span style=color:#666>*</span>init_data <span style=color:#666>=</span> afl_custom_init(<span style=color:#007020;font-weight:700>nullptr</span>, seed);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (argc <span style=color:#666>&gt;</span> <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>strcmp(argv[<span style=color:#40a070>1</span>], <span style=color:#4070a0>&#34;gen&#34;</span>))
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>out_buf <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>nullptr</span>;
+</span></span><span style=display:flex><span>			size_t new_size <span style=color:#666>=</span> afl_custom_fuzz(<span style=color:#007020;font-weight:700>nullptr</span>, <span style=color:#007020;font-weight:700>nullptr</span>, <span style=color:#40a070>0</span>,
+</span></span><span style=display:flex><span>												<span style=color:#666>&amp;</span>out_buf, <span style=color:#007020;font-weight:700>nullptr</span>, <span style=color:#40a070>0</span>, <span style=color:#40a070>0x2000</span>);
+</span></span><span style=display:flex><span>			<span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>new_str <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>nullptr</span>;
+</span></span><span style=display:flex><span>			size_t new_str_size <span style=color:#666>=</span> afl_custom_post_process(init_data, out_buf, new_size, <span style=color:#666>&amp;</span>new_str);
+</span></span><span style=display:flex><span>			std<span style=color:#666>::</span>string new_str_str((<span style=color:#902000>char</span> <span style=color:#666>*</span>)new_str, new_str_size);
+</span></span><span style=display:flex><span>			std<span style=color:#666>::</span>cout <span style=color:#666>&lt;&lt;</span> new_str_str <span style=color:#666>&lt;&lt;</span> std<span style=color:#666>::</span>endl
+</span></span><span style=display:flex><span>						<span style=color:#666>&lt;&lt;</span> std<span style=color:#666>::</span>endl;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>strcmp(argv[<span style=color:#40a070>1</span>], <span style=color:#4070a0>&#34;-d&#34;</span>) <span style=color:#666>&amp;&amp;</span> argc <span style=color:#666>&gt;</span> <span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>stat</span> statbuf;
+</span></span><span style=display:flex><span>			stat(argv[<span style=color:#40a070>2</span>], <span style=color:#666>&amp;</span>statbuf);
+</span></span><span style=display:flex><span>			<span style=color:#902000>int</span> proto_size <span style=color:#666>=</span> statbuf.st_size;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>			<span style=color:#902000>char</span><span style=color:#666>*</span> proto_buf <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>new</span> <span style=color:#902000>char</span> [proto_size <span style=color:#666>+</span> <span style=color:#40a070>1</span>];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>			FILE<span style=color:#666>*</span> proto_fp <span style=color:#666>=</span> fopen(argv[<span style=color:#40a070>2</span>], <span style=color:#4070a0>&#34;r&#34;</span>);
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>proto_fp) { <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>; }
+</span></span><span style=display:flex><span>			fread(proto_buf, proto_size, <span style=color:#40a070>1</span>, proto_fp);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>			menuctf<span style=color:#666>::</span>Choices msg;
+</span></span><span style=display:flex><span>			std<span style=color:#666>::</span>stringstream stream;
+</span></span><span style=display:flex><span>			<span style=color:#60a0b0;font-style:italic>// 如果加载成功
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>			<span style=color:#007020;font-weight:700>if</span> (protobuf_mutator<span style=color:#666>::</span>libfuzzer<span style=color:#666>::</span>LoadProtoInput(<span style=color:#007020>true</span>, (<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>) proto_buf, proto_size, <span style=color:#666>&amp;</span>msg))
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				ProtoToDataHelper(stream, msg);
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			std<span style=color:#666>::</span>cout <span style=color:#666>&lt;&lt;</span> stream.str();
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> <span style=color:#40a070>5</span>; i<span style=color:#666>++</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>out_buf <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>nullptr</span>;
+</span></span><span style=display:flex><span>			size_t new_size <span style=color:#666>=</span> afl_custom_fuzz(<span style=color:#007020;font-weight:700>nullptr</span>, <span style=color:#007020;font-weight:700>nullptr</span>, <span style=color:#40a070>0</span>,
+</span></span><span style=display:flex><span>												<span style=color:#666>&amp;</span>out_buf, <span style=color:#007020;font-weight:700>nullptr</span>, <span style=color:#40a070>0</span>, <span style=color:#40a070>0x2000</span>);
+</span></span><span style=display:flex><span>			<span style=color:#902000>uint8_t</span> <span style=color:#666>*</span>new_str <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>nullptr</span>;
+</span></span><span style=display:flex><span>			size_t new_str_size <span style=color:#666>=</span> afl_custom_post_process(init_data, out_buf, new_size, <span style=color:#666>&amp;</span>new_str);
+</span></span><span style=display:flex><span>			std<span style=color:#666>::</span>string new_str_str((<span style=color:#902000>char</span> <span style=color:#666>*</span>)new_str, new_str_size);
+</span></span><span style=display:flex><span>			std<span style=color:#666>::</span>cout <span style=color:#666>&lt;&lt;</span> i <span style=color:#666>&lt;&lt;</span> <span style=color:#4070a0>&#34; =============== &#34;</span> <span style=color:#666>&lt;&lt;</span> std<span style=color:#666>::</span>endl;
+</span></span><span style=display:flex><span>			std<span style=color:#666>::</span>cout <span style=color:#666>&lt;&lt;</span> new_str_str <span style=color:#666>&lt;&lt;</span> std<span style=color:#666>::</span>endl
+</span></span><span style=display:flex><span>						<span style=color:#666>&lt;&lt;</span> std<span style=color:#666>::</span>endl;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	afl_custom_deinit(init_data);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// std::cout &lt;&lt; &#34;msg DebugString: &#34; &lt;&lt; msg.DebugString() &lt;&lt; std::endl;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//	std::stringstream stream;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//	ProtoToDataHelper(stream, msg);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//	std::cout &lt;&lt; stream.str() &lt;&lt; std::endl;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>执行 make 后会编译出来 <code>dumper</code>，<code>mutator</code>，<code>libmutator.so</code>，直接执行 dumper 可以看到变异情况，执行 <code>./dumper gen > rand</code> 可以获得一个语料。然后就可以开始 fuzz 了，首先设置环境变量</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># setup_env.sh</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/bin/bash</span>
+</span></span><span style=display:flex><span><span style=color:#007020>export</span> <span style=color:#bb60d5>AFL_CUSTOM_MUTATOR_ONLY</span><span style=color:#666>=</span><span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span><span style=color:#007020>export</span> <span style=color:#bb60d5>AFL_CUSTOM_MUTATOR_LIBRARY</span><span style=color:#666>=</span><span style=color:#4070a0>`</span><span style=color:#007020>pwd</span><span style=color:#4070a0>`</span>/libmutator.so
+</span></span><span style=display:flex><span><span style=color:#007020>export</span> <span style=color:#bb60d5>AFL_USE_QASAN</span><span style=color:#666>=</span><span style=color:#40a070>1</span>
+</span></span></code></pre></div><p>如果是写成脚本设置，注意要用 <code>source ./setup_env.sh</code> 来设置。</p><p>然后执行</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>AFLplusplus/afl-fuzz -i input -o output -Q -- ./byteview
+</span></span></code></pre></div><p>input 文件夹需要自己新建，input 里面用 dumper 随便生成一个语料即可，只是为了通过 AFL 的 check。</p><p><img src=https://www.cjovi.icu/usr/uploads/2021/12/181737087.png alt=QQ截图20211219232018.png></p><p>运行一下，瞬间就可以出 crash。crash 文件中是序列化后的数据，为了获得 poc，需要反序列化，我在 dumper 中实现了这个功能，来看一看</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>$ ./dumper -d ./output/default/crashes/id:000001,sig:06,src:000000+000012,time:366,execs:153,op:libmutator.so,pos:0 &gt; poc
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>$ xxd poc
+</span></span><span style=display:flex><span>00000000: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2039</span>         <span style=color:#40a070>1</span>       <span style=color:#40a070>9</span>
+</span></span><span style=display:flex><span>00000010: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2030</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3732</span>         <span style=color:#40a070>0</span>      <span style=color:#40a070>72</span>
+</span></span><span style=display:flex><span>00000020: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3732</span>         <span style=color:#40a070>1</span>     <span style=color:#40a070>172</span>
+</span></span><span style=display:flex><span>00000030: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2032</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3037</span>         <span style=color:#40a070>2</span>     <span style=color:#40a070>107</span>
+</span></span><span style=display:flex><span>00000040: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2033</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3735</span>         <span style=color:#40a070>3</span>      <span style=color:#40a070>75</span>
+</span></span><span style=display:flex><span>00000050: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2034</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3336</span>         <span style=color:#40a070>4</span>     <span style=color:#40a070>136</span>
+</span></span><span style=display:flex><span>00000060: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2035</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3434</span>         <span style=color:#40a070>5</span>      <span style=color:#40a070>44</span>
+</span></span><span style=display:flex><span>00000070: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2036</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3930</span>         <span style=color:#40a070>6</span>     <span style=color:#40a070>190</span>
+</span></span><span style=display:flex><span>00000080: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2037</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3233</span>         <span style=color:#40a070>7</span>     <span style=color:#40a070>123</span>
+</span></span><span style=display:flex><span>00000090: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2038</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3531</span>         <span style=color:#40a070>8</span>      <span style=color:#40a070>51</span>
+</span></span><span style=display:flex><span>000000a0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2034</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span>         <span style=color:#40a070>4</span>       <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>000000b0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3130</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2033</span>        <span style=color:#40a070>10</span>       <span style=color:#40a070>3</span>
+</span></span><span style=display:flex><span>000000c0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2037</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span>         <span style=color:#40a070>7</span>       <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>000000d0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2033</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2030</span>         <span style=color:#40a070>3</span>       <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>000000e0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3936</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span>        <span style=color:#40a070>96</span>       <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>000000f0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3138</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2032</span>       <span style=color:#40a070>118</span>       <span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>00000100: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3139</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2033</span>       <span style=color:#40a070>119</span>       <span style=color:#40a070>3</span>
+</span></span><span style=display:flex><span>00000110: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2035</span>         <span style=color:#40a070>1</span>       <span style=color:#40a070>5</span>
+</span></span><span style=display:flex><span>00000120: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2034</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2035</span>         <span style=color:#40a070>4</span>       <span style=color:#40a070>5</span>
+</span></span><span style=display:flex><span>00000130: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2033</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2032</span>         <span style=color:#40a070>3</span>       <span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>00000140: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2032</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2030</span>         <span style=color:#40a070>2</span>       <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>00000150: <span style=color:#40a070>7442</span> <span style=color:#40a070>0304</span> <span style=color:#40a070>2114</span> <span style=color:#40a070>2658</span> 3a46 227d 466d 484b  tB..!.&amp;X:F<span style=color:#4070a0>&#34;}FmHK
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000160: 7903 3530 5061 2601 176a 6c35 793d 4c12  y.50Pa&amp;..jl5y=L.
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000170: 390f 0c4e 5601 0e19 6247 416e 3433 7a07  9..NV...bGAn43z.
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000180: 420f 431c 2f5d 682c 5b55 5a55 2401 1d44  B.C./]h,[UZU</span>$<span style=color:#4070a0>..D
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000190: 1902 2a70 0741 342d 6418 0329 2b04 7435  ..*p.A4-d..)+.t5
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000001a0: 0e64 5c3a 6e7e 6525 1564 4e2f 203f 2d07  .d\:n~e%.dN/ ?-.
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000001b0: 0a20 2020 2020 2020 3220 2020 2020 2020  .       2   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000001c0: 322d 6f15 582e 3726 3c10 6111 4c4a 0848  2-o.X.7&amp;&lt;.a.LJ.H
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000001d0: 3965 1162 7530 2361 0834 3026 2618 121e  9e.bu0#a.40&amp;&amp;...
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000001e0: 7f2d 3b74 4453 4343 1747 7275 011f 7c60  .-;tDSCC.Gru..|`
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000001f0: 0831 0742 321e 6f46 7611 6f70 3174 1037  .1.B2.oFv.op1t.7
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000200: 7f47 070b 1924 0f4e 1d7b 662f 2151 3a6f  .G...</span>$<span style=color:#4070a0>.N.{f/!Q:o
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000210: 662f 1a3d 3d48 6357 2d48 441f 025e 4943  f/.==HcW-HD..^IC
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000220: 2923 1472 5b17 1706 7032 423c 6102 3948  )#.r[...p2B&lt;a.9H
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000230: 0111 237b 3365 6e6b 0a20 2020 2020 2020  ..#{3enk.   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000240: 3520 2020 2020 2020 3320 2020 2020 2020  5       3   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000250: 3220 2020 2020 2020 3120 2020 2020 2020  2       1   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000260: 3420 2020 2020 2020 3020 2020 2020 3134  4       0     14
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000270: 3420 2020 2020 2020 3120 2020 2020 3230  4       1     20
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000280: 3020 2020 2020 2020 3220 2020 2020 3132  0       2     12
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000290: 3120 2020 2020 2020 3320 2020 2020 3230  1       3     20
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000002a0: 3220 2020 2020 2020 3420 2020 2020 2020  2       4   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000002b0: 3120 2020 2020 2020 3920 2020 2020 2020  1       9   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000002c0: 3020 2020 2020 2039 3620 2020 2020 2020  0      96   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000002d0: 3120 2020 2020 2036 3420 2020 2020 2020  1      64   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000002e0: 3220 2020 2020 3131 3020 2020 2020 2020  2     110   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000002f0: 3320 2020 2020 2037 3920 2020 2020 2020  3      79   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000300: 3420 2020 2020 3133 3920 2020 2020 2020  4     139   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000310: 3520 2020 2020 3133 3820 2020 2020 2020  5     138   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000320: 3620 2020 2020 2032 3220 2020 2020 2020  6      22   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000330: 3720 2020 2020 3230 3620 2020 2020 2020  7     206   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000340: 3820 2020 2020 2020 3220 2020 2020 2020  8       2   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000350: 3320 2020 2020 2020 3720 2020 2020 2020  3       7   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000360: 3120 2020 2020 2020 3320 2020 2020 2020  1       3   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000370: 3020 2020 2020 2036 3420 2020 2020 2020  0      64   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000380: 3120 2020 2020 2034 3420 2020 2020 2020  1      44   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00000390: 3220 2020 2020 2020 3620 2020 2020 2020  2       6   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000003a0: 3220 2020 2020 2020 3138 1d6b 3a43 695b  2       18.k:Ci[
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>000003b0: 0538 2211 5232 3e26 4051 0860 3625 0b01  .8&#34;</span>.R2&gt;&amp;@Q.<span style=color:#4070a0>`</span>6%..
+</span></span><span style=display:flex><span>000003c0: <span style=color:#40a070>4129</span> 0b12 <span style=color:#40a070>0352</span> 616d 283d <span style=color:#40a070>3227</span> 7e29 <span style=color:#40a070>2302</span>  A<span style=color:#666>)</span>...Ram<span style=color:#666>(=</span>2<span>&#39;</span>~<span style=color:#666>)</span><span style=color:#60a0b0;font-style:italic>#.</span>
+</span></span><span style=display:flex><span>000003d0: 546d 7b67 6c0a <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>2020</span>  Tm<span style=color:#666>{</span>gl.       <span style=color:#40a070>1</span>  
+</span></span><span style=display:flex><span>000003e0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2030</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2034</span> <span style=color:#40a070>2020</span>       <span style=color:#40a070>0</span>       <span style=color:#40a070>4</span>  
+</span></span><span style=display:flex><span>000003f0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2034</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2034</span> <span style=color:#40a070>2020</span>       <span style=color:#40a070>4</span>       <span style=color:#40a070>4</span>  
+</span></span><span style=display:flex><span>00000400: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2035</span> <span style=color:#40a070>2020</span>       <span style=color:#40a070>1</span>       <span style=color:#40a070>5</span>  
+</span></span><span style=display:flex><span>00000410: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2030</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3138</span> <span style=color:#40a070>2020</span>       <span style=color:#40a070>0</span>      <span style=color:#40a070>18</span>  
+</span></span><span style=display:flex><span>00000420: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3034</span> <span style=color:#40a070>2020</span>       <span style=color:#40a070>1</span>     <span style=color:#40a070>104</span>  
+</span></span><span style=display:flex><span>00000430: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2032</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2032</span> <span style=color:#40a070>3037</span> <span style=color:#40a070>2020</span>       <span style=color:#40a070>2</span>     <span style=color:#40a070>207</span>  
+</span></span><span style=display:flex><span>00000440: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2033</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3536</span> <span style=color:#40a070>2020</span>       <span style=color:#40a070>3</span>      <span style=color:#40a070>56</span>  
+</span></span><span style=display:flex><span>00000450: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2034</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3731</span> <span style=color:#40a070>2020</span>       <span style=color:#40a070>4</span>     <span style=color:#40a070>171</span>  
+</span></span><span style=display:flex><span>00000460: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3130</span> <span style=color:#40a070>2020</span>       <span style=color:#40a070>1</span>      <span style=color:#40a070>10</span>  
+</span></span><span style=display:flex><span>00000470: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2036</span>                                <span style=color:#40a070>6</span>
+</span></span></code></pre></div><p>喂给目标程序跑一下，能看到在 <code>too many</code> 后面 crash 了，每个 crash 都试试，应该是能分析出来是什么原因的。</p><h3 id=真的有必要这么做吗>真的有必要这么做吗</h3><p>跑完 AFL 之后，我才想到，我既没有用 libprotobuf-mutator 来帮我变异，又没有用到 AFLplusplus 的任何变异策略，那么其实这两个都没必要用，只需要一个能随机生成语料的引擎，然后一直把语料喂给目标就可以了，所以只要这个简单的 shell 脚本就可以了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span><span style=color:#007020>#!/bin/bash
+</span></span></span><span style=display:flex><span><span style=color:#007020></span><span style=color:#007020;font-weight:700>while</span> <span style=color:#666>((</span>1<span style=color:#666>))</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>do</span> 
+</span></span><span style=display:flex><span>    ./dumper gen &gt; poc
+</span></span><span style=display:flex><span>    cat poc | ./byteview
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> <span style=color:#666>[</span> <span style=color:#bb60d5>$?</span> -ne <span style=color:#40a070>0</span> <span style=color:#666>]</span>; <span style=color:#007020;font-weight:700>then</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020>break</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>fi</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>done</span>
+</span></span></code></pre></div><p>语料生成其实随便写个脚本就可以了，不需要用什么 protobuf。</p><p>不过这个没有用 qasan，找不出 UAF 这样可能不会 crash 的洞，可以使用 qasan 可能会更快的发现。不过对于此题，这样已经足够，直接跑就可以出 crash 了。分析一下 poc</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>$ xxd poc 
+</span></span><span style=display:flex><span>00000000: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2034</span>         <span style=color:#40a070>1</span>       <span style=color:#40a070>4</span>
+</span></span><span style=display:flex><span>00000010: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2030</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span>         <span style=color:#40a070>0</span>       <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>00000020: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3832</span>         <span style=color:#40a070>1</span>     <span style=color:#40a070>182</span>
+</span></span><span style=display:flex><span>00000030: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2032</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3330</span>         <span style=color:#40a070>2</span>     <span style=color:#40a070>130</span>
+</span></span><span style=display:flex><span>00000040: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2033</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3134</span>         <span style=color:#40a070>3</span>      <span style=color:#40a070>14</span>
+</span></span><span style=display:flex><span>00000050: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2032</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2033</span>         <span style=color:#40a070>2</span>       <span style=color:#40a070>3</span>
+</span></span><span style=display:flex><span>00000060: 4f48 <span style=color:#40a070>0724</span> <span style=color:#40a070>2536</span> <span style=color:#40a070>6528</span> <span style=color:#40a070>2119</span> 062c <span style=color:#40a070>6901</span> 0a20  OH.$%6e<span style=color:#666>(</span>!..,i.. 
+</span></span><span style=display:flex><span>00000070: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3120</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3420</span>        <span style=color:#40a070>1</span>       <span style=color:#40a070>4</span> 
+</span></span><span style=display:flex><span>00000080: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3134</span> <span style=color:#40a070>3120</span>        <span style=color:#40a070>0</span>     <span style=color:#40a070>141</span> 
+</span></span><span style=display:flex><span>00000090: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3120</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3132</span> <span style=color:#40a070>3820</span>        <span style=color:#40a070>1</span>     <span style=color:#40a070>128</span> 
+</span></span><span style=display:flex><span>000000a0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3220</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3230</span> <span style=color:#40a070>3520</span>        <span style=color:#40a070>2</span>     <span style=color:#40a070>205</span> 
+</span></span><span style=display:flex><span>000000b0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3320</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2033</span> <span style=color:#40a070>3220</span>        <span style=color:#40a070>3</span>      <span style=color:#40a070>32</span> 
+</span></span><span style=display:flex><span>000000c0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3120</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3020</span>        <span style=color:#40a070>1</span>       <span style=color:#40a070>0</span> 
+</span></span><span style=display:flex><span>000000d0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3120</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3920</span>        <span style=color:#40a070>1</span>       <span style=color:#40a070>9</span> 
+</span></span><span style=display:flex><span>000000e0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2037</span> <span style=color:#40a070>3720</span>        <span style=color:#40a070>0</span>      <span style=color:#40a070>77</span> 
+</span></span><span style=display:flex><span>000000f0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3120</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2035</span> <span style=color:#40a070>3020</span>        <span style=color:#40a070>1</span>      <span style=color:#40a070>50</span> 
+</span></span><span style=display:flex><span>00000100: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3220</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3137</span> <span style=color:#40a070>3320</span>        <span style=color:#40a070>2</span>     <span style=color:#40a070>173</span> 
+</span></span><span style=display:flex><span>00000110: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3320</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3136</span> <span style=color:#40a070>3420</span>        <span style=color:#40a070>3</span>     <span style=color:#40a070>164</span> 
+</span></span><span style=display:flex><span>00000120: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3420</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3135</span> <span style=color:#40a070>3020</span>        <span style=color:#40a070>4</span>     <span style=color:#40a070>150</span> 
+</span></span><span style=display:flex><span>00000130: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3520</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2036</span> <span style=color:#40a070>3920</span>        <span style=color:#40a070>5</span>      <span style=color:#40a070>69</span> 
+</span></span><span style=display:flex><span>00000140: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3620</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3820</span>        <span style=color:#40a070>6</span>      <span style=color:#40a070>18</span> 
+</span></span><span style=display:flex><span>00000150: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3720</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2033</span> <span style=color:#40a070>3020</span>        <span style=color:#40a070>7</span>      <span style=color:#40a070>30</span> 
+</span></span><span style=display:flex><span>00000160: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3820</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2032</span> <span style=color:#40a070>3720</span>        <span style=color:#40a070>8</span>      <span style=color:#40a070>27</span> 
+</span></span><span style=display:flex><span>00000170: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3320</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3420</span>        <span style=color:#40a070>3</span>       <span style=color:#40a070>4</span> 
+</span></span><span style=display:flex><span>00000180: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3320</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3720</span>        <span style=color:#40a070>3</span>       <span style=color:#40a070>7</span> 
+</span></span><span style=display:flex><span>00000190: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3520</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3120</span>        <span style=color:#40a070>5</span>       <span style=color:#40a070>1</span> 
+</span></span><span style=display:flex><span>000001a0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3520</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3020</span>        <span style=color:#40a070>5</span>       <span style=color:#40a070>0</span> 
+</span></span><span style=display:flex><span>000001b0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3139</span> <span style=color:#40a070>3220</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3120</span>      <span style=color:#40a070>192</span>       <span style=color:#40a070>1</span> 
+</span></span><span style=display:flex><span>000001c0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3136</span> <span style=color:#40a070>3620</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3220</span>      <span style=color:#40a070>166</span>       <span style=color:#40a070>2</span> 
+</span></span><span style=display:flex><span>000001d0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2031</span> <span style=color:#40a070>3820</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3320</span>       <span style=color:#40a070>18</span>       <span style=color:#40a070>3</span> 
+</span></span><span style=display:flex><span>000001e0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3137</span> <span style=color:#40a070>3120</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3420</span>      <span style=color:#40a070>171</span>       <span style=color:#40a070>4</span> 
+</span></span><span style=display:flex><span>000001f0: <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>3131</span> <span style=color:#40a070>3420</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> <span style=color:#40a070>2020</span> 360a      <span style=color:#40a070>114</span>       6.
+</span></span></code></pre></div><p>可以看到是由先成功申请了 content 再失败申请 content 造成的 crash。</p><h3 id=总结>总结</h3><ul><li>如果要用 qasan，直接用 AFLplusplus 的 qemu-mode 起可能会更方便</li><li>如果要使用真正的 AFLplusplus + protobuf 实现基于覆盖率的结构化感知 fuzz，那么在实现 <code>afl_custom_fuzz</code> 时可以用 libprotobuf-mutator 提供的变异器对输入的数据（序列化的 protobuf）进行变异，然后通过 <code>afl_custom_post_process</code> 筛选变异的数据，对于可以反序列化的数据反序列化并格式化为目标程序可以接受的输入。对于 byteview 这题，由于 new_content 中的 datas 的个数与 sum_of_datas 有关，其实也可以在这里筛选正确的变异结果。注意这种情况下需要提供正确的语料，可以用 dumper 输出序列化的 protobuf 来构造语料。<ul><li>对于这种方法，我个人认为并不高效，我个人不太信任 libprotobuf-mutator 的变异效果。不过如果尝试对 byteview 这题进行这样的测试，有可能会发现效率非常高，也可能会发现效率非常低。为什么会出现这种结果？因为这种情况下是基于语料库进行变异的，语料库的质量决定了 fuzz 的速度，而实际上随机生成一个语料，还是有比较高的概率产生可以让目标程序直接 crash，或者稍微变异一下就 crash 的语料的（也就是很容易就产出超高质量的语料）。</li></ul></li><li>关于 <code>AFL_CUSTOM_MUTATOR_ONLY</code> 的设置与否，如果不设置该变量，用户提供的变异器只会在 havoc 阶段（undetermined mutate 的第一个阶段）前进行一次变异，其余情况会由 AFL 进行变异，我觉得由 AFL 直接对序列化的数据进行变异，可能会变异出无意义的数据，应当全权交给 libprotobuf-mutator 来变异，所以感觉还是需要设置的。</li></ul><h3 id=不足与改进>不足与改进</h3><p>如前文所述，这种 fuzz 方式（也就是用 qasan + 结构化随机输入）非常适合找出 CTF 传统堆题由申请释放触发的 UAF 等漏洞的 poc。不足主要在于</p><ul><li>如果目标程序使用了 read 等对输入要求较高的读取函数时（即对非法输入的鲁棒性较差），需要多花点时间对输入进行格式化，避免非法输入导致程序爆炸</li><li>对于触发条件比较微妙的漏洞可能会比较难以发现。</li><li>适配工作比较多，会浪费很多时间</li></ul><p>所以其实，这种 fuzz 方法最适合的就是漏洞本身很简单，但是程序比较难以分析的题目。这种题没做出来会在赛后给选手很大的心理伤害，在赛时无路可走了，也不妨尝试乱 fuzz 一下，也可以少点遗憾。</p><p>如果要改进，我个人的想法有如下：</p><ul><li>使用 libprotobuf-mutator 进行变异，并且自己重写 mutator 方法，实现对变异更精确的控制</li><li>真正与 AFL 整合，也就是提供给 AFL 进行变异的语料应当是反序列化的数据，这样可以利用 AFL 提供的变异算法，可能可以达到更高的覆盖率，也许可以发现一些比较“subtle”的洞。然后我们在 havoc 阶段前进行结构化的变异，指导 AFL 生成高度结构化的输入。不过如果让 AFL 进行变异，可能需要目标程序有较高的鲁棒性（毕竟 ctf 题不是工业程序，乱输一气程序会炸并不影响选手拿不到 flag）。</li><li>关于溢出类型的洞，可以对变异器的 size 要进行变异，生成可能会超过 buf 的 string，从修改的角度来看这其实没啥难度，这里没这么做，主要原因是目标程序鲁棒性较差，并且分析的时候也看得出来是不会有溢出的。换句话说，如果有溢出的洞，ctf 中一般是能直接看出来的，那也没必要去搞什么 fuzz，花里胡哨的没必要，有这个适配的时间估计硬看也能看出来了。不过对于 realworld 的东西，感觉不妨一试。</li></ul><p>之后有空的话，我会尝试对别的无聊菜单题进行 fuzz，看看有无奇效。</p><p><strong>相关的代码在 <a href=https://github.com/chujDK/fuzz_a_byteview>github</a> 上</strong></p><h3 id=reference>reference</h3><blockquote><p><a href=https://github.com/thebabush/afl-libprotobuf-mutator>https://github.com/thebabush/afl-libprotobuf-mutator</a></p><p><a href=https://kiprey.github.io/2021/09/protobuf_ctf_fuzz/>https://kiprey.github.io/2021/09/protobuf_ctf_fuzz/</a></p></blockquote></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

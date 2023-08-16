@@ -1,0 +1,270 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>《操作系统真像还原》操作系统实现——内核中的字符打印函数 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="昨天在看特权级相关的东西，看的云里雾里，没搞得很懂，考虑到短期之内不会弄得特别深，而且我们也用不上调用门，相关的较复杂的问题也应该不会碰到，"><meta property="og:image" content><meta property="og:title" content="《操作系统真像还原》操作系统实现——内核中的字符打印函数"><meta property="og:description" content="昨天在看特权级相关的东西，看的云里雾里，没搞得很懂，考虑到短期之内不会弄得特别深，而且我们也用不上调用门，相关的较复杂的问题也应该不会碰到，"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/os/1336.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-05-20T23:06:00+00:00"><meta property="article:modified_time" content="2021-05-20T23:06:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="《操作系统真像还原》操作系统实现——内核中的字符打印函数"><meta name=twitter:description content="昨天在看特权级相关的东西，看的云里雾里，没搞得很懂，考虑到短期之内不会弄得特别深，而且我们也用不上调用门，相关的较复杂的问题也应该不会碰到，"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>《操作系统真像还原》操作系统实现——内核中的字符打印函数</h1><div class=meta>Posted on May 20, 2021</div></div><section class=body><p>昨天在看特权级相关的东西，看的云里雾里，没搞得很懂，考虑到短期之内不会弄得特别深，而且我们也用不上调用门，相关的较复杂的问题也应该不会碰到，所以准备暂时跳过。</p><h3 id=调用约定>调用约定</h3><p>在说 sys_write 之前应该先说一下调用约定，我们的操作系统会使用 cdecl。由于我是打 PWN 的，对此调用约定相对还算熟悉，但是还是有学到新的东西</p><ul><li>cdecl 是由主调函数清理栈空间的，即调用压入的参数对栈产生的影响由主调函数消除</li><li>cdecl 下，ecx，edx 两寄存器会被被调函数使用，需要有用户备份其值，eax 保存返回值，除此 3 个寄存器外的寄存器在被调函数返回时都会恢复原值。</li></ul><p>以上是32位 C 程序默认使用的调用约定两个特点。关于调用约定其他的细节这里不再赘述。</p><p>在进行系统调用时，往往不遵守 cdecl 约定，Linux 下的调用约定为</p><p>32 位：eax 存储调用功能号，参数按顺序存于 ebx，ecx，edx，esi，edi，ebp 中。</p><p>64 位：eax 存储调用功能号，参数按顺序存于 rdi，rsi，rdx，r10，r8，r9 中。</p><h3 id=sys_putchar>sys_putchar</h3><p>这是我们操作系统向屏幕输出的最基本函数，别的输出函数基本都是对这个函数的封装。</p><p>sys_putchar 是一个内核态函数，用户的特权级无法使用，也不会通过系统调用的方式提供给用户（DPL 为 0）。为了调用方便，我们考虑使用 cdecl 调用约定，即通过栈传参。</p><p>该函数需要处理的问题如下：</p><ul><li>处理 LF，CR，BS 三种控制字符</li><li>输出其余字符，并设置好属性</li><li>对于输出超过当前屏幕的情况，处理好滚屏</li></ul><h4 id=获取光标地址>获取光标地址</h4><p>为了输出，我们需要获得当前显示器的光标位置，这需要和显示适配器进行交互，我觉得深究和什么端口交互之类的问题和学习操作系统关系不大，这里也就不再深究。只要知道由于显示器使用到的寄存器过多，将寄存器进行了分组，我们要用到的就是 CRT Controller Registers 这组寄存器，默认情况下占用的端口为 0x3D4。通过向该端口 in 数据可以选定使用该组中的特定寄存器</p><p>获取光标首先要向 0x3D4 端口写入 0x0E 和 0x0F 分别选定 Cursor Location High Register 和 Cursor Location Low Register，通过 out 把指针的地址高 8 位和低 8 位都读出来。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>    ; get the current cursor addr (high 8 bits)
+</span></span><span style=display:flex><span>    mov dx,0x3D4                                    ; Address Reg (base)
+</span></span><span style=display:flex><span>    mov al,0x0E                                     ; Cursor Location High Reg (idx)
+</span></span><span style=display:flex><span>    out dx,al   
+</span></span><span style=display:flex><span>    mov dx,0x3D5                                    ; Data Reg (base)
+</span></span><span style=display:flex><span>    in al,dx                                        ; get the high 8 bits of the cursor addr
+</span></span><span style=display:flex><span>    mov ah,al
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ; get the current cursor addr (low 8 bits)
+</span></span><span style=display:flex><span>    mov dx,0x3D4                                    ; Address Reg (base)
+</span></span><span style=display:flex><span>    mov al,0x0F                                     ; Cursor Location Low Reg (idx)
+</span></span><span style=display:flex><span>    out dx,al   
+</span></span><span style=display:flex><span>    mov dx,0x3D5                                    ; Data Reg (base)
+</span></span><span style=display:flex><span>    in al,dx                                        ; get the low 8 bits of the cursor addr
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    ; save the cursor addr to bx
+</span></span><span style=display:flex><span>    mov bx,ax
+</span></span></code></pre></div><h4 id=判断字符类型>判断字符类型</h4><p>如果是前文所述的 3 个控制字符之一，那么就进行特殊处理，否则直接输出。由于是 32 位程序，所以传入的参数在 [rsp + 4] 处，不过由于有必要保存寄存器的值，函数开头会执行 <code>pushad</code> 将 8 个同样寄存器入栈，所以传入的参数在 [rsp + 36] 处</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>    ; get the char wating to be put
+</span></span><span style=display:flex><span>    mov ecx,[esp + 36]                              ; 32(backup regs) + 4(return addr) = 36
+</span></span><span style=display:flex><span>    cmp cl,0x0d                                     ; CR(Carriage Return): 0x0d
+</span></span><span style=display:flex><span>    jz .sys_putchar_CarriageReturn
+</span></span><span style=display:flex><span>    cmp cl,0x0a                                     ; LF(Line Feed): 0x0a
+</span></span><span style=display:flex><span>    jz .sys_putchar_LineFeed
+</span></span><span style=display:flex><span>    cmp cl,0x08                                     ; BF(BackSpace): 0x08
+</span></span><span style=display:flex><span>    jz .sys_putchar_BackSpace
+</span></span><span style=display:flex><span>    jmp .sys_putchar_AnyOther                       ; Any other char
+</span></span></code></pre></div><h4 id=处理退格>处理退格</h4><p>退格的处理比较简单，将光标退格一位并把光标原先指向的字符替换成空格或者 &lsquo;\0&rsquo; 就可以了，字符属性默认（0x7，黑底白字）。这里其实属性和字符一起设置，以 word 为单位会更容易，之后可能会改动。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>    .sys_putchar_BackSpace:
+</span></span><span style=display:flex><span>        dec bx                                      ; cursor back one step
+</span></span><span style=display:flex><span>        shl bx,1                                    ; bx&lt;&lt;1 &lt;=&gt; bx * 2
+</span></span><span style=display:flex><span>        mov byte [gs:bx],0x20                       ; fill the delete char with &#39; &#39;
+</span></span><span style=display:flex><span>        inc bx
+</span></span><span style=display:flex><span>        mov byte [gs:bx],0x07                       ; 00000111b, (default status)
+</span></span><span style=display:flex><span>        shr bx,1                                    ; bx&gt;&gt;1 ,=&gt; bx // 2 
+</span></span><span style=display:flex><span>        jmp .sys_putchar_SetCursor
+</span></span></code></pre></div><p>注意，我们之前把指针地址存储在了 bx 中，之后的操作都是对 bx 进行的，没有真正改变光标位置，直到子函数 <code>.sys_putchar_SetCursor</code> 之后才会同样进行设置。</p><h4 id=输出字符>输出字符</h4><p>输出字符后需要将光标后移一位，由于光标后移了，就可能会有溢出的情况（输出到页面外），我们的处理为避免溢出，即如果光标指向第 2001 字符，代表下一次输出会溢出，此时向上滚屏一行（也就是不跳转至设置光标，执行之后对换行回车的处理）。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>    .sys_putchar_AnyOther:
+</span></span><span style=display:flex><span>        shl bx,1                                    ; bx&lt;&lt;1
+</span></span><span style=display:flex><span>        mov byte byte[gs:bx],cl                     ; put the char
+</span></span><span style=display:flex><span>        inc bx
+</span></span><span style=display:flex><span>        mov byte byte[gs:bx],0x07                   ; set the statu
+</span></span><span style=display:flex><span>        inc bx                                      ; point to the next char
+</span></span><span style=display:flex><span>        shr bx,1                                    ; bx&gt;&gt;1
+</span></span><span style=display:flex><span>        cmp bx,2000                                 ; bx == 2000, don&#39;t jmp, bx &lt; 2000, jmp
+</span></span><span style=display:flex><span>        jl .sys_putchar_SetCursor                   ; if the cursor overflow the maximum of the 
+</span></span><span style=display:flex><span>                                                    ; video memory, do a Line Feed, if not, set 
+</span></span><span style=display:flex><span>                                                    ; the new cursor.
+</span></span></code></pre></div><h4 id=换行回车>换行、回车</h4><p>实际上回车是返回到行首，但是一般都是返回到下一行行首，所以可以和换行等同，这里也把两者等同。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>    .sys_putchar_LineFeed:
+</span></span><span style=display:flex><span>    .sys_putchar_CarriageReturn:
+</span></span><span style=display:flex><span>        xor dx,dx                                   ; high 16 bits of the number to be div
+</span></span><span style=display:flex><span>        mov bx,bx                                   ; low 16 bits of the number to be div
+</span></span><span style=display:flex><span>        mov si,80                                   ; diver
+</span></span><span style=display:flex><span>        div si  
+</span></span><span style=display:flex><span>        sub bx,dx                                   ; bx = bx - bx % 80 =&gt; make the cursor point to the front of the line
+</span></span><span style=display:flex><span>                                                    ; CR done 
+</span></span><span style=display:flex><span>        add bx,80                                   ; dx = dx + 80 =&gt; point to the next line
+</span></span><span style=display:flex><span>                                                    ; LF done
+</span></span><span style=display:flex><span>        cmp bx,2000
+</span></span><span style=display:flex><span>        jl .sys_putchar_SetCursor
+</span></span></code></pre></div><p>此处的对光标的计算方法为 <code>bx = bx - bx % 80 + 80</code>，每行有 80 个字，这么处理就是先取得当前的行首，然后跳至下一行行首。这里对末尾的处理看似有问题，也就是从输出字符那里执行过来的话，bx 就会变成 2080，但是实际上没有问题，因为这样的值会造成滚屏，滚完屏后直接置 bx 为 1920。</p><h4 id=滚屏>滚屏</h4><p>说是滚屏，其实是上移一行。其实显示器中有 Start Address High/Low Register 来维护向屏幕输出的缓存开始地址，通过改变这两个寄存器就可以直接实现滚屏。但是这样做涉及硬件 I/O，在编写和时间上都未必是最优的。而且如果我们不依赖这两个寄存器，就可以完全利用 16KB 显存，实现类似 Linux 的多 TTY。如果很有必要缓存屏幕内容，也可以在内存中缓存，不一定要使用显存。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>    .sys_putchar_RollOneLine:                       ; move line 1~24 to the line 0~23 and clear the last line
+</span></span><span style=display:flex><span>        ; move line 1~24 to the line 0~23
+</span></span><span style=display:flex><span>        mov ecx,960                                 ; ((2000 - 80) * 2)(byte) / 4 =960(dword) 
+</span></span><span style=display:flex><span>        mov esi,0xC00B80A0                          ; front of line 1
+</span></span><span style=display:flex><span>        mov edi,0xC00B8000                          ; front of line 0
+</span></span><span style=display:flex><span>        cld                                         ; increase copy
+</span></span><span style=display:flex><span>        rep movsd
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        ; clear the last line
+</span></span><span style=display:flex><span>        mov ecx,80                                  ; 80 words (only one word at a time)
+</span></span><span style=display:flex><span>        mov ebx,3840                                ; (2000 - 80) * 2 = 3840
+</span></span><span style=display:flex><span>        .sys_putchar_RollOneLine_CLL:
+</span></span><span style=display:flex><span>            mov word [gs:ebx],0x0720                ; blank
+</span></span><span style=display:flex><span>            add ebx,2
+</span></span><span style=display:flex><span>            loop .sys_putchar_RollOneLine_CLL
+</span></span><span style=display:flex><span>        mov bx,1920                                 ; make cursor point to the last line
+</span></span></code></pre></div><p>利用 movsd 指令可以很容易地实现上滚。然后清空最后一行（全部置为空格）。再设置光标位置为最后一行行首（1920）。</p><h4 id=写回光标>写回光标</h4><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>    .sys_putchar_SetCursor:
+</span></span><span style=display:flex><span>        ; set the current cursor addr (high 8 bits)
+</span></span><span style=display:flex><span>        mov dx,0x3D4                                ; Address Reg (base)
+</span></span><span style=display:flex><span>        mov al,0x0E                                 ; Cursor Location High Reg (idx)
+</span></span><span style=display:flex><span>        out dx,al              
+</span></span><span style=display:flex><span>        mov dx,0x3D5                                ; Data Reg (base)
+</span></span><span style=display:flex><span>        mov al,bh
+</span></span><span style=display:flex><span>        out dx,al                                   ; set the high 8 bits of the cursor addr
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        ; set the current cursor addr (low 8 bits)
+</span></span><span style=display:flex><span>        mov dx,0x3D4                                ; Address Reg (base)
+</span></span><span style=display:flex><span>        mov al,0x0F                                 ; Cursor Location low Reg (idx)
+</span></span><span style=display:flex><span>        out dx,al               
+</span></span><span style=display:flex><span>        mov dx,0x3D5                                ; Data Reg (base)
+</span></span><span style=display:flex><span>        mov al,bl
+</span></span><span style=display:flex><span>        out dx,al                                   ; set the low 8 bits of the cursor addr
+</span></span></code></pre></div><p>最后需要写回光标位置。</p><p>最后完整的 print.S</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>TI_GDT equ 0
+</span></span><span style=display:flex><span>RPL0 equ 0
+</span></span><span style=display:flex><span>SELECTOR_VIDEO equ (0x0003 &lt;&lt; 3) + TI_GDT + RPL0
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>[bits 32]
+</span></span><span style=display:flex><span>section .text
+</span></span><span style=display:flex><span>; -------------------- sys_putchar --------------------
+</span></span><span style=display:flex><span>; write one char in stack to the cursor
+</span></span><span style=display:flex><span>; --------------------------------------------------
+</span></span><span style=display:flex><span>global sys_putchar
+</span></span><span style=display:flex><span>sys_putchar:
+</span></span><span style=display:flex><span>    pushad                                          ; backup all regs (8 * 4 = 32bytes)
+</span></span><span style=display:flex><span>    mov ax,SELECTOR_VIDEO
+</span></span><span style=display:flex><span>    mov gs,ax                                       ; make sure gs stores the right selector
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ; get the current cursor addr (high 8 bits)
+</span></span><span style=display:flex><span>    mov dx,0x3D4                                    ; Address Reg (base)
+</span></span><span style=display:flex><span>    mov al,0x0E                                     ; Cursor Location High Reg (idx)
+</span></span><span style=display:flex><span>    out dx,al   
+</span></span><span style=display:flex><span>    mov dx,0x3D5                                    ; Data Reg (base)
+</span></span><span style=display:flex><span>    in al,dx                                        ; get the high 8 bits of the cursor addr
+</span></span><span style=display:flex><span>    mov ah,al
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ; get the current cursor addr (low 8 bits)
+</span></span><span style=display:flex><span>    mov dx,0x3D4                                    ; Address Reg (base)
+</span></span><span style=display:flex><span>    mov al,0x0F                                     ; Cursor Location Low Reg (idx)
+</span></span><span style=display:flex><span>    out dx,al   
+</span></span><span style=display:flex><span>    mov dx,0x3D5                                    ; Data Reg (base)
+</span></span><span style=display:flex><span>    in al,dx                                        ; get the low 8 bits of the cursor addr
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    ; save the cursor addr to bx
+</span></span><span style=display:flex><span>    mov bx,ax
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    ; get the char wating to be put
+</span></span><span style=display:flex><span>    mov ecx,[esp + 36]                              ; 32(backup regs) + 4(return addr) = 36
+</span></span><span style=display:flex><span>    cmp cl,0x0d                                     ; CR(Carriage Return): 0x0d
+</span></span><span style=display:flex><span>    jz .sys_putchar_CarriageReturn
+</span></span><span style=display:flex><span>    cmp cl,0x0a                                     ; LF(Line Feed): 0x0a
+</span></span><span style=display:flex><span>    jz .sys_putchar_LineFeed
+</span></span><span style=display:flex><span>    cmp cl,0x08                                     ; BF(BackSpace): 0x08
+</span></span><span style=display:flex><span>    jz .sys_putchar_BackSpace
+</span></span><span style=display:flex><span>    jmp .sys_putchar_AnyOther                          ; Any other char
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    .sys_putchar_BackSpace:
+</span></span><span style=display:flex><span>        dec bx                                      ; cursor back one step
+</span></span><span style=display:flex><span>        shl bx,1                                    ; bx&lt;&lt;1 &lt;=&gt; bx * 2
+</span></span><span style=display:flex><span>        mov byte [gs:bx],0x20                       ; fill the delete char with &#39; &#39;
+</span></span><span style=display:flex><span>        inc bx
+</span></span><span style=display:flex><span>        mov byte [gs:bx],0x07                       ; 00000111b, (default black back,withe front)
+</span></span><span style=display:flex><span>        shr bx,1                                    ; bx&gt;&gt;1 ,=&gt; bx // 2 
+</span></span><span style=display:flex><span>        jmp .sys_putchar_SetCursor
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    .sys_putchar_AnyOther:
+</span></span><span style=display:flex><span>        shl bx,1                                    ; bx&lt;&lt;1
+</span></span><span style=display:flex><span>        mov byte byte[gs:bx],cl                     ; put the char
+</span></span><span style=display:flex><span>        inc bx
+</span></span><span style=display:flex><span>        mov byte byte[gs:bx],0x07                   ; set the statu
+</span></span><span style=display:flex><span>        inc bx                                      ; point to the next char
+</span></span><span style=display:flex><span>        shr bx,1                                    ; bx&gt;&gt;1
+</span></span><span style=display:flex><span>        cmp bx,2000                                 ; bx == 2000, don&#39;t jmp, bx &lt; 2000, jmp
+</span></span><span style=display:flex><span>        jl .sys_putchar_SetCursor                   ; if the cursor overflow the maximum of the 
+</span></span><span style=display:flex><span>                                                    ; video memory, do a Line Feed, if not, set 
+</span></span><span style=display:flex><span>                                                    ; the new cursor.
+</span></span><span style=display:flex><span>    .sys_putchar_LineFeed:
+</span></span><span style=display:flex><span>    .sys_putchar_CarriageReturn:
+</span></span><span style=display:flex><span>        xor dx,dx                                   ; high 16 bits of the number to be div
+</span></span><span style=display:flex><span>        mov bx,bx                                   ; low 16 bits of the number to be div
+</span></span><span style=display:flex><span>        mov si,80                                   ; diver
+</span></span><span style=display:flex><span>        div si  
+</span></span><span style=display:flex><span>        sub bx,dx                                   ; dx = dx - dx % 80 =&gt; make the cursor point to the front of the line
+</span></span><span style=display:flex><span>                                                    ; CR done 
+</span></span><span style=display:flex><span>        add bx,80                                   ; dx = dx + 80 =&gt; point to the next line
+</span></span><span style=display:flex><span>                                                    ; LF done
+</span></span><span style=display:flex><span>        cmp bx,2000
+</span></span><span style=display:flex><span>        jl .sys_putchar_SetCursor
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    .sys_putchar_RollOneLine:                       ; move line 1~24 to the line 0~23 and clear the last line
+</span></span><span style=display:flex><span>        ; move line 1~24 to the line 0~23
+</span></span><span style=display:flex><span>        mov ecx,960                                 ; ((2000 - 80) * 2)(byte) / 4 =960(dword) 
+</span></span><span style=display:flex><span>        mov esi,0xC00B80A0                          ; front of line 1
+</span></span><span style=display:flex><span>        mov edi,0xC00B8000                          ; front of line 0
+</span></span><span style=display:flex><span>        cld                                         ; increase copy
+</span></span><span style=display:flex><span>        rep movsd
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        ; clear the last line
+</span></span><span style=display:flex><span>        mov ecx,80                                  ; 80 words (only one word at a time)
+</span></span><span style=display:flex><span>        mov ebx,3840                                ; (2000 - 80) * 2 = 3840
+</span></span><span style=display:flex><span>        .sys_putchar_RollOneLine_CLL:
+</span></span><span style=display:flex><span>            mov word [gs:ebx],0x0720                ; blank
+</span></span><span style=display:flex><span>            add ebx,2
+</span></span><span style=display:flex><span>            loop .sys_putchar_RollOneLine_CLL
+</span></span><span style=display:flex><span>        mov bx,1920                                 ; make cursor point to the last line
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    .sys_putchar_SetCursor:
+</span></span><span style=display:flex><span>        ; set the current cursor addr (high 8 bits)
+</span></span><span style=display:flex><span>        mov dx,0x3D4                                ; Address Reg (base)
+</span></span><span style=display:flex><span>        mov al,0x0E                                 ; Cursor Location High Reg (idx)
+</span></span><span style=display:flex><span>        out dx,al  
+</span></span><span style=display:flex><span>        mov dx,0x3D5                                ; Data Reg (base)
+</span></span><span style=display:flex><span>        mov al,bh
+</span></span><span style=display:flex><span>        out dx,al                                   ; set the high 8 bits of the cursor addr
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        ; set the current cursor addr (low 8 bits)
+</span></span><span style=display:flex><span>        mov dx,0x3D4                                ; Address Reg (base)
+</span></span><span style=display:flex><span>        mov al,0x0F                                 ; Cursor Location low Reg (idx)
+</span></span><span style=display:flex><span>        out dx,al   
+</span></span><span style=display:flex><span>        mov dx,0x3D5                                ; Data Reg (base)
+</span></span><span style=display:flex><span>        mov al,bl
+</span></span><span style=display:flex><span>        out dx,al                                   ; set the low 8 bits of the cursor addr
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    popad                                           ; reset the regs
+</span></span><span style=display:flex><span>    ret
+</span></span><span style=display:flex><span>; -------------------- end of function sys_putchar --------------------
+</span></span></code></pre></div><p>可以看到这里又设置了段选择字 gs。这样做的原因涉及用户进程，由于用户进程完全不需要也不能直接访问显存，所以没有必要在用户态下把 gs 当作一个段选择子，在许多操作系统下，gs 都被当作一个额外的寄存器存储一些额外的信息；另一方面操作系统也不需要由用户来设置 gs，所以操作系统默认 gs 的值需要重新加载。（我这里的解释和书上略有差别，多说了一些也少说了一些，不太重要，之后到用户进程的时候就可以完全解释清楚了。）</p><p>修改了一下 main.c</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;print.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>_start</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;k&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;e&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;r&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;n&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;e&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;l&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;!&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;\n&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;b&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;a&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;c&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;k&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;s&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;p&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;a&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;c&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;e&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;\b&#39;</span>);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;\n&#39;</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span>(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>现在的效果为</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/05/4135902204.png></div><p>在我补全剩下的一些输出函数前先学了一下 makefile，用脚本构建实在太逗了。</p><p>现在我写好了 Makefile，当然由于这个东西比较复杂，我写的还是比较烂的，总之现在是可以 make 一键编译了。</p><p>然后我在 print.S 中添加了 sys_putstr 函数</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>; -------------------- sys_putstr --------------------
+</span></span><span style=display:flex><span>; write a string (end by &#39;\0&#39;)
+</span></span><span style=display:flex><span>; ----------------------------------------------------
+</span></span><span style=display:flex><span>global sys_putstr
+</span></span><span style=display:flex><span>sys_putstr:
+</span></span><span style=display:flex><span>    push ecx
+</span></span><span style=display:flex><span>    push ebx
+</span></span><span style=display:flex><span>    mov ebx,[esp + 12]
+</span></span><span style=display:flex><span>    xor ecx,ecx
+</span></span><span style=display:flex><span>    xor eax,eax
+</span></span><span style=display:flex><span>    .sys_putstr_PutNext:
+</span></span><span style=display:flex><span>        mov cl,[ebx]
+</span></span><span style=display:flex><span>        test cl,cl
+</span></span><span style=display:flex><span>        jz .sys_putstr_EndOfStr
+</span></span><span style=display:flex><span>        push ecx
+</span></span><span style=display:flex><span>        call sys_putchar
+</span></span><span style=display:flex><span>        add esp,4
+</span></span><span style=display:flex><span>        inc ebx
+</span></span><span style=display:flex><span>        inc eax
+</span></span><span style=display:flex><span>        jmp .sys_putstr_PutNext
+</span></span><span style=display:flex><span>    .sys_putstr_EndOfStr:
+</span></span><span style=display:flex><span>    pop ebx
+</span></span><span style=display:flex><span>    pop ecx
+</span></span><span style=display:flex><span>    ret
+</span></span><span style=display:flex><span>; -------------------- end of function sys_putstr --------------------
+</span></span></code></pre></div><p>输出使用 sys_putstr 完成。</p><p>修改 main.c 为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;print.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>_start</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;this is kernel!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;Back Space</span><span style=color:#4070a0;font-weight:700>\b</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span>(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>现在的效果为</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/05/3838936942.png></div><p>书上还实现了一个输出十六进制数的函数，我觉得没有必要用汇编实现这个（太折磨了），完全可以用 C 来写。所以我就不写了。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/os>OS</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

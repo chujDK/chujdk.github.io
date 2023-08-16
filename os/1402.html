@@ -1,0 +1,52 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>《操作系统真像还原》操作系统实现——系统调用 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="到这里，有了前面的铺垫，要说的东西不多，其实没必要单独写出来，但是系统调用毕竟还是比较重要的东西，所以这里还是单独说一下。 Linux 下的系统调用占用"><meta property="og:image" content><meta property="og:title" content="《操作系统真像还原》操作系统实现——系统调用"><meta property="og:description" content="到这里，有了前面的铺垫，要说的东西不多，其实没必要单独写出来，但是系统调用毕竟还是比较重要的东西，所以这里还是单独说一下。 Linux 下的系统调用占用"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/os/1402.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-06-14T20:46:00+00:00"><meta property="article:modified_time" content="2021-06-14T20:46:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="《操作系统真像还原》操作系统实现——系统调用"><meta name=twitter:description content="到这里，有了前面的铺垫，要说的东西不多，其实没必要单独写出来，但是系统调用毕竟还是比较重要的东西，所以这里还是单独说一下。 Linux 下的系统调用占用"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>《操作系统真像还原》操作系统实现——系统调用</h1><div class=meta>Posted on Jun 14, 2021</div></div><section class=body><p>到这里，有了前面的铺垫，要说的东西不多，其实没必要单独写出来，但是系统调用毕竟还是比较重要的东西，所以这里还是单独说一下。</p><p>Linux 下的系统调用占用的是 0x80 号中断，通过 eax 来选择要调用的功能，我们维护一个函数指针数组，存储各个功能的函数指针，然后用一个简单的汇编函数就可以实现调用</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>extern</span> syscall_table
+</span></span><span style=display:flex><span>section .text
+</span></span><span style=display:flex><span>global syscall_handler
+</span></span><span style=display:flex><span><span style=color:#002070;font-weight:700>syscall_handler</span>:
+</span></span><span style=display:flex><span>    push <span style=color:#40a070>0</span>  ; syscall has no errcode, thus push <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    push ds
+</span></span><span style=display:flex><span>    push es
+</span></span><span style=display:flex><span>    push fs
+</span></span><span style=display:flex><span>    push gs
+</span></span><span style=display:flex><span>    pushad  ; save the context
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    push <span style=color:#40a070>0x80</span> ; push the INT <span style=color:#06287e>number</span> (as IntExit poped <span style=color:#007020;font-weight:700>this</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    push edx
+</span></span><span style=display:flex><span>    push ecx
+</span></span><span style=display:flex><span>    push ebx
+</span></span><span style=display:flex><span>    call [syscall_table <span style=color:#666>+</span> eax <span style=color:#666>*</span> <span style=color:#40a070>4</span>]
+</span></span><span style=display:flex><span>    add esp, <span style=color:#40a070>12</span>
+</span></span><span style=display:flex><span>    mov [esp <span style=color:#666>+</span> <span style=color:#40a070>8</span> <span style=color:#666>*</span> <span style=color:#40a070>4</span>], eax  ; update the eax in the backup
+</span></span><span style=display:flex><span>                            ; so eax can be the ret val
+</span></span><span style=display:flex><span>    jmp IntExit
+</span></span></code></pre></div><p>然后只要完成对应的系统调用即可。为了使调用简单，对于需要不同参数个数的系统调用提供类似于如下的宏来进行调用</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _syscall3(NUMBER, ARG1, ARG2, ARG3) \
+</span></span></span><span style=display:flex><span><span style=color:#007020>({											\
+</span></span></span><span style=display:flex><span><span style=color:#007020>	int retval;								\
+</span></span></span><span style=display:flex><span><span style=color:#007020>	__asm__ volatile						\
+</span></span></span><span style=display:flex><span><span style=color:#007020>	(										\
+</span></span></span><span style=display:flex><span><span style=color:#007020>		&#34;int $0x80&#34; :						\
+</span></span></span><span style=display:flex><span><span style=color:#007020>		&#34;=a&#34; (retval) :						\
+</span></span></span><span style=display:flex><span><span style=color:#007020>		&#34;a&#34; (NUMBER), &#34;b&#34; (ARG1),			\
+</span></span></span><span style=display:flex><span><span style=color:#007020>		&#34;c&#34; (ARG2), &#34;d&#34; (ARG3) :			\
+</span></span></span><span style=display:flex><span><span style=color:#007020>		&#34;memory&#34;							\
+</span></span></span><span style=display:flex><span><span style=color:#007020>	);										\
+</span></span></span><span style=display:flex><span><span style=color:#007020>	retval;									\
+</span></span></span><span style=display:flex><span><span style=color:#007020>})											\
+</span></span></span></code></pre></div><p>对于一个简单的系统调用 getpid() 暴露给用户态的函数定义即为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>size_t <span style=color:#06287e>getpid</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> _syscall0(SYS_GETPID);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>在函数指针数组即系统调用函数表中进行如下的初始化</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>	syscall_table[SYS_GETPID] <span style=color:#666>=</span> sys_getpid;
+</span></span></code></pre></div><p>并提供一个在内核函数 sys_getpid 来执行 getpid 的操作</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>size_t <span style=color:#06287e>sys_getpid</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> GetCurrentThreadPCB()<span style=color:#666>-&gt;</span>pid;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>然后就只完成需要提供的系统调用函数即可。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/os>OS</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

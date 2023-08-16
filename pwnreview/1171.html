@@ -1,0 +1,289 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>_IO_FILE 相关源码阅读（一）——vtable 及其指向的函数:从 __finish 说起 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="__finish 虚函数主要处理的是对文件结构体的析构操作，同时会根据情况进行对文件进行 close 操作。通过本文的分析，应该可以基本理解 _IO_new_file_f"><meta property="og:image" content><meta property="og:title" content="_IO_FILE 相关源码阅读（一）——vtable 及其指向的函数:从 __finish 说起"><meta property="og:description" content="__finish 虚函数主要处理的是对文件结构体的析构操作，同时会根据情况进行对文件进行 close 操作。通过本文的分析，应该可以基本理解 _IO_new_file_f"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/pwnreview/1171.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-04-10T19:02:00+00:00"><meta property="article:modified_time" content="2021-04-10T19:02:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="_IO_FILE 相关源码阅读（一）——vtable 及其指向的函数:从 __finish 说起"><meta name=twitter:description content="__finish 虚函数主要处理的是对文件结构体的析构操作，同时会根据情况进行对文件进行 close 操作。通过本文的分析，应该可以基本理解 _IO_new_file_f"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>_IO_FILE 相关源码阅读（一）——vtable 及其指向的函数:从 __finish 说起</h1><div class=meta>Posted on Apr 10, 2021</div></div><section class=body><p><code>__finish</code> 虚函数主要处理的是对文件结构体的析构操作，同时会根据情况进行对文件进行 <code>close</code> 操作。通过本文的分析，应该可以基本理解 <code>_IO_new_file_finish</code>、<code>_IO_new_file_write</code>、<code>__GI__IO_file_seek</code>、<code>__GI__IO_file_close</code> 等函数的实现。同时可以对面向语言中<strong>虚函数</strong>的实现有初步的了解，更重要的，可以明白面向对象是一种思维，而不是语法，使用面向过程式语言仍然可以实现面向对象的开发。</p><h2 id=_io_file_plus-的结构>_IO_FILE_plus 的结构</h2><p>我们都知道 glibc 中的每个文件都是由一个 <code>_IO_FILE_plus</code> 结构体来维护的，其定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_FILE_plus</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  FILE file;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_jump_t</span> <span style=color:#666>*</span>vtable;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>其中的 <code>vtable</code> 虚表就是本文主要要分析的目标。由于虚表中的函数依赖于 <code>file</code> 成员变量，所以这里也放一下 FILE 结构体的定义（<code>typedef struct _IO_FILE FILE;</code>）。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_FILE</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> _flags;                <span style=color:#60a0b0;font-style:italic>/* High-order word is _IO_MAGIC; rest is flags. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* The following pointers correspond to the C++ streambuf protocol. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_read_ptr;        <span style=color:#60a0b0;font-style:italic>/* Current read pointer */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_read_end;        <span style=color:#60a0b0;font-style:italic>/* End of get area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_read_base;        <span style=color:#60a0b0;font-style:italic>/* Start of putback+get area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_write_base;        <span style=color:#60a0b0;font-style:italic>/* Start of put area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_write_ptr;        <span style=color:#60a0b0;font-style:italic>/* Current put pointer. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_write_end;        <span style=color:#60a0b0;font-style:italic>/* End of put area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_buf_base;        <span style=color:#60a0b0;font-style:italic>/* Start of reserve area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_buf_end;        <span style=color:#60a0b0;font-style:italic>/* End of reserve area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* The following fields are used to support backing up and undo. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_save_base; <span style=color:#60a0b0;font-style:italic>/* Pointer to start of non-current get area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_backup_base;  <span style=color:#60a0b0;font-style:italic>/* Pointer to first valid character of backup area */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_save_end; <span style=color:#60a0b0;font-style:italic>/* Pointer to end of non-current get area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_marker</span> <span style=color:#666>*</span>_markers;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_FILE</span> <span style=color:#666>*</span>_chain;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> _fileno;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> _flags2;
+</span></span><span style=display:flex><span>  __off_t _old_offset; <span style=color:#60a0b0;font-style:italic>/* This used to be _offset but it&#39;s too small.  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* 1+column number of pbase(); 0 is unknown. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#902000>short</span> _cur_column;
+</span></span><span style=display:flex><span>  <span style=color:#902000>signed</span> <span style=color:#902000>char</span> _vtable_offset;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> _shortbuf[<span style=color:#40a070>1</span>];
+</span></span><span style=display:flex><span>  _IO_lock_t <span style=color:#666>*</span>_lock;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p><code>_fileno</code> 是该文件在系统中的文件描述符的值。</p><p>注意变量 <code>_old_offset</code>，注释里也有提到，这曾经是变量 <code>_offset</code>，事实上，在之后的函数中也是使用的 <code>_offset</code>。此变量表示文件当前的读写位置偏移（与文件头的偏移）。</p><p>结构体中的变量 <code>_flags</code> 标志了文件所处的状态等，这些状态的宏定义如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#define _IO_MAGIC         0xFBAD0000 /* Magic number */
+</span></span><span style=display:flex><span>#define _IO_MAGIC_MASK    0xFFFF0000
+</span></span><span style=display:flex><span>#define _IO_USER_BUF          0x0001 /* Don&#39;t deallocate buffer on close. */
+</span></span><span style=display:flex><span>#define _IO_UNBUFFERED        0x0002
+</span></span><span style=display:flex><span>#define _IO_NO_READS          0x0004 /* Reading not allowed.  */
+</span></span><span style=display:flex><span>#define _IO_NO_WRITES         0x0008 /* Writing not allowed.  */
+</span></span><span style=display:flex><span>#define _IO_EOF_SEEN          0x0010
+</span></span><span style=display:flex><span>#define _IO_ERR_SEEN          0x0020
+</span></span><span style=display:flex><span>#define _IO_DELETE_DONT_CLOSE 0x0040 /* Don&#39;t call close(_fileno) on close.  */
+</span></span><span style=display:flex><span>#define _IO_LINKED            0x0080 /* In the list of all open files.  */
+</span></span><span style=display:flex><span>#define _IO_IN_BACKUP         0x0100
+</span></span><span style=display:flex><span>#define _IO_LINE_BUF          0x0200
+</span></span><span style=display:flex><span>#define _IO_TIED_PUT_GET      0x0400 /* Put and get pointer move in unison.  */
+</span></span><span style=display:flex><span>#define _IO_CURRENTLY_PUTTING 0x0800
+</span></span><span style=display:flex><span>#define _IO_IS_APPENDING      0x1000
+</span></span><span style=display:flex><span>#define _IO_IS_FILEBUF        0x2000
+</span></span><span style=display:flex><span>                           /* 0x4000  No longer used, reserved for compat.  */
+</span></span><span style=display:flex><span>#define _IO_USER_LOCK         0x8000
+</span></span></code></pre></div><p><code>_flags2</code> 变量中也存储了一些标志</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>/* Bits for the _flags2 field.  */
+</span></span><span style=display:flex><span>#define _IO_FLAGS2_MMAP 1
+</span></span><span style=display:flex><span>#define _IO_FLAGS2_NOTCANCEL 2
+</span></span><span style=display:flex><span>#define _IO_FLAGS2_USER_WBUF 8
+</span></span><span style=display:flex><span>#define _IO_FLAGS2_NOCLOSE 32
+</span></span><span style=display:flex><span>#define _IO_FLAGS2_CLOEXEC 64
+</span></span><span style=display:flex><span>#define _IO_FLAGS2_NEED_LOCK 128
+</span></span></code></pre></div><h2 id=vtable-的定义>vtable 的定义</h2><p><code>vtable</code> 是一个类型为 <code>struct _IO_jump_t</code> 的结构体，这个结构体是这样定义的。这个结构体中存储了许多函数指针。其实这里是带有面向对象的思维的，<code>vtable</code> 实际上是一张虚表，通过这张虚表实现了虚函数的效果。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>struct _IO_jump_t
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>JUMP_FIELD(size_t, __dummy);
+</span></span><span style=display:flex><span>JUMP_FIELD(size_t, __dummy2);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_finish_t, __finish);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_overflow_t, __overflow);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_underflow_t, __underflow);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_underflow_t, __uflow);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_pbackfail_t, __pbackfail);
+</span></span><span style=display:flex><span>/* showmany */
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_xsputn_t, __xsputn);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_xsgetn_t, __xsgetn);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_seekoff_t, __seekoff);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_seekpos_t, __seekpos);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_setbuf_t, __setbuf);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_sync_t, __sync);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_doallocate_t, __doallocate);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_read_t, __read);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_write_t, __write);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_seek_t, __seek);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_close_t, __close);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_stat_t, __stat);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_showmanyc_t, __showmanyc);
+</span></span><span style=display:flex><span>JUMP_FIELD(_IO_imbue_t, __imbue);
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><h2 id=函数指针的指向>函数指针的指向</h2><p>这里仅讨论标准文件类型的函数实现，也就是以标准输入输出文件为代表的结构体的 <code>vtable</code> 中函数指针的指向，通过调试，可以获得他们的指向，整理后得到以下的对应关系</p><table><thead><tr><th>ptr</th><th>function</th></tr></thead><tbody><tr><td>__dummy</td><td>0</td></tr><tr><td>__dummy2</td><td>0</td></tr><tr><td>__finish</td><td>&lt;_IO_new_file_finish></td></tr><tr><td>__overflow</td><td>&lt;_IO_new_file_overflow></td></tr><tr><td>__underflow</td><td>&lt;_IO_new_file_underflow></td></tr><tr><td>__uflow</td><td>&lt;__GI__IO_default_uflow></td></tr><tr><td>__pbackfail</td><td>&lt;__GI__IO_default_pbackfail></td></tr><tr><td>__xsputn</td><td>&lt;_IO_new_file_xsputn></td></tr><tr><td>__xsgetn</td><td>&lt;__GI__IO_file_xsgetn></td></tr><tr><td>__seekoff</td><td>&lt;_IO_new_file_seekoff></td></tr><tr><td>__seekpos</td><td>&lt;_IO_default_seekpos></td></tr><tr><td>__setbuf</td><td>&lt;_IO_new_file_setbuf></td></tr><tr><td>__sync</td><td>&lt;_IO_new_file_sync></td></tr><tr><td>__doallocate</td><td>&lt;__GI__IO_file_doallocate></td></tr><tr><td>__read</td><td>&lt;__GI__IO_file_read></td></tr><tr><td>__write</td><td>&lt;_IO_new_file_write></td></tr><tr><td>__seek</td><td>&lt;__GI__IO_file_seek></td></tr><tr><td>__close</td><td>&lt;__GI__IO_file_close></td></tr><tr><td>__stat</td><td>&lt;__GI__IO_file_stat></td></tr><tr><td>__showmanyc</td><td>&lt;_IO_default_showmanyc></td></tr><tr><td>__imbue</td><td>&lt;_IO_default_imbue></td></tr></tbody></table><h2 id=一些宏的定义>一些宏的定义</h2><p>一个比较典型的对 <code>vtable</code> 中的函数指针的调用是这样写的 <code>_IO_OVERFLOW (fp, EOF)</code>，把宏展开来就是</p><p><code>((*(struct _IO_jump_t **) ((void *) &(*(__typeof__ (((struct _IO_FILE_plus){}).vtable) *)(((char *) ((fp))) + ((size_t)&(((struct _IO_FILE_plus*)0)->vtable)))) + (fp)->_vtable_offset))->__overflow) (fp, (-1))</code></p><p>这样就以 <code>fp</code> 和 <code>EOF</code> 为参数调用了 <code>fp</code> 中的 <code>JUMP_FIELD(_IO_overflow_t, __overflow);</code> 这一个函数指针。说这个是指针略有些怪异，我们把它展开</p><p>宏的定义如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define JUMP_FIELD(TYPE, NAME) TYPE NAME
+</span></span></span></code></pre></div><p>展开就是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>_IO_overflow_t __overflow;
+</span></span></code></pre></div><p>借用面向对象的思维，也可以称之为一个成员函数。</p><h2 id=各个函数的实现>各个函数的实现</h2><h3 id=__finish>__finish</h3><p>函数指针的定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>typedef</span> <span style=color:#06287e>void</span> (<span style=color:#666>*</span>_IO_finish_t) (FILE <span style=color:#666>*</span>, <span style=color:#902000>int</span>);
+</span></span></code></pre></div><p>相关的宏</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _IO_FINISH(FP) JUMP1 (__finish, FP, 0)
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define _IO_WFINISH(FP) WJUMP1 (__finish, FP, 0)
+</span></span></span></code></pre></div><p>glibc 对这个函数的解释为</p><blockquote><p>/* The &lsquo;finish&rsquo; function does any final cleaning up of an _IO_FILE object.
+It does not delete (free) it, but does everything else to finalize it.
+It matches the streambuf::~streambuf virtual destructor. */</p></blockquote><p>也就是说这相当于一个 <code>_IO_FILE</code> 类的对象的析构函数。函数的实现比较简单。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>_IO_new_file_finish</span> (FILE <span style=color:#666>*</span>fp, <span style=color:#902000>int</span> dummy)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (_IO_file_is_open (fp))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      _IO_do_flush (fp);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>(fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> _IO_DELETE_DONT_CLOSE))
+</span></span><span style=display:flex><span>        _IO_SYSCLOSE (fp);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  _IO_default_finish (fp, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>libc_hidden_ver (_IO_new_file_finish, _IO_file_finish)
+</span></span></code></pre></div><p>首先注意函数的第一个参数是 <code>FILE *</code> 类型的，也就是 <code>_IO_FILE</code> 类型，这是因为成员函数不需要对虚表进行访问等操作。</p><p>进入函数后，首先通过宏 <code>_IO_file_is_open (fp)</code> 判断文件是否打开，这个宏的定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _IO_file_is_open(__fp) ((__fp)-&gt;_fileno != -1)
+</span></span></span></code></pre></div><p>也就是判断了结构体中的 <code>_fileno</code> 变量是否为 -1。若为 -1 则表明该文件已被关闭。</p><p>如果文件是打开的，首先通过 <code>_IO_do_flush (fp)</code> 来刷新该文件的缓冲区，宏的定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#define _IO_do_flush(_f) \
+</span></span><span style=display:flex><span>  ((_f)-&gt;_mode &lt;= 0                                                              \
+</span></span><span style=display:flex><span>   ? _IO_do_write(_f, (_f)-&gt;_IO_write_base,                                      \
+</span></span><span style=display:flex><span>                  (_f)-&gt;_IO_write_ptr-(_f)-&gt;_IO_write_base)                      \
+</span></span><span style=display:flex><span>   : _IO_wdo_write(_f, (_f)-&gt;_wide_data-&gt;_IO_write_base,                         \
+</span></span><span style=display:flex><span>                   ((_f)-&gt;_wide_data-&gt;_IO_write_ptr                              \
+</span></span><span style=display:flex><span>                    - (_f)-&gt;_wide_data-&gt;_IO_write_base)))
+</span></span></code></pre></div><p>这里进行的应该是检测是否需要输出宽字符。<em>如果是输出跨字符则调用 <code>_IO_wdo_write</code>，实际调用的是 <code>__GI__IO_wdo_write</code>，定义在 <code>glibc/libio/wfileops.c</code> 中，实现比较复杂，这里按下不表。</em> 否则调用 <code>_IO_do_write</code> 进行输出，实际调用的是定义在 <code>glibc/libio/fileops.c</code> 中的 <code>_IO_new_do_write</code> 函数，其实现如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>int
+</span></span><span style=display:flex><span>_IO_new_do_write (FILE *fp, const char *data, size_t to_do)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  return (to_do == 0
+</span></span><span style=display:flex><span>          || (size_t) new_do_write (fp, data, to_do) == to_do) ? 0 : EOF;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>libc_hidden_ver (_IO_new_do_write, _IO_do_write)
+</span></span></code></pre></div><p>传入的参数分别为文件对象自身（<code>FILE *fp</code>），输出起始地址（<code>_IO_FILE</code> 结构体成员指针变量 _IO_write_base），输出长度（<code>_IO_write_ptr - _IO_write_base</code>，这里也可以看出这两个指针分别代表了输出的结束和起始点）。</p><p>可见这里利用了短路求值原理，如果需要输出的字符数量为零，直接返回，否则调用 <code>||</code> 后面的 <code>(size_t) new_do_write (fp, data, to_do)</code>，传入的参数是一样的。也就是说这个函数只是做了对是否输出做了一个简单的判断。</p><p><code>new_do_write</code> 函数的实现如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>static size_t
+</span></span><span style=display:flex><span>new_do_write (FILE *fp, const char *data, size_t to_do)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  size_t count;
+</span></span><span style=display:flex><span>  if (fp-&gt;_flags &amp; _IO_IS_APPENDING)
+</span></span><span style=display:flex><span>    /* On a system without a proper O_APPEND implementation,
+</span></span><span style=display:flex><span>       you would need to sys_seek(0, SEEK_END) here, but is
+</span></span><span style=display:flex><span>       not needed nor desirable for Unix- or Posix-like systems.
+</span></span><span style=display:flex><span>       Instead, just indicate that offset (before and after) is
+</span></span><span style=display:flex><span>       unpredictable. */
+</span></span><span style=display:flex><span>    fp-&gt;_offset = _IO_pos_BAD;
+</span></span><span style=display:flex><span>  else if (fp-&gt;_IO_read_end != fp-&gt;_IO_write_base)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      off64_t new_pos
+</span></span><span style=display:flex><span>        = _IO_SYSSEEK (fp, fp-&gt;_IO_write_base - fp-&gt;_IO_read_end, 1);
+</span></span><span style=display:flex><span>      if (new_pos == _IO_pos_BAD)
+</span></span><span style=display:flex><span>        return 0;
+</span></span><span style=display:flex><span>      fp-&gt;_offset = new_pos;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  count = _IO_SYSWRITE (fp, data, to_do);
+</span></span><span style=display:flex><span>  if (fp-&gt;_cur_column &amp;&amp; count)
+</span></span><span style=display:flex><span>    fp-&gt;_cur_column = _IO_adjust_column (fp-&gt;_cur_column - 1, data, count) + 1;
+</span></span><span style=display:flex><span>  _IO_setg (fp, fp-&gt;_IO_buf_base, fp-&gt;_IO_buf_base, fp-&gt;_IO_buf_base);
+</span></span><span style=display:flex><span>  fp-&gt;_IO_write_base = fp-&gt;_IO_write_ptr = fp-&gt;_IO_buf_base;
+</span></span><span style=display:flex><span>  fp-&gt;_IO_write_end = (fp-&gt;_mode &lt;= 0
+</span></span><span style=display:flex><span>                       &amp;&amp; (fp-&gt;_flags &amp; (_IO_LINE_BUF | _IO_UNBUFFERED))
+</span></span><span style=display:flex><span>                       ? fp-&gt;_IO_buf_base : fp-&gt;_IO_buf_end);
+</span></span><span style=display:flex><span>  return count;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>count 变量记录输出的字符个数。</p><p>进入流程后，首先检测 <code>_flags</code> 的 <code>_IO_IS_APPENDING</code> 标志位，如果处于 <code>APPENDING</code>模式，则执行<code>fp->_offset = _IO_pos_BAD;</code>。<code>_IO_pos_BAD</code> 实际是一个宏，其定义和解释如下：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* _IO_pos_BAD is an off64_t value indicating error, unknown, or EOF.  */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define _IO_pos_BAD ((off64_t) -1)
+</span></span></span></code></pre></div><p>他表示出现了错误，或者未知情况，或读到了文件尾。在这种模式下，不会进行之后的 <code>lseek</code>，而是直接输出 <code>[_IO_write_base,_IO_write_ptr]</code> 中所有的数据。我们常常会在对 <code>_IO_2_1_stdout_</code> 攻击的时候利用到这一点（由于这是一个 leak 的小技巧，并没有特别好的例子，就勉强以<a href=https://www.cjovi.icu/WP/1203.html>此题</a>为例）。</p><p>如果不处于，则进入 <code>else if</code> 分支，这里判断的是指针 <code>_IO_write_base</code> 和 <code>_IO_read_end</code> 是否指向同一地址，若非，则调用 <code>_IO_SYSSEEK</code>，该宏的定义如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _IO_SYSSEEK(FP, OFFSET, MODE) JUMP2 (__seek, FP, OFFSET, MODE)
+</span></span></span></code></pre></div><p>可见这里调用了另一个函数指针 __seek，所以下面先分析该函数实现</p><hr><h3 id=__seek>__seek</h3><p>函数指针的定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>typedef</span> <span style=color:#06287e>off64_t</span> (<span style=color:#666>*</span>_IO_seek_t) (FILE <span style=color:#666>*</span>, off64_t, <span style=color:#902000>int</span>);
+</span></span></code></pre></div><p>相关的宏</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _IO_SYSSEEK(FP, OFFSET, MODE) JUMP2 (__seek, FP, OFFSET, MODE)
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define _IO_WSYSSEEK(FP, OFFSET, MODE) WJUMP2 (__seek, FP, OFFSET, MODE)
+</span></span></span></code></pre></div><p>glibc 的解释为</p><blockquote><p>/* The &lsquo;sysseek&rsquo; hook is used to re-position an external file.
+It generalizes the Unix lseek(2) function.
+It matches the streambuf::sys_seek virtual function, which is
+specific to this implementation. */</p></blockquote><p>指向的函数为 <code>__GI__IO_file_seek</code>，内部的实现为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>off64_t
+</span></span><span style=display:flex><span><span style=color:#06287e>_IO_file_seek</span> (FILE <span style=color:#666>*</span>fp, off64_t offset, <span style=color:#902000>int</span> dir)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> __lseek64 (fp<span style=color:#666>-&gt;</span>_fileno, offset, dir);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>libc_hidden_def (_IO_file_seek)
+</span></span></code></pre></div><p>该函数定义在 <code>glibc/libio/fileops.c</code> 中，传入的参数分别为文件结构体指针，移动的偏移。这里调用了定义在 <code>sysdeps/unix/sysv/linux/lseek64.c</code> 中的 <code>__lseek64</code></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>off64_t
+</span></span><span style=display:flex><span><span style=color:#06287e>__lseek64</span> (<span style=color:#902000>int</span> fd, off64_t offset, <span style=color:#902000>int</span> whence)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  loff_t res;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> rc <span style=color:#666>=</span> INLINE_SYSCALL_CALL (_llseek, fd,
+</span></span><span style=display:flex><span>                (<span style=color:#902000>long</span>) (((<span style=color:#902000>uint64_t</span>) (offset)) <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>32</span>),
+</span></span><span style=display:flex><span>                (<span style=color:#902000>long</span>) offset, <span style=color:#666>&amp;</span>res, whence);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> rc <span style=color:#666>?:</span> res;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>在这个函数中执行了系统调用，通过 <code>_llseek</code> 移动了文件的读取位置。从这里可以看出 <code>_IO_FILE</code>结构体中的变量<code>_fileno</code> 储存的是文件描述符的值。</p><p>总结：<code>__seek</code> 函数指针直接返回内核函数 <code>__lseek64</code>，而后者是对系统调用 <code>_llseek</code> 的简单封装。通过调用 <code>__seek</code> 函数，可以实现改变文件的读写位置。</p><hr><p>让我们回到 <code>new_do_write</code>。进过上面对 <code>__seek</code> 的分析，我们已经知道，<code>_IO_SYSSEEK</code> 将当前文件的读取位置转到了 <code>_IO_write_base</code> 处。这里有趣的一点是 glibc 假设了在输出时，原来的文件读写位置就是在 <code>_IO_read_end</code> 上。</p><p>接下来会进行执行如下流程：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> (new_pos <span style=color:#666>==</span> _IO_pos_BAD)
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>      fp<span style=color:#666>-&gt;</span>_offset <span style=color:#666>=</span> new_pos;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  count <span style=color:#666>=</span> _IO_SYSWRITE (fp, data, to_do);
+</span></span></code></pre></div><p><code>_IO_SYSSEEK</code> 可能会返回 <code>_IO_pos_BAD</code>，代表写出的文件遇到异常，这里应该是到文件尾了，自然不需要再输出，直接返回 0，结束流程。</p><p>否则继续流程，首先设置 <code>fp->_offset</code> 为当前的文件读写位置，然后准备执行系统调用</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#define _IO_SYSWRITE(FP, DATA, LEN) JUMP2 (__write, FP, DATA, LEN)
+</span></span></code></pre></div><p>这里又调用了一个函数指针 <code>__write</code>，所以先分析该指针指向的函数</p><h3 id=__write>__write</h3><hr><p>函数指针的定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>typedef ssize_t (*_IO_write_t) (FILE *, const void *, ssize_t);
+</span></span></code></pre></div><p>相关的宏</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _IO_SYSSTAT(FP, BUF) JUMP1 (__stat, FP, BUF)
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define _IO_WSYSSTAT(FP, BUF) WJUMP1 (__stat, FP, BUF)
+</span></span></span></code></pre></div><p>glibc 的解释为</p><blockquote><p>/* The &lsquo;syswrite&rsquo; hook is used to write data from an existing buffer
+to an external file. It generalizes the Unix write(2) function.
+It matches the streambuf::sys_write virtual function, which is
+specific to this implementation. */</p></blockquote><p>也就是说该函数将缓冲区中已存在的数据写到了外部文件中，该函数一般化了 Unix 的内核函数 <code>write</code>，也就是说这是一个对 <code>write</code> 的封装。</p><p>其内部实现如下。先解释一下参数，<code>f</code> 是文件结构体指针，<code>data</code> 指向（缓冲区中）要输出的数据，<code>n</code> 为要输出的长度。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>ssize_t
+</span></span><span style=display:flex><span>_IO_new_file_write (FILE *f, const void *data, ssize_t n)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  ssize_t to_do = n;
+</span></span><span style=display:flex><span>  while (to_do &gt; 0)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      ssize_t count = (__builtin_expect (f-&gt;_flags2
+</span></span><span style=display:flex><span>                                         &amp; _IO_FLAGS2_NOTCANCEL, 0)
+</span></span><span style=display:flex><span>                           ? __write_nocancel (f-&gt;_fileno, data, to_do)
+</span></span><span style=display:flex><span>                           : __write (f-&gt;_fileno, data, to_do));
+</span></span><span style=display:flex><span>      if (count &lt; 0)
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>          f-&gt;_flags |= _IO_ERR_SEEN;
+</span></span><span style=display:flex><span>          break;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>      to_do -= count;
+</span></span><span style=display:flex><span>      data = (void *) ((char *) data + count);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  n -= to_do;
+</span></span><span style=display:flex><span>  if (f-&gt;_offset &gt;= 0)
+</span></span><span style=display:flex><span>    f-&gt;_offset += n;
+</span></span><span style=display:flex><span>  return n;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><em>解释一下 <code>__builtin_expect</code>：由gcc引入，其作用为允许程序员将最有可能执行的分支告诉编译器。指令的写法为：<code>__builtin_expect(EXP, N)</code>，表示 <code>EXP==N</code> 的概率很大。有利于编译器的分支预测优化</em></p><p>进入流程后，开始尝试通过系统调用输出，通过 <code>__builtin_expect (f->_flags2 & _IO_FLAGS2_NOTCANCEL, 0)</code> 进行判断是否需要考虑 <code>CANCEL</code>，这是为多线程处理进行的特判，调用的两个函数的定义如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>ssize_t
+</span></span><span style=display:flex><span>__write_nocancel (int fd, const void *buf, size_t nbytes)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  return INLINE_SYSCALL_CALL (write, fd, buf, nbytes);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>hidden_def (__write_nocancel)
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>/* Write NBYTES of BUF to FD.  Return the number written, or -1.  */
+</span></span><span style=display:flex><span>ssize_t
+</span></span><span style=display:flex><span>__libc_write (int fd, const void *buf, size_t nbytes)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  return SYSCALL_CANCEL (write, fd, buf, nbytes);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>libc_hidden_def (__libc_write)
+</span></span><span style=display:flex><span>weak_alias (__libc_write, __write)
+</span></span></code></pre></div><p>注意到这里的 <code>__write</code> 是 <code>__libc_write</code> 的别名。两个函数对内核函数的简单封装，他们被定义在 <code>glibc/sysdeps/unix/sysdep.h</code> 中。</p><p>在这个 <code>while</code> 循环中一直使用系统调用进行输出，并用 <code>count</code> 变量维护结果，当 <code>count &lt; 0</code> 时，代表出现了输出错误，此时进行置位 <code>f->_flags |= _IO_ERR_SEEN;</code>，并直接返回结束流程。</p><p>当 <code>to_do</code> 小于等于 0 时，结束循环，将 <code>_offset</code> 加上实际输出的长度（实际输出的长度是可能小于指定的长度 <code>nbytes</code> 的），返回输出的长度，结束流程。</p><p><code>_IO_new_file_write</code> 的实现比较简单，是对系统函数的封装，同时对异常等情况进行了处理。</p><hr><p>返回到 <code>new_do_write</code> 上，在完成输出后，需要对结构体中的一些状态变量进行更新。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_cur_column <span style=color:#666>&amp;&amp;</span> count)
+</span></span><span style=display:flex><span>    fp<span style=color:#666>-&gt;</span>_cur_column <span style=color:#666>=</span> _IO_adjust_column (fp<span style=color:#666>-&gt;</span>_cur_column <span style=color:#666>-</span> <span style=color:#40a070>1</span>, data, count) <span style=color:#666>+</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>  _IO_setg (fp, fp<span style=color:#666>-&gt;</span>_IO_buf_base, fp<span style=color:#666>-&gt;</span>_IO_buf_base, fp<span style=color:#666>-&gt;</span>_IO_buf_base);
+</span></span><span style=display:flex><span>  fp<span style=color:#666>-&gt;</span>_IO_write_base <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_write_ptr <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_buf_base;
+</span></span><span style=display:flex><span>  fp<span style=color:#666>-&gt;</span>_IO_write_end <span style=color:#666>=</span> (fp<span style=color:#666>-&gt;</span>_mode <span style=color:#666>&lt;=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>                       <span style=color:#666>&amp;&amp;</span> (fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> (_IO_LINE_BUF <span style=color:#666>|</span> _IO_UNBUFFERED))
+</span></span><span style=display:flex><span>                       <span style=color:#666>?</span> fp<span style=color:#666>-&gt;</span><span style=color:#002070;font-weight:700>_IO_buf_base</span> : fp<span style=color:#666>-&gt;</span>_IO_buf_end);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> count;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>首先通过函数 <code>_IO_adjust_column</code> 进行列调整，实现如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>unsigned
+</span></span><span style=display:flex><span>_IO_adjust_column (unsigned start, const char *line, int count)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  const char *ptr = line + count;
+</span></span><span style=display:flex><span>  while (ptr &gt; line)
+</span></span><span style=display:flex><span>    if (*--ptr == &#39;\n&#39;)
+</span></span><span style=display:flex><span>      return line + count - ptr - 1;
+</span></span><span style=display:flex><span>  return start + count;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>libc_hidden_def (_IO_adjust_column)
+</span></span></code></pre></div><p>函数会对被输出的数据进行遍历，找到第一个换行符为止，返回换行符之后的字符总数；当然也可能没有输出换行符，那么就直接返回输出的字符数和原先所处在的列的和。从这样的实现可以看出，<code>fp->_cur_column /* 1+column number of pbase(); 0 is unknown. */</code> 维护的是当前所处的列数加一，通过调用这个函数实现了对该变量的更新。</p><p>然后调用 <code>_IO_setg</code> 来对 <code>read</code> 相关指针进行更新。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _IO_setg(fp, eb, g, eg)  ((fp)-&gt;_IO_read_base = (eb),\
+</span></span></span><span style=display:flex><span><span style=color:#007020>        (fp)-&gt;_IO_read_ptr = (g), (fp)-&gt;_IO_read_end = (eg))
+</span></span></span></code></pre></div><p>也就是把三个 <code>read</code> 指针的缓冲区指针都赋为相关的 <code>buf</code> 指针。</p><p>之后还会对三个 <code>write</code> 指针进行更新。这些操作是刷新缓冲区，使读入和输出的开始地址都指向缓冲区的头部，根据不同的缓冲方式也会对 <code>_IO_write_end</code> 置不同的值，还是比较好理解的。</p><p>更新完后返回输出的字符数，结束流程。</p><p>总结 <code>new_do_write</code> 做的事：将缓冲区中需要输出的数据通过系统调用输出，然后更新列状态和 <code>read</code> <code>write</code> 相关的共计 6 个指针的指向。</p><p>之后一路返回，结束 <code>_IO_do_flush (fp);</code>。这个函数做的就是将缓冲区中的残留字符全部输出，同时更新相关状态。</p><p>又回到了 <code>_IO_new_file_finish</code> 上，接下来指向</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>(fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> _IO_DELETE_DONT_CLOSE))
+</span></span><span style=display:flex><span>        _IO_SYSCLOSE (fp);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  _IO_default_finish (fp, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>如果该文件不是在删除时需要被关闭，则调用 <code>_IO_SYSCLOSE (fp);</code>，实际调用函数指针 <code>__close</code></p><hr><h3 id=__close>__close</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>_IO_file_close</span> (FILE <span style=color:#666>*</span>fp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Cancelling close should be avoided if possible since it leaves an
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     unrecoverable state behind.  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> __close_nocancel (fp<span style=color:#666>-&gt;</span>_fileno);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>libc_hidden_def (_IO_file_close)
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>__close_nocancel</span> (<span style=color:#902000>int</span> fd)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> INLINE_SYSCALL_CALL (close, fd);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>libc_hidden_def (__close_nocancel)
+</span></span></code></pre></div><p>实现比较简单，就是调用系统调用来关闭当前文件。</p><hr><p>关闭文件后，调用 <code>_IO_default_finish</code> 做最后的去除操作</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>void
+</span></span><span style=display:flex><span>_IO_default_finish (FILE *fp, int dummy)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  struct _IO_marker *mark;
+</span></span><span style=display:flex><span>  if (fp-&gt;_IO_buf_base &amp;&amp; !(fp-&gt;_flags &amp; _IO_USER_BUF))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      free (fp-&gt;_IO_buf_base);
+</span></span><span style=display:flex><span>      fp-&gt;_IO_buf_base = fp-&gt;_IO_buf_end = NULL;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  for (mark = fp-&gt;_markers; mark != NULL; mark = mark-&gt;_next)
+</span></span><span style=display:flex><span>    mark-&gt;_sbuf = NULL;
+</span></span><span style=display:flex><span>  if (fp-&gt;_IO_save_base)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      free (fp-&gt;_IO_save_base);
+</span></span><span style=display:flex><span>      fp-&gt;_IO_save_base = NULL;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  _IO_un_link ((struct _IO_FILE_plus *) fp);
+</span></span><span style=display:flex><span>#ifdef _IO_MTSAFE_IO
+</span></span><span style=display:flex><span>  if (fp-&gt;_lock != NULL)
+</span></span><span style=display:flex><span>    _IO_lock_fini (*fp-&gt;_lock);
+</span></span><span style=display:flex><span>#endif
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>libc_hidden_def (_IO_default_finish)
+</span></span></code></pre></div><p>这里主要做了 <code>free</code> 缓冲区和将该文件从文件链表上解链的操作。</p><p>至此 <code>__finish</code> 的调用已经分析完了，可见他主要做了将缓冲区刷新、释放缓冲区和将文件解链的操作。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/_io_file>_IO_FILE</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

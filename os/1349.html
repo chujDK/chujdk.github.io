@@ -1,0 +1,297 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>《操作系统真像还原》操作系统实现——内存池管理 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="操作系统需要管理内存页的映射，即虚拟地址和物理地址的映射关系，一种简单的方法是一对一映射，管理起来也比较方便，申请的时候填写页表，释放的时候"><meta property="og:image" content><meta property="og:title" content="《操作系统真像还原》操作系统实现——内存池管理"><meta property="og:description" content="操作系统需要管理内存页的映射，即虚拟地址和物理地址的映射关系，一种简单的方法是一对一映射，管理起来也比较方便，申请的时候填写页表，释放的时候"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/os/1349.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-05-25T19:42:00+00:00"><meta property="article:modified_time" content="2021-05-25T19:42:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="《操作系统真像还原》操作系统实现——内存池管理"><meta name=twitter:description content="操作系统需要管理内存页的映射，即虚拟地址和物理地址的映射关系，一种简单的方法是一对一映射，管理起来也比较方便，申请的时候填写页表，释放的时候"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>《操作系统真像还原》操作系统实现——内存池管理</h1><div class=meta>Posted on May 25, 2021</div></div><section class=body><p>操作系统需要管理内存页的映射，即虚拟地址和物理地址的映射关系，一种简单的方法是一对一映射，管理起来也比较方便，申请的时候填写页表，释放的时候清空页表就可以了，但是这样就背离了我们引入虚拟地址的初衷。而若想使用乱序映射的映射方法，我们需要用某种数据结构来管理物理内存的使用情况。</p><p>我们使用<strong>位图</strong>这种数据结构。</p><h2 id=位图>位图</h2><p>所谓位图，其实就是一串连续的地址空间，常常表现为一个数组，其中每一位映射一个对象，这样就可以表示对象的两种状态，比如被使用和未被使用。我们使用一张位图来映射整个物理内存，粒度为页，即一位表示一张内存页的使用状态，某位为 1，代表该位映射的内存页处于被使用状态，为 0 则该页为空闲状态，可以被映射给虚拟内存页。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>bitmap</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    size_t bitmap_bytes_len;
+</span></span><span style=display:flex><span>    <span style=color:#902000>uint8_t</span><span style=color:#666>*</span> bits;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>如上我们建立了一个位图管理结构体，变量 bitmap_bytes_len 表示位图总共有多少个字节，指针 bits 指向位图的基地址。</p><p>通过函数 BitmapSetBit 我们可以设置位图中的某一位</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>BitmapSetBit</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>bitmap</span><span style=color:#666>*</span> btmp, size_t bit_idx, <span style=color:#902000>int8_t</span> value)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    ASSERT((value <span style=color:#666>==</span> <span style=color:#40a070>0</span>) <span style=color:#666>||</span> (value <span style=color:#666>==</span> <span style=color:#40a070>1</span>));
+</span></span><span style=display:flex><span>    size_t byte_idx <span style=color:#666>=</span> bit_idx <span style=color:#666>/</span> <span style=color:#40a070>8</span>;
+</span></span><span style=display:flex><span>    size_t bit_order <span style=color:#666>=</span> bit_idx <span style=color:#666>%</span> <span style=color:#40a070>8</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (value)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>       btmp<span style=color:#666>-&gt;</span>bits[byte_idx] <span style=color:#666>|=</span> (BITMAP_MASK <span style=color:#666>&lt;&lt;</span> bit_order);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>       btmp<span style=color:#666>-&gt;</span>bits[byte_idx] <span style=color:#666>&amp;=</span> <span style=color:#666>~</span>(BITMAP_MASK <span style=color:#666>&lt;&lt;</span> bit_order);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>通过函数 BitmapTestBit 可以检查某一位的值，即代表莫物理页的使用情况</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>BitmapTestBit</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>bitmap</span><span style=color:#666>*</span> btmp, size_t bit_idx)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    size_t byte_idx <span style=color:#666>=</span> bit_idx <span style=color:#666>/</span> <span style=color:#40a070>8</span>;
+</span></span><span style=display:flex><span>    size_t bit_order <span style=color:#666>=</span> bit_idx <span style=color:#666>%</span> <span style=color:#40a070>8</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (btmp<span style=color:#666>-&gt;</span>bits[byte_idx] <span style=color:#666>&amp;</span> (BITMAP_MASK <span style=color:#666>&lt;&lt;</span> bit_order));
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>通过函数 BitmapScan 可以分配连续的 cnt 物理内存页</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>BitmapScan</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>bitmap</span><span style=color:#666>*</span> btmp, size_t cnt)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    size_t byte_idx <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> (btmp<span style=color:#666>-&gt;</span>bits[byte_idx] <span style=color:#666>==</span> <span style=color:#40a070>0xFF</span> <span style=color:#666>&amp;&amp;</span> byte_idx <span style=color:#666>&lt;</span> btmp<span style=color:#666>-&gt;</span>bitmap_bytes_len)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        byte_idx<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    ASSERT(byte_idx <span style=color:#666>&lt;</span> btmp<span style=color:#666>-&gt;</span>bitmap_bytes_len); <span style=color:#60a0b0;font-style:italic>/* this means all physic page had been mapped */</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (byte_idx <span style=color:#666>&gt;=</span> btmp<span style=color:#666>-&gt;</span>bitmap_bytes_len)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    size_t bit_idx <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> ((<span style=color:#902000>uint8_t</span>)(BITMAP_MASK <span style=color:#666>&lt;&lt;</span> bit_idx) <span style=color:#666>&amp;</span> btmp<span style=color:#666>-&gt;</span>bits[byte_idx])
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#666>++</span>bit_idx;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> bit_idx_start <span style=color:#666>=</span> byte_idx <span style=color:#666>*</span> <span style=color:#40a070>8</span> <span style=color:#666>+</span> bit_idx;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (cnt <span style=color:#666>==</span> <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> bit_idx_start;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    size_t bits_left <span style=color:#666>=</span> btmp<span style=color:#666>-&gt;</span>bitmap_bytes_len <span style=color:#666>*</span> <span style=color:#40a070>8</span> <span style=color:#666>-</span> bit_idx_start;
+</span></span><span style=display:flex><span>    size_t next_bit <span style=color:#666>=</span> bit_idx_start <span style=color:#666>+</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>    size_t avl_bits_count <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> (bits_left<span style=color:#666>--</span> <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>(BitmapTestBit(btmp, next_bit)))
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            avl_bits_count<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            avl_bits_count <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (avl_bits_count <span style=color:#666>==</span> cnt)
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>return</span> next_bit <span style=color:#666>-</span> cnt <span style=color:#666>+</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        next_bit<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>结构体中的 bits 指向真正的位图。</p><h2 id=内存池>内存池</h2><p>有了位图，我们就可以对物理内存和虚拟地址进行管理了，我们把内存看作一个内存池，以页为单位进行分配。</p><p>对于每个特权级（其实就只有用户级和内核级），我们使用两张位图，一张表示物理地址的映射情况，一张表示虚拟地址的映射情况，这样我们在分配内存的时候就可以先通过查虚拟地址位图判断虚拟地址是否已映射，若未被映射，则通过物理地址位图搜索可用的物理内存页。</p><h3 id=初始化>初始化</h3><p>首先要做的就是初始化内存池位图结构和虚拟地址位图，在文件 memory.h 中，我们先进行如下声明</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#ifndef __KERNEL_MEMORY_H
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define __KERNEL_MEMORY_H
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;stdint.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;bitmap.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* manage virtual addr mapping */</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>virtual_addr</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>bitmap</span> vaddr_bitmap;
+</span></span><span style=display:flex><span>    size_t vaddr_start;
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>extern</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>memory_pool</span> kernel_memory_pool, user_memory_pool;
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>VmemInit</span>();
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span></code></pre></div><p>两个 memory_pool 是定义在 memory.c 中的，目的是让整个内核都可以访问到这个两个内存池结构体。内存池结构体的定义如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>memory_pool</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>bitmap</span> pool_bitmap;
+</span></span><span style=display:flex><span>    size_t physic_addr_start;
+</span></span><span style=display:flex><span>    size_t pool_size;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>注意这里的内存池是针对物理内存的，所以其维护的是物理地址的起点和池的大小。</p><p>在头文件中声明了内存初始化函数 VmemInit，其定义如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>VmemInit</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;vmem_init start..</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>    size_t memory_total_bytes <span style=color:#666>=</span> <span style=color:#666>*</span>(size_t <span style=color:#666>*</span>) (<span style=color:#40a070>0x810</span>);
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* memory_pool init */</span>
+</span></span><span style=display:flex><span>    VmemPoolInit(memory_total_bytes);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;done</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>首先先获得物理内存的大小，这是我们在 loader 中通过 BIOS 中段获取的，存储于物理地址 0x810 处。然后调用内存池初始化函数 VmemPoolInit 对内存池进行初始化。</p><p>all_mem 中存储了本机的物理内存，这里需要考虑内存的分配上限问题，换句话说就是内核内存池和用户内存池各涵盖多少物理内存，毕竟是为了学习，这里也不考虑太多，我们直接将物理内存对半分，一半给内核，一半用户。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span> <span style=color:#06287e>VmemPoolInit</span>(size_t all_mem)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;    memory_pool_init start..&#34;</span>);
+</span></span><span style=display:flex><span>    size_t page_table_size <span style=color:#666>=</span> PAGE_SIZE <span style=color:#666>*</span> <span style=color:#40a070>256</span>;
+</span></span><span style=display:flex><span>    size_t used_mem <span style=color:#666>=</span> page_table_size <span style=color:#666>+</span> <span style=color:#40a070>0x100000</span>;
+</span></span><span style=display:flex><span>    size_t free_mem <span style=color:#666>=</span> all_mem <span style=color:#666>-</span> used_mem;
+</span></span><span style=display:flex><span>    size_t free_pages_sum <span style=color:#666>=</span> free_mem <span style=color:#666>/</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>    size_t kernel_free_pages <span style=color:#666>=</span> free_pages_sum <span style=color:#666>/</span> <span style=color:#40a070>2</span>;
+</span></span><span style=display:flex><span>    size_t user_free_pages <span style=color:#666>=</span> free_pages_sum <span style=color:#666>-</span> kernel_free_pages;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    size_t kernel_bitmap_length <span style=color:#666>=</span> kernel_free_pages <span style=color:#666>/</span> <span style=color:#40a070>8</span>;
+</span></span><span style=display:flex><span>    size_t user_bitmap_length <span style=color:#666>=</span> user_free_pages <span style=color:#666>/</span> <span style=color:#40a070>8</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    size_t kernel_memory_pool_start <span style=color:#666>=</span> used_mem;
+</span></span><span style=display:flex><span>    size_t user_memory_pool_start <span style=color:#666>=</span> kernel_memory_pool_start <span style=color:#666>+</span> kernel_free_pages <span style=color:#666>*</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    kernel_memory_pool.pool_bitmap.bitmap_bytes_len <span style=color:#666>=</span> kernel_bitmap_length;
+</span></span><span style=display:flex><span>    user_memory_pool.pool_bitmap.bitmap_bytes_len <span style=color:#666>=</span> user_bitmap_length;
+</span></span><span style=display:flex><span>    kernel_memory_pool.pool_bitmap.bits <span style=color:#666>=</span> (<span style=color:#902000>void</span> <span style=color:#666>*</span>) MEM_BITMAP_BASE;
+</span></span><span style=display:flex><span>    user_memory_pool.pool_bitmap.bits <span style=color:#666>=</span> (<span style=color:#902000>void</span> <span style=color:#666>*</span>) (MEM_BITMAP_BASE <span style=color:#666>+</span> kernel_bitmap_length);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    kernel_memory_pool.physic_addr_start <span style=color:#666>=</span> kernel_memory_pool_start;
+</span></span><span style=display:flex><span>    user_memory_pool.physic_addr_start <span style=color:#666>=</span> user_memory_pool_start;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    kernel_memory_pool.pool_size <span style=color:#666>=</span> kernel_free_pages <span style=color:#666>*</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>    user_memory_pool.pool_size <span style=color:#666>=</span> user_free_pages <span style=color:#666>*</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* virtual_addr init */</span>
+</span></span><span style=display:flex><span>    kernel_vaddr.vaddr_bitmap.bitmap_bytes_len <span style=color:#666>=</span> kernel_bitmap_length;
+</span></span><span style=display:flex><span>    kernel_vaddr.vaddr_bitmap.bits <span style=color:#666>=</span> \
+</span></span><span style=display:flex><span>        (<span style=color:#902000>void</span><span style=color:#666>*</span>)(kernel_bitmap_length <span style=color:#666>+</span> user_bitmap_length <span style=color:#666>+</span> MEM_BITMAP_BASE);
+</span></span><span style=display:flex><span>    kernel_vaddr.vaddr_start <span style=color:#666>=</span> KERNEL_HEAP_BASE;
+</span></span><span style=display:flex><span>    BitmapInit(<span style=color:#666>&amp;</span>kernel_vaddr.vaddr_bitmap);
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>        kernel_pool_bitmap_start: 0x&#34;</span>);
+</span></span><span style=display:flex><span>    sys_puthex((<span style=color:#902000>int</span>)kernel_memory_pool.pool_bitmap.bits);
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>        kernel_pool_physic_addr_start: 0x&#34;</span>);
+</span></span><span style=display:flex><span>    sys_puthex(kernel_memory_pool.physic_addr_start);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>        user_pool_bitmap_start: 0x&#34;</span>);
+</span></span><span style=display:flex><span>    sys_puthex((<span style=color:#902000>int</span>)user_memory_pool.pool_bitmap.bits);
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>        user_pool_physic_addr_start: 0x&#34;</span>);
+</span></span><span style=display:flex><span>    sys_puthex(user_memory_pool.physic_addr_start);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    BitmapInit(<span style=color:#666>&amp;</span>kernel_memory_pool.pool_bitmap);
+</span></span><span style=display:flex><span>    BitmapInit(<span style=color:#666>&amp;</span>user_memory_pool.pool_bitmap);  
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>    done</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这里先提前初始化一些变量，然后开始对两个内存池进行初始化，感觉没什么特别的，不多说了。</p><h3 id=管理>管理</h3><p>对于一个内存池，最基本的，内核需要提供内存页的映射的方法，即将虚拟内存页和物理内存页完成映射（通过填写二级页表来完成）。同时还需要能够完成对物理页的分配和回收。</p><h4 id=物理页的分配>物理页的分配</h4><p>在位图的帮助下，物理页分配起来其实是比较容易的，只需要遍历一遍内存池位图找到可用的内存页，然后更新位图设置该页已被使用即可，由于虚拟页和物理页是乱序映射的，所以内存页没有必要分配连续的页，一页页分配即可。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* alloc one page from the m_pool */</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span><span style=color:#666>*</span> <span style=color:#06287e>GetOnePhysicPage</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>memory_pool</span><span style=color:#666>*</span> m_pool)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> bit_idx <span style=color:#666>=</span> BitmapScan(<span style=color:#666>&amp;</span>m_pool<span style=color:#666>-&gt;</span>pool_bitmap, <span style=color:#40a070>1</span>); 
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (bit_idx <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        BitmapSetBit(<span style=color:#666>&amp;</span>m_pool<span style=color:#666>-&gt;</span>pool_bitmap, bit_idx, <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>        size_t page_physic_addr <span style=color:#666>=</span> ((bit_idx <span style=color:#666>*</span> PAGE_SIZE) <span style=color:#666>+</span> m_pool<span style=color:#666>-&gt;</span>physic_addr_start);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> (<span style=color:#902000>void</span> <span style=color:#666>*</span>) page_physic_addr;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>传入一个内存池，返回一张物理页的物理地址，如果无法分配，返回 NULL。</p><h4 id=虚拟页的分配>虚拟页的分配</h4><p>虚拟页的分配需要连续，而且需要区分内核虚拟页和用户虚拟页，这里暂时还没有实现为用户分配的处理。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* get request_page_cnt pages, they must be contiguous */</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span><span style=color:#666>*</span> <span style=color:#06287e>GetVirtualPage</span>(<span style=color:#007020;font-weight:700>enum</span> <span style=color:#0e84b5;font-weight:700>pool_flags</span> pf, size_t request_page_cnt)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    size_t Vaddr_start <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>    size_t physic_page_bit_idx <span style=color:#666>=</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>    size_t cnt <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (pf <span style=color:#666>==</span> KERNEL_POOL)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span>(( physic_page_bit_idx <span style=color:#666>=</span> BitmapScan(<span style=color:#666>&amp;</span>kernel_memory_pool.pool_bitmap, request_page_cnt) ) <span style=color:#666>!=</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>while</span> (cnt <span style=color:#666>&lt;</span> request_page_cnt)
+</span></span><span style=display:flex><span>            {
+</span></span><span style=display:flex><span>                BitmapSetBit(<span style=color:#666>&amp;</span>kernel_memory_pool.pool_bitmap, physic_page_bit_idx <span style=color:#666>+</span> cnt<span style=color:#666>++</span>, <span style=color:#40a070>1</span>); <span style=color:#60a0b0;font-style:italic>/* set this page is mapped */</span>
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>            Vaddr_start <span style=color:#666>=</span> kernel_vaddr.vaddr_start <span style=color:#666>+</span> physic_page_bit_idx <span style=color:#666>*</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* user pool, unused for now */</span>
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (<span style=color:#902000>void</span> <span style=color:#666>*</span>)Vaddr_start;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h4 id=虚拟页和物理页的映射>虚拟页和物理页的映射</h4><p>建立映射的过程其实就是填写 PDE 和 PTE 表的过程，要填写这两张表，就需要获得两张表的虚拟地址，我们提前实现两个函数来计算，在看函数前先回顾一下硬件将虚拟地址转换为物理地址的方法</p><ol><li>取得虚拟地址的高十位，以此为下标查 PDE 获取虚拟地址对于的 PTE 表地址，即 <code>PTE_addr = PDE[vaddr >> 22]</code></li><li>取得虚拟地址的中间十位（第 21 ~ 12 位），查出物理页物理地址，即 <code>physic_page_addr = PTE[(vaddr & 0x3FF) >> 12]</code></li><li>取虚拟地址低十二位，算出物理地址，即 <code>physic_addr = physic_page_addr + vaddr & 0xFFF</code></li></ol><p>用同样的方法，我们可以算出两边中表项的值。</p><h5 id=pde-计算>PDE 计算</h5><p>函数 <code>GetPDEPointer(size_t vaddr)</code> 算出虚拟地址 vaddr 在被硬件转换为物理地址时使用的页目录项的地址</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define PDE_IDX(addr) ((addr &amp; 0xFFC00000) &gt;&gt; 22)
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>size_t<span style=color:#666>*</span> <span style=color:#06287e>GetPDEPointer</span>(size_t vaddr)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    size_t<span style=color:#666>*</span> pde <span style=color:#666>=</span> (size_t <span style=color:#666>*</span>) (<span style=color:#40a070>0xFFFFF000</span> <span style=color:#666>+</span> PDE_IDX(vaddr) <span style=color:#666>*</span> <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> pde;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>建立页表时，我们把虚拟地址 0xFFFFF000 ~ 0xFFFFFFFF 映射到了 0x10000 ~ 0x10100，也就是页目录表上，所以 <code>&amp;PDE[vaddr >> 22] == PDE + (vaddr >> 22) * 4 == 0xFFFFF000 + PDE_IDX(vaddr) * 4</code>，这样就算出了项的地址。</p><h5 id=pte-计算>PTE 计算</h5><p>函数 <code>GetPTEPointer(size_t vaddr)</code> 算出虚拟地址 vaddr 在被硬件转换为物理地址时使用的页表项的地址</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#define PTE_IDX(addr) ((addr &amp; 0x003FF000) &gt;&gt; 12)
+</span></span><span style=display:flex><span>size_t* GetPTEPointer(size_t vaddr)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    size_t* pte = (size_t *) (0xFFC00000 + \
+</span></span><span style=display:flex><span>        ((vaddr &amp; 0xFFC00000) &gt;&gt; 10) + \
+</span></span><span style=display:flex><span>        PTE_IDX(vaddr) * 4);
+</span></span><span style=display:flex><span>    return pte;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>理解这里的计算，我们要以地址转换硬件的视角来看，pte 变量存储的是虚拟地址，我们希望的是 pte 的虚拟地址被映射到物理地址时，指向的是 vaddr 的 PTE 表项。于是我们来看一下 pte 的虚拟地址是如何被转换的</p><ol><li>硬件首先取高十位来计算出该虚拟地址的 <code>PTE_addr = PDE[vaddr >> 22]</code>，则 <code>PTE_addr = *PDE[0xFFC / 4]</code>，即 PTE_addr 就是 PDE 中最后一项的值，我们在建立页表时，就设置了该值为 <code>&amp;PDE</code>，所以 <code>PTE_addr = &amp;PDE</code></li><li>然后硬件取得虚拟地址的中间十位（第 21 ~ 12 位），查出物理页物理地址 <code>physic_page_addr = PTE[((vaddr & 0xFFC00000) >> 10)]</code>，由于此处 PTE == PDE，所以 <code>physic_page_addr = PDE[((vaddr & 0xFFC00000) >> 10)]</code>，也就是说，<code>physic_page_addr == PDE_of_vaddr</code></li><li>最后取虚拟地址低十二位，算出物理地址，即 <code>physic_addr = physic_page_addr + ((addr & 0x003FF000) >> 12) * 4 &lt;=> physic_addr = PDE_of_vaddr[((addr & 0x003FF000) >> 12)]</code></li></ol><p>也就是说，pte 变量转为物理地址后，指向的是 <code>PDE_of_vaddr[((addr & 0x003FF000) >> 12)]</code>，即 PTE_of_vaddr。这样就完成了计算。</p><h5 id=映射>映射</h5><p>映射就是填表，先通过之前提到的两个函数计算出 pde 和 pte 的地址，然后根据 pde 中是否有值分类处理</p><ul><li>有值，代表对应的 pte 已分配页，直接填写 pte 即可</li><li>无值，代表对应的 pte 未分配页，先申请一个物理页，作为 pte，然后填写 pte。注意申请的物理页需要清零，否则可能会造成未来的判断错误。</li></ul><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span> <span style=color:#06287e>PageMapping</span>(<span style=color:#902000>void</span><span style=color:#666>*</span> v_addr, <span style=color:#902000>void</span><span style=color:#666>*</span> physic_page_addr)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span><span style=color:#666>*</span> pde_addr <span style=color:#666>=</span> GetPDEPointer(v_addr);
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span><span style=color:#666>*</span> pte_addr <span style=color:#666>=</span> GetPTEPointer(v_addr);
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ((<span style=color:#666>*</span>(size_t<span style=color:#666>*</span>)pde_addr) <span style=color:#666>&amp;</span> PAGE_P_1) <span style=color:#60a0b0;font-style:italic>/* this PTE is existed */</span>
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* mapping to the same physic_page */</span>
+</span></span><span style=display:flex><span>        ASSERT(<span style=color:#666>!</span>((<span style=color:#666>*</span>(size_t<span style=color:#666>*</span>)pte_addr) <span style=color:#666>&amp;</span> PAGE_P_1));
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>((<span style=color:#666>*</span>(size_t<span style=color:#666>*</span>)pte_addr) <span style=color:#666>&amp;</span> PAGE_P_1))
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            <span style=color:#666>*</span>(size_t<span style=color:#666>*</span>)pte_addr <span style=color:#666>=</span> ((size_t)physic_page_addr <span style=color:#666>|</span> PAGE_P_1 <span style=color:#666>|</span> PAGE_US_U <span style=color:#666>|</span> PAGE_RW_RW);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            PANIC(<span style=color:#4070a0>&#34;MAPPING THE SAME PHYSIC PAGE!!&#34;</span>);
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>while</span>(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        size_t pte_physic_addr <span style=color:#666>=</span> (size_t)(AllocOnePhysicPage(<span style=color:#666>&amp;</span>kernel_memory_pool));
+</span></span><span style=display:flex><span>        memset((<span style=color:#902000>void</span><span style=color:#666>*</span>)pte_physic_addr, <span style=color:#40a070>0</span>, PAGE_SIZE); <span style=color:#60a0b0;font-style:italic>/* init the PTE(means nothing mapped) */</span>
+</span></span><span style=display:flex><span>        <span style=color:#666>*</span>(size_t<span style=color:#666>*</span>)pde_addr <span style=color:#666>=</span> (pte_physic_addr <span style=color:#666>|</span> PAGE_P_1 <span style=color:#666>|</span> PAGE_US_U <span style=color:#666>|</span> PAGE_RW_RW);
+</span></span><span style=display:flex><span>        <span style=color:#666>*</span>(size_t<span style=color:#666>*</span>)pte_addr <span style=color:#666>=</span> ((size_t)physic_page_addr <span style=color:#666>|</span> PAGE_P_1 <span style=color:#666>|</span> PAGE_US_U <span style=color:#666>|</span> PAGE_RW_RW);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h4 id=分配页>分配页</h4><p>当我们能够分配虚拟页和物理页，并且对他们进行映射的时候，就可以进行页分配了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span><span style=color:#666>*</span> <span style=color:#06287e>palloc</span>(<span style=color:#007020;font-weight:700>enum</span> <span style=color:#0e84b5;font-weight:700>pool_flags</span> pf, size_t page_cnt)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    ASSERT(page_cnt <span style=color:#666>&lt;</span> <span style=color:#40a070>3840</span>);<span style=color:#60a0b0;font-style:italic>/* must less then 15M */</span>
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span><span style=color:#666>*</span> vaddr_start <span style=color:#666>=</span> GetVirtualPage(pf, page_cnt);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (vaddr_start <span style=color:#666>==</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> vaddr_start;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>memory_pool</span><span style=color:#666>*</span> m_pool <span style=color:#666>=</span> (pf <span style=color:#666>==</span> KERNEL_POOL <span style=color:#666>?</span> <span style=color:#666>&amp;</span><span style=color:#002070;font-weight:700>kernel_memory_pool</span> : <span style=color:#666>&amp;</span>user_memory_pool);
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span><span style=color:#666>*</span> page_physic_addr;
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span><span style=color:#666>*</span> vaddr <span style=color:#666>=</span> vaddr_start;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span>(page_cnt<span style=color:#666>--</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        page_physic_addr <span style=color:#666>=</span> AllocOnePhysicPage(m_pool);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (page_physic_addr <span style=color:#666>==</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            <span style=color:#60a0b0;font-style:italic>/* free all alloced page to system, we will fill there when we finished free-related function */</span>
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        PageMapping(vaddr, page_physic_addr);
+</span></span><span style=display:flex><span>        vaddr <span style=color:#666>+=</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> vaddr_start;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>由于我们给虚拟机预设的内存为 32M，所以这里下小于 3840 页的断言。</p><p>分配的方式很容易，先从对应特权级的虚拟地址中分配连续的 page_cnt 各页，然后从物理地址池中一页页地申请物理页，把虚拟地址和物理页地址一一映射即可。这里当然需要考虑物理内存耗尽的情况，处理应该是一页页是否物理内存页，并释放所有的虚拟内存页，但是当前我们还没写 free 相关的函数，所以暂且不做实现。</p><p>用一个函数封装 pmalloc，处理内核中页的分配</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span><span style=color:#666>*</span> <span style=color:#06287e>kpalloc</span>(size_t page_cnt)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span><span style=color:#666>*</span> vaddr <span style=color:#666>=</span> palloc(KERNEL_POOL, page_cnt);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span>(vaddr <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        memset(vaddr, <span style=color:#40a070>0</span>, page_cnt <span style=color:#666>*</span> PAGE_SIZE);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> vaddr;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h4 id=效果>效果</h4><p>更新 main.c</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;print.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;init.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;debug.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;memory.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>_start</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;this is kernel!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span> a[<span style=color:#40a070>16</span>];
+</span></span><span style=display:flex><span>    InitAll();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span><span style=color:#666>*</span> addr <span style=color:#666>=</span> kpalloc(<span style=color:#40a070>5</span>);
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;we got 5 contiguous virtual page, start at: 0x&#34;</span>);
+</span></span><span style=display:flex><span>    sys_puthex(addr);
+</span></span><span style=display:flex><span>    sys_putchar(<span style=color:#4070a0>&#39;\n&#39;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span>(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/05/2478485901.png></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/os>OS</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

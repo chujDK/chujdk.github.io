@@ -1,0 +1,407 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>语法分析简单总结 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="语法分析是词法分析的后一步，主要的目的就是通过词法分析器生成的 tokens 来生成抽象语法树（Abstract Syntax Tree，AST）。主要通过上下文无关文"><meta property="og:image" content><meta property="og:title" content="语法分析简单总结"><meta property="og:description" content="语法分析是词法分析的后一步，主要的目的就是通过词法分析器生成的 tokens 来生成抽象语法树（Abstract Syntax Tree，AST）。主要通过上下文无关文"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/dev/1546.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-08-27T22:47:00+00:00"><meta property="article:modified_time" content="2021-08-27T22:47:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="语法分析简单总结"><meta name=twitter:description content="语法分析是词法分析的后一步，主要的目的就是通过词法分析器生成的 tokens 来生成抽象语法树（Abstract Syntax Tree，AST）。主要通过上下文无关文"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>语法分析简单总结</h1><div class=meta>Posted on Aug 27, 2021</div></div><section class=body><p>语法分析是词法分析的后一步，主要的目的就是通过词法分析器生成的 tokens 来生成抽象语法树（<strong>A</strong>bstract <strong>S</strong>yntax <strong>T</strong>ree，AST）。主要通过上下文无关文法（<strong>C</strong>ontext <strong>F</strong>ree <strong>G</strong>rammar，CFG）来描述语言的语法，使用相应的算法更具 CFG 来解析 tokens 形成 AST。语法分析应该是编译原理中非常偏向数学的一个方面，并且已经有了很成熟的解决方案，这句话的意思就是语法分析和我学习的方向和目的关系不大。不过这个东西感觉还挺有意思，同时虽然关系不大，但是了解一下还是有必要的，这里简单总结一下，对于算法方面不准备详细写，之后有时间再补上吧（之后学校的编译原理课应该会在 LL，LR 这种地方花很多时间，到时候再来弄也无妨，现在就不浪费生命了）。在慕中语法分析占据了比较大的篇幅，我不觉得自己都听懂了，也有很多不记得了，所以下面写的东西里面可能有很多谬误，仅供参考了哈哈哈。</p><h2 id=上下文无关文法>上下文无关文法</h2><p>一个很炫酷的名词，就和<strong>确定有限状态机</strong>一样，听起来相当牛逼，其实不是特别复杂的东西。形式定义可以参考<a href=https://zh.wikipedia.org/wiki/%E4%B8%8A%E4%B8%8B%E6%96%87%E6%97%A0%E5%85%B3%E6%96%87%E6%B3%95>维基百科</a>，不过这个定义我觉得一下子能看懂的人不多，实际上 CFG 就是一种语法规则，使用产生式、终结符、非终结符来定义一种语法的推导和归约过程。终结符的意思就是此符号无法再推导（也就是替换为）别的符号，非终结符则可以根据特定的规则推导出别的符号，产生式就是这个特定的规则。</p><p>比如，定义 $S,T$ 两种非终结符，$a,b$ 两种终结符，产生式（博客的 mathjax 好像有点问题，换行换不出来，我就用多个空格代替了。）：</p><p>$$
+S \rightarrow Tb \ \ \ \ \
+T \rightarrow Ta\ |\ \epsilon</p><p>$$</p><p>在产生式的箭头左边的是单个非终结符，右边的则是该非终结符可以推导出的符号。产生式中的 $|$ 是一个简写，上面的第二个产生式和</p><p>$$
+T \rightarrow Ta\ \ \ \<br>T \rightarrow \epsilon</p><p>$$</p><p>是等价的。</p><p>上面的文法定义了可以由任意个（包括 0 个）$a$ 开头，以 $b$ 结尾的语言。特别的，这里的 $S$ 是开始符号，此 CFG 描述的语言最后都能够归约成 $S$。这样我们就获得了一个四元组 $&lt;V,\Sigma,R,S>$，$V$ 是非终结符的集合，$\Sigma$ 是终结符的集合，$R$ 是产生式的集合，$S$ 是开始符号，这样就是一个上下文无关文法了。</p><p>CFG 中的上下文无关听起来很高深，其实这个无关指的仅仅是每个非终结符能够推导出来的符号和该终结符前后的符号无关。这是由产生式箭头左边只有一个非终结符决定的。比如</p><p>$$
+aSa \rightarrow T</p><p>$$</p><p>就不是上下文无关文法，因为 $S$ 必须要根据上下文才能推导出 $T$。</p><p>由于 CFG 可以处理嵌套的语法，使它相比起正则语言更适合做语法分析。比如 <code>(((a + b) * c) ^ 2)</code> 这样一个语句，用正则难以描述，因为括号的数量和出现的位置是不确定的，但是用 CFG 就可以容易地表达出来</p><p>$$
+S \rightarrow (S)\ |\ T\ \ \ \<br>&mldr;</p><p>$$</p><p>就解决了嵌套语法。CFG 的表达能力足够强大，能够表达绝大多数的编程语言，同时它也比较容易实现，所以在语法分析阶段往往使用 CFG。</p><h2 id=二义性>二义性</h2><p>对于一个 CFG 而言，很容易出现二义性，比如对于一个简单的减法语法</p><p>$$
+S \rightarrow S - S\ |\ int</p><p>$$</p><p>当我们用此语法来生成</p><p>$$
+a - b - c</p><p>$$</p><p>的解析树时，就可以生成两种解析树</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>graph TB
+</span></span><span style=display:flex><span>S1((S))
+</span></span><span style=display:flex><span>S2((S))
+</span></span><span style=display:flex><span>A((a))
+</span></span><span style=display:flex><span>B((b))
+</span></span><span style=display:flex><span>PLUS1((&#34;-&#34;))
+</span></span><span style=display:flex><span>C((c))
+</span></span><span style=display:flex><span>PLUS2((&#34;-&#34;))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>a((a))
+</span></span><span style=display:flex><span>pLUS1((&#34;-&#34;))
+</span></span><span style=display:flex><span>s1((S))
+</span></span><span style=display:flex><span>s2((S))
+</span></span><span style=display:flex><span>b((b))
+</span></span><span style=display:flex><span>pLUS2((&#34;-&#34;))
+</span></span><span style=display:flex><span>c((c))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>S1--&gt;S2
+</span></span><span style=display:flex><span>S1--&gt;C
+</span></span><span style=display:flex><span>S1--&gt;PLUS1
+</span></span><span style=display:flex><span>S2--&gt;A
+</span></span><span style=display:flex><span>S2--&gt;PLUS2
+</span></span><span style=display:flex><span>S2--&gt;B
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>s1--&gt;a
+</span></span><span style=display:flex><span>s1--&gt;pLUS1
+</span></span><span style=display:flex><span>s1--&gt;s2
+</span></span><span style=display:flex><span>s2--&gt;b
+</span></span><span style=display:flex><span>s2--&gt;pLUS2
+</span></span><span style=display:flex><span>s2--&gt;c
+</span></span></code></pre></div><p>当 $a = 1, b = 2, c = 3$ 时，使用左边的解析树最后产生的结果将是 $-4$，使用右边则会是 $2$。如果一个表达式在某语法下可以产生多个最左解析树或最右解析树，那么这个语法就是有<strong>二义性</strong>的。</p><h3 id=消歧>消歧</h3><p>用于描述编程语言语法规则的较为直观的 CFG 往往都是有二义性的，不过这些 CFG 往往可以通过重写语法的方式修改为无二义性文法。有一些语言无法被重写为无二义性文法，那么该语言描述的编程语言就是有问题的，语法的二义性必然会造成生成和理解上的问题，所以这些语言我们不必关心。</p><h4 id=重写语法>重写语法</h4><p>$$
+S \rightarrow S - S\ |\ int</p><p>$$</p><p>通过重写语法可以消除二义性，再以减法语法为例，从数学的定义来讲，$a - b - c$ 的正确运算顺序应该是 $(a - b) - c$，所以我们可以把语法重写为</p><p>$$
+S \rightarrow S - T\ |\ T\ \ \ \<br>T \rightarrow int</p><p>$$</p><p>这种情况下，之前的两种解析树就只会剩下左边的一颗了。</p><p>再举一个略复杂的例子，使用语法</p><p>$$
+S \rightarrow S + S\ |\ S * S\ |\ int</p><p>$$</p><p>对于输入字符串</p><p>$$
+a + b * c</p><p>$$</p><p>解析时，二义性会造成解析树的不唯一。所以我们要重写语法，保证乘法的优先级大于加法，且相同优先级时从左往右进行，比如这样重写</p><p>$$
+S \rightarrow S + T\ |\ T\ \ \ \<br>T \rightarrow T * F\ |\ F\ \ \ \<br>F \rightarrow int</p><p>$$</p><p>就不再存在二义性。</p><p>我们可以发现，重写语法虽然解决了二义性的问题，但是重写后的语法不再直观，难以理解，我们在设计 CFG 的时候，还是更希望使用更加直观的二义性语言。幸运的是，许多工具都提供消歧声明来自动化地消歧，比如 bison 提供了 <code>%left</code> （左结合）<code>%right</code>（右结合）的来对符号进行定义，实现优先级的定义。对于上面的语法重写，$S \rightarrow S + T$ 就是左结合的，这样对于相同的优先级，就会从左向右的运算了。而右结合就可以写作 $S \rightarrow T + S$，这样就会从右向左运算。</p><p>同时，重写时非终结符的嵌套关系，又决定了运算符的优先级，上面的例子中，表示乘法的非终结符被嵌套到了加法里面，所以乘法就会先于加法进行。在 bison 中，多个 <code>%left</code> 定义时，越靠下的就符号优先级就越高</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#666>%</span>left <span style=color:#4070a0>&#39;+&#39;</span> <span style=color:#4070a0>&#39;-&#39;</span> 
+</span></span><span style=display:flex><span><span style=color:#666>%</span>left <span style=color:#4070a0>&#39;*&#39;</span> <span style=color:#4070a0>&#39;/&#39;</span> 
+</span></span></code></pre></div><p>比如使用上面的定义，bison 就可以以加法和减法处于同一优先级，乘法和除法处于更高的优先级的方式实现消歧，这当然不是 bison 用了某种魔法理解了我们的定义表示的意思，而是使用了这个定义生成了正确的语法，实现了区分优先级的效果。</p><blockquote><p>关于 bison 到底是怎样重写语法的，或者它究竟有没有重写语法来实现消歧，其实我并没有研究，因为网上相关的资料并不是很多，这种问题也懒得去翻文档了，对于这个 <code>%left</code> 定义，许多资料中都只是简单的说了一下通过这个就定义优先级了，没有深究，可能是觉得这个很明显，但是我个人觉得这个其实挺迷惑的，所以这里写一下自己的理解，可能有错，仅供参考。</p><p>假设仅给予 bison 一个 <code>%left T2</code> 的定义，和一个产成式 $S \rightarrow S\ T2\ S\ |\ T1$，那么我们可以认为 bison 会自动重写语法为</p><p>$$
+S \rightarrow T\ T2\ S\ \ \ \<br>T \rightarrow T1</p><p>$$</p><p>即添加一个非终止符，然后把原产生式重写为左结合。</p><p>然后假设给予</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#666>%</span>right T1
+</span></span><span style=display:flex><span><span style=color:#666>%</span>left T2
+</span></span></code></pre></div><p>的定义，和产生式 $S \rightarrow S\ T1\ S\ |\ S\ T2 \ S\ |\ T3$，由于这里 T1 被定义在 T2 之前，因此先重写 T1 为右结合式，然后重写 T2 为左结合式</p><p>$$
+S \rightarrow T\ T1\ S\ \ \ \<br>T \rightarrow T\ T2\ F\ \ \ \<br>F \rightarrow T3</p><p>$$</p><p>这样 T2 的生成式被嵌套到了 T1 中，造成了 T2 的优先级大于 T1。</p></blockquote><h2 id=解析算法>解析算法</h2><p>CFG 本身只能回答输入是否属于该文法，要形成解析树，需要使用产生式作为“指导”，并使用特定算法解析。有许多算法可以实现解析，都有各自的优缺点。</p><h3 id=自顶向下>自顶向下</h3><p>所谓自顶向下，就是从开始符号进行推导，直到推导出输入的 tokens 序列为止。</p><h4 id=递归下降>递归下降</h4><p>递归下降是一种搜索-回溯的算法，根据产生式的每种情况递归生成表达式，然后与输入字符串匹配，这个过程根据输入字符串的特点可以进行大量有效的剪枝。由于搜索-回溯是树状的，所以其实它很适合用来生成语法树。不过根据递归的性质，对于这样一个产生式</p><p>$$
+T \rightarrow T\ S</p><p>$$</p><p>它会一直从 $T$ 向下递归，永远无法到达 $S$，造成解析错误。这种文法称为左递归，对于递归下降算法而言，左递归是不可接受的，不过不管是手动还是自动的，左递归都可以被容易地消除。</p><p>同时递归下降在回溯地处理上比较复杂，需要处理大量的情况。</p><p>但是递归下降仍然是比较容易手动实现的一种算法，所以有许多编译器都以该算法实现语法分析，比如 gcc。</p><h4 id=预测解析>预测解析</h4><p>作为一种自顶向下的算法，它不需要做任何搜索，对于每个输入他都有确定的跳转位置，类似于 DFA。但是为了达到这种效果，被匹配的语言需要是 $LL(1)$ 语言。</p><h3 id=自底向上>自底向上</h3><h4 id=移位归约>移位归约</h4><p>bison 就是使用这种算法进行匹配的。具体的有许多语言比如 LALR，SLR。慕课听完几天后就忘了，之后用到了再复习吧。</p><h2 id=使用-bison-生成-cool-的语法分析器>使用 bison 生成 COOL 的语法分析器</h2><p>慕课提供了一个框架，我只要在里面填上 BNF 的一块就可以了，主要是需要学习一下提供的 AST 模块的用法，实现起来其实并不困难，按照 manual 里面的 Figure 1 一个个写出来就可以了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>*  cool.y
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>*              Parser definition for the COOL language.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>*
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>*/</span>
+</span></span><span style=display:flex><span><span style=color:#666>%</span>{
+</span></span><span style=display:flex><span>  <span style=color:#007020>#include</span> <span style=color:#007020>&lt;iostream&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#007020>#include</span> <span style=color:#007020>&#34;cool-tree.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#007020>#include</span> <span style=color:#007020>&#34;stringtab.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#007020>#include</span> <span style=color:#007020>&#34;utilities.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>extern</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>curr_filename;
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Locations */</span>
+</span></span><span style=display:flex><span>  <span style=color:#007020>#define YYLTYPE int              </span><span style=color:#60a0b0;font-style:italic>/* the type of locations */</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#007020>#define cool_yylloc curr_lineno  </span><span style=color:#60a0b0;font-style:italic>/* use the curr_lineno from the lexer
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  for the location of tokens */</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>extern</span> <span style=color:#902000>int</span> node_lineno;          <span style=color:#60a0b0;font-style:italic>/* set before constructing a tree node
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    to whatever you want the line number
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    for the tree node to be */</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>      <span style=color:#007020>#define YYLLOC_DEFAULT(Current, Rhs, N)         \
+</span></span></span><span style=display:flex><span><span style=color:#007020>      Current = Rhs[1];                             \
+</span></span></span><span style=display:flex><span><span style=color:#007020>      node_lineno = Current;
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#007020>#define SET_NODELOC(Current)  \
+</span></span></span><span style=display:flex><span><span style=color:#007020>    node_lineno = Current;
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* IMPORTANT NOTE ON LINE NUMBERS
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    *********************************
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    * The above definitions and macros cause every terminal in your grammar to 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    * have the line number supplied by the lexer. The only task you have to
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    * implement for line numbers to work correctly, is to use SET_NODELOC()
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    * before constructing any constructs from non-terminals in your grammar.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    * Example: Consider you are matching on the following very restrictive 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    * (fictional) construct that matches a plus between two integer constants. 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    * (SUCH A RULE SHOULD NOT BE  PART OF YOUR PARSER):
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    plus_consts	: INT_CONST &#39;+&#39; INT_CONST 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    * where INT_CONST is a terminal for an integer constant. Now, a correct
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    * action for this rule that attaches the correct line number to plus_const
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    * would look like the following:
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    plus_consts	: INT_CONST &#39;+&#39; INT_CONST 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    {
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // Set the line number of the current non-terminal:
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // ***********************************************
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // You can access the line numbers of the i&#39;th item with @i, just
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // like you acess the value of the i&#39;th exporession with $i.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      //
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // Here, we choose the line number of the last INT_CONST (@3) as the
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // line number of the resulting expression (@$). You are free to pick
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // any reasonable line as the line number of non-terminals. If you 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // omit the statement @$=..., bison has default rules for deciding which 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // line number to use. Check the manual for details if you are interested.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      @$ = @3;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // Observe that we call SET_NODELOC(@3); this will set the global variable
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // node_lineno to @3. Since the constructor call &#34;plus&#34; uses the value of 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // this global, the plus node will now have the correct line number.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      SET_NODELOC(@3);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      // construct the result node:
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      $$ = plus(int_const($1), int_const($3));
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    }
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    */</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span> <span style=color:#06287e>yyerror</span>(<span style=color:#902000>char</span> <span style=color:#666>*</span>s);        <span style=color:#60a0b0;font-style:italic>/*  defined below; called for each parse error */</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>extern</span> <span style=color:#902000>int</span> <span style=color:#06287e>yylex</span>();           <span style=color:#60a0b0;font-style:italic>/*  the entry point to the lexer  */</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/************************************************************************/</span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/*                DONT CHANGE ANYTHING IN THIS SECTION                  */</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    Program ast_root;	      <span style=color:#60a0b0;font-style:italic>/* the result of the parse  */</span>
+</span></span><span style=display:flex><span>    Classes parse_results;        <span style=color:#60a0b0;font-style:italic>/* for use in semantic analysis */</span>
+</span></span><span style=display:flex><span>    <span style=color:#902000>int</span> omerrs <span style=color:#666>=</span> <span style=color:#40a070>0</span>;               <span style=color:#60a0b0;font-style:italic>/* number of errors in lexing and parsing */</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>}
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* A union of all the types that can be the result of parsing actions. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span><span style=color:#007020;font-weight:700>union</span> {
+</span></span><span style=display:flex><span>      Boolean boolean;
+</span></span><span style=display:flex><span>      Symbol symbol;
+</span></span><span style=display:flex><span>      Program program;
+</span></span><span style=display:flex><span>      Class_ class_;
+</span></span><span style=display:flex><span>      Classes classes;
+</span></span><span style=display:flex><span>      Feature feature;
+</span></span><span style=display:flex><span>      Features features;
+</span></span><span style=display:flex><span>      Formal formal;
+</span></span><span style=display:flex><span>      Formals formals;
+</span></span><span style=display:flex><span>      Case case_;
+</span></span><span style=display:flex><span>      Cases cases;
+</span></span><span style=display:flex><span>      Expression expression;
+</span></span><span style=display:flex><span>      Expressions expressions;
+</span></span><span style=display:flex><span>      <span style=color:#902000>char</span> <span style=color:#666>*</span>error_msg;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    Declare the terminals; a few have types for associated lexemes.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    The token ERROR is never used in the parser; thus, it is a parse
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    error when the lexer returns it.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    The integer following token declaration is the numeric constant used
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    to represent that token internally.  Typically, Bison generates these
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    on its own, but we give explicit numbers to prevent version parity
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    problems (bison 1.25 and earlier start at 258, later versions -- at
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    257)
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    */</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>token CLASS <span style=color:#40a070>258</span> ELSE <span style=color:#40a070>259</span> FI <span style=color:#40a070>260</span> IF <span style=color:#40a070>261</span> IN <span style=color:#40a070>262</span> 
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>token INHERITS <span style=color:#40a070>263</span> LET <span style=color:#40a070>264</span> LOOP <span style=color:#40a070>265</span> POOL <span style=color:#40a070>266</span> THEN <span style=color:#40a070>267</span> WHILE <span style=color:#40a070>268</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>token CASE <span style=color:#40a070>269</span> ESAC <span style=color:#40a070>270</span> OF <span style=color:#40a070>271</span> DARROW <span style=color:#40a070>272</span> NEW <span style=color:#40a070>273</span> ISVOID <span style=color:#40a070>274</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>token <span style=color:#666>&lt;</span>symbol<span style=color:#666>&gt;</span>  STR_CONST <span style=color:#40a070>275</span> INT_CONST <span style=color:#40a070>276</span> 
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>token <span style=color:#666>&lt;</span>boolean<span style=color:#666>&gt;</span> BOOL_CONST <span style=color:#40a070>277</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>token <span style=color:#666>&lt;</span>symbol<span style=color:#666>&gt;</span>  TYPEID <span style=color:#40a070>278</span> OBJECTID <span style=color:#40a070>279</span> 
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>token ASSIGN <span style=color:#40a070>280</span> NOT <span style=color:#40a070>281</span> LE <span style=color:#40a070>282</span> ERROR <span style=color:#40a070>283</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/*  DON&#39;T CHANGE ANYTHING ABOVE THIS LINE, OR YOUR PARSER WONT WORK       */</span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/**************************************************************************/</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* Complete the nonterminal list below, giving a type for the semantic
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    value of each non terminal. (See section 3.6 in the bison 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    documentation for details). */</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* Declare types for the grammar&#39;s non-terminals. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>type <span style=color:#666>&lt;</span>program<span style=color:#666>&gt;</span> program
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>type <span style=color:#666>&lt;</span>classes<span style=color:#666>&gt;</span> class_list
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>type <span style=color:#666>&lt;</span>class_<span style=color:#666>&gt;</span> <span style=color:#007020;font-weight:700>class</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span>/* </span><span style=color:#0e84b5;font-weight:700>You</span> will want to change the following line. <span>*/</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>type <span style=color:#666>&lt;</span>features<span style=color:#666>&gt;</span> feature_list 
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>type <span style=color:#666>&lt;</span>feature<span style=color:#666>&gt;</span> method attr
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>type <span style=color:#666>&lt;</span>expressions<span style=color:#666>&gt;</span> expression_list argument_list
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>type <span style=color:#666>&lt;</span>expression<span style=color:#666>&gt;</span> expression let_nested_expression
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>type <span style=color:#666>&lt;</span>formals<span style=color:#666>&gt;</span> formal_list
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>type <span style=color:#666>&lt;</span>formal<span style=color:#666>&gt;</span> formal
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>type <span style=color:#666>&lt;</span>cases<span style=color:#666>&gt;</span> case_list
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>type <span style=color:#666>&lt;</span>case_<span style=color:#666>&gt;</span> case_branch
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* Precedence declarations go here. */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>right IN
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>right ASSIGN 
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>left NOT
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>nonassoc LE <span style=color:#4070a0>&#39;&lt;&#39;</span> <span style=color:#4070a0>&#39;=&#39;</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>%</span>left <span style=color:#4070a0>&#39;+&#39;</span> <span style=color:#4070a0>&#39;-&#39;</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>left <span style=color:#4070a0>&#39;*&#39;</span> <span style=color:#4070a0>&#39;/&#39;</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>left ISVOID
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>left <span style=color:#4070a0>&#39;~&#39;</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>left <span style=color:#4070a0>&#39;@&#39;</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>%</span>left <span style=color:#4070a0>&#39;.&#39;</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#666>%%</span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* 
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    Save the root of the abstract syntax tree in a global variable.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    */</span>
+</span></span><span style=display:flex><span>    <span style=color:#002070;font-weight:700>program</span>	: class_list	{ <span>@$</span> <span style=color:#666>=</span> <span>@</span><span style=color:#40a070>1</span>; ast_root <span style=color:#666>=</span> program(<span>$</span><span style=color:#40a070>1</span>); }
+</span></span><span style=display:flex><span>    ;
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#002070;font-weight:700>class_list</span>
+</span></span><span style=display:flex><span>    : <span style=color:#007020;font-weight:700>class</span>			<span>/* </span><span style=color:#0e84b5;font-weight:700>single</span> <span style=color:#007020;font-weight:700>class</span> <span>*/</span>
+</span></span><span style=display:flex><span>    { <span>$$</span> <span style=color:#666>=</span> single_Classes(<span>$</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    parse_results <span style=color:#666>=</span> <span>$$</span>; }
+</span></span><span style=display:flex><span>    <span style=color:#666>|</span> class_list <span style=color:#007020;font-weight:700>class</span>	<span>/* </span><span style=color:#0e84b5;font-weight:700>several</span> classes <span>*/</span>
+</span></span><span style=display:flex><span>    { <span>$$</span> <span style=color:#666>=</span> append_Classes(<span>$</span><span style=color:#40a070>1</span>, single_Classes(<span>$</span><span style=color:#40a070>2</span>)); 
+</span></span><span style=display:flex><span>    parse_results <span style=color:#666>=</span> <span>$$</span>; }
+</span></span><span style=display:flex><span>    ;
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* If no parent is specified,  the class inherits from the Object class. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>class</span>
+</span></span><span style=display:flex><span>	<span>: </span><span style=color:#0e84b5;font-weight:700>CLASS</span> TYPEID <span style=color:#4070a0>&#39;{&#39;</span> feature_list <span style=color:#4070a0>&#39;}&#39;</span> <span style=color:#4070a0>&#39;;&#39;</span>
+</span></span><span style=display:flex><span>    { <span>$$</span> <span style=color:#666>=</span> class_(<span>$</span><span style=color:#40a070>2</span>, idtable.add_string(<span style=color:#4070a0>&#34;Object&#34;</span>), <span>$</span><span style=color:#40a070>4</span>, 
+</span></span><span style=display:flex><span>    stringtable.add_string(curr_filename)); }
+</span></span><span style=display:flex><span>    <span style=color:#666>|</span> CLASS TYPEID INHERITS TYPEID <span style=color:#4070a0>&#39;{&#39;</span> feature_list <span style=color:#4070a0>&#39;}&#39;</span> <span style=color:#4070a0>&#39;;&#39;</span>
+</span></span><span style=display:flex><span>    { <span>$$</span> <span style=color:#666>=</span> class_(<span>$</span><span style=color:#40a070>2</span>, <span>$</span><span style=color:#40a070>4</span>, <span>$</span><span style=color:#40a070>6</span>, stringtable.add_string(curr_filename)); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> error <span style=color:#4070a0>&#39;}&#39;</span> <span style=color:#4070a0>&#39;;&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> <span style=color:#40a070>0</span>; }
+</span></span><span style=display:flex><span>    ;
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* Feature list may be empty, but no empty features in list. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#002070;font-weight:700>feature_list</span>
+</span></span><span style=display:flex><span>	: feature_list method <span style=color:#4070a0>&#39;;&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> append_Features(<span>$</span><span style=color:#40a070>1</span>, single_Features(<span>$</span><span style=color:#40a070>2</span>)); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> feature_list attr <span style=color:#4070a0>&#39;;&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> append_Features(<span>$</span><span style=color:#40a070>1</span>, single_Features(<span>$</span><span style=color:#40a070>2</span>)); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> <span style=color:#60a0b0;font-style:italic>/* this is empty */</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> nil_Features(); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> error <span style=color:#4070a0>&#39;;&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> <span style=color:#40a070>0</span>; }
+</span></span><span style=display:flex><span>    ;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#002070;font-weight:700>method</span>
+</span></span><span style=display:flex><span>	: OBJECTID <span style=color:#4070a0>&#39;(&#39;</span> formal_list <span style=color:#4070a0>&#39;)&#39;</span> <span style=color:#4070a0>&#39;:&#39;</span> TYPEID <span style=color:#4070a0>&#39;{&#39;</span> expression <span style=color:#4070a0>&#39;}&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> method(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>, <span>$</span><span style=color:#40a070>6</span>, <span>$</span><span style=color:#40a070>8</span>); }
+</span></span><span style=display:flex><span>	;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#002070;font-weight:700>attr</span>
+</span></span><span style=display:flex><span>	: OBJECTID <span style=color:#4070a0>&#39;:&#39;</span> TYPEID	<span style=color:#60a0b0;font-style:italic>/* attr without init */</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> attr(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>, no_expr()); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> OBJECTID <span style=color:#4070a0>&#39;:&#39;</span> TYPEID ASSIGN expression	<span style=color:#60a0b0;font-style:italic>/* attr with init */</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> attr(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>, <span>$</span><span style=color:#40a070>5</span>); }
+</span></span><span style=display:flex><span>	;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#002070;font-weight:700>formal_list</span> 
+</span></span><span style=display:flex><span>	: formal	<span style=color:#60a0b0;font-style:italic>/* only one formal */</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> single_Formals(<span>$</span><span style=color:#40a070>1</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> formal_list <span style=color:#4070a0>&#39;,&#39;</span> formal <span style=color:#60a0b0;font-style:italic>/* more than one formals */</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> append_Formals(<span>$</span><span style=color:#40a070>1</span>, single_Formals(<span>$</span><span style=color:#40a070>3</span>)); };
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> <span style=color:#60a0b0;font-style:italic>/* or zero */</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> nil_Formals(); }
+</span></span><span style=display:flex><span>	;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#002070;font-weight:700>formal</span> 
+</span></span><span style=display:flex><span>	: OBJECTID <span style=color:#4070a0>&#39;:&#39;</span> TYPEID  
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> formal(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>); };
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#002070;font-weight:700>expression</span> 
+</span></span><span style=display:flex><span>	: OBJECTID ASSIGN expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> assign(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* expr@TYPE.ID(...) */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> expression <span style=color:#4070a0>&#39;@&#39;</span> TYPEID <span style=color:#4070a0>&#39;.&#39;</span> OBJECTID <span style=color:#4070a0>&#39;(&#39;</span> argument_list <span style=color:#4070a0>&#39;)&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> static_dispatch(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>, <span>$</span><span style=color:#40a070>5</span>, <span>$</span><span style=color:#40a070>7</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* expr.ID(...) */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> expression <span style=color:#4070a0>&#39;.&#39;</span> OBJECTID <span style=color:#4070a0>&#39;(&#39;</span> argument_list <span style=color:#4070a0>&#39;)&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> dispatch(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>, <span>$</span><span style=color:#40a070>5</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* ID(...) */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> OBJECTID <span style=color:#4070a0>&#39;(&#39;</span> argument_list <span style=color:#4070a0>&#39;)&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> dispatch(object(idtable.add_string(<span style=color:#4070a0>&#34;self&#34;</span>)), <span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* if then else fi */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> IF expression THEN expression ELSE expression FI
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> cond(<span>$</span><span style=color:#40a070>2</span>, <span>$</span><span style=color:#40a070>4</span>, <span>$</span><span style=color:#40a070>6</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* while expr loop expr pool */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> WHILE expression LOOP expression POOL
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> loop(<span>$</span><span style=color:#40a070>2</span>, <span>$</span><span style=color:#40a070>4</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* block expression */</span> 
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> <span style=color:#4070a0>&#39;{&#39;</span> expression_list <span style=color:#4070a0>&#39;}&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> block(<span>$</span><span style=color:#40a070>2</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> <span style=color:#4070a0>&#39;{&#39;</span> error <span style=color:#4070a0>&#39;}&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> <span style=color:#40a070>0</span>; }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* let */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> LET let_nested_expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> <span>$</span><span style=color:#40a070>2</span>; }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* case */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> CASE expression OF case_list ESAC
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> typcase(<span>$</span><span style=color:#40a070>2</span>, <span>$</span><span style=color:#40a070>4</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> NEW TYPEID
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> new_(<span>$</span><span style=color:#40a070>2</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> ISVOID expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> isvoid(<span>$</span><span style=color:#40a070>2</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> expression <span style=color:#4070a0>&#39;+&#39;</span> expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> plus(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>);}
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> expression <span style=color:#4070a0>&#39;-&#39;</span> expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> sub(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>);}
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> expression <span style=color:#4070a0>&#39;*&#39;</span> expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> mul(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>);}
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> expression <span style=color:#4070a0>&#39;/&#39;</span> expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> divide(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>);}
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> <span style=color:#4070a0>&#39;~&#39;</span> expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> neg(<span>$</span><span style=color:#40a070>2</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> expression <span style=color:#4070a0>&#39;&lt;&#39;</span> expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> lt(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>);}
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> expression LE expression	<span style=color:#60a0b0;font-style:italic>/* LE represent &#39;&lt;=&#39; */</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> leq(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>);}
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> expression <span style=color:#4070a0>&#39;=&#39;</span> expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> eq(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>);}
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> NOT expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> comp(<span>$</span><span style=color:#40a070>2</span>);}
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* (expr) */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> <span style=color:#4070a0>&#39;(&#39;</span> expression <span style=color:#4070a0>&#39;)&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> <span>$</span><span style=color:#40a070>2</span>; }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* ID */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> OBJECTID
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> object(<span>$</span><span style=color:#40a070>1</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* integer */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> INT_CONST
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> int_const(<span>$</span><span style=color:#40a070>1</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>/* string */</span>
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> STR_CONST
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> string_const(<span>$</span><span style=color:#40a070>1</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> BOOL_CONST
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> bool_const(<span>$</span><span style=color:#40a070>1</span>); }
+</span></span><span style=display:flex><span>	;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#002070;font-weight:700>case_list</span>
+</span></span><span style=display:flex><span>	: case_branch
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> single_Cases(<span>$</span><span style=color:#40a070>1</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> case_list case_branch
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> append_Cases(<span>$</span><span style=color:#40a070>1</span>, single_Cases(<span>$</span><span style=color:#40a070>2</span>)); }
+</span></span><span style=display:flex><span>	;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#002070;font-weight:700>case_branch</span>
+</span></span><span style=display:flex><span>	: OBJECTID <span style=color:#4070a0>&#39;:&#39;</span> TYPEID DARROW expression <span style=color:#4070a0>&#39;;&#39;</span> 
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> branch(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>, <span>$</span><span style=color:#40a070>5</span>); }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#002070;font-weight:700>let_nested_expression</span>
+</span></span><span style=display:flex><span>	: OBJECTID <span style=color:#4070a0>&#39;:&#39;</span> TYPEID IN expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> let(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>, no_expr(), <span>$</span><span style=color:#40a070>5</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> OBJECTID <span style=color:#4070a0>&#39;:&#39;</span> TYPEID ASSIGN expression IN expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> let(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>, <span>$</span><span style=color:#40a070>5</span>, <span>$</span><span style=color:#40a070>7</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> OBJECTID <span style=color:#4070a0>&#39;:&#39;</span> TYPEID <span style=color:#4070a0>&#39;,&#39;</span> let_nested_expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> let(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>, no_expr(), <span>$</span><span style=color:#40a070>5</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> OBJECTID <span style=color:#4070a0>&#39;:&#39;</span> TYPEID ASSIGN expression <span style=color:#4070a0>&#39;,&#39;</span> let_nested_expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> let(<span>$</span><span style=color:#40a070>1</span>, <span>$</span><span style=color:#40a070>3</span>, <span>$</span><span style=color:#40a070>5</span>, <span>$</span><span style=color:#40a070>7</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> error <span style=color:#4070a0>&#39;,&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> <span style=color:#40a070>0</span>; }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> error
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> <span style=color:#40a070>0</span>; }
+</span></span><span style=display:flex><span>	;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#002070;font-weight:700>expression_list</span>
+</span></span><span style=display:flex><span>	: expression <span style=color:#4070a0>&#39;;&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> single_Expressions(<span>$</span><span style=color:#40a070>1</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> expression_list expression <span style=color:#4070a0>&#39;;&#39;</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> append_Expressions(<span>$</span><span style=color:#40a070>1</span>, single_Expressions(<span>$</span><span style=color:#40a070>2</span>)); }
+</span></span><span style=display:flex><span>	;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#002070;font-weight:700>argument_list</span>
+</span></span><span style=display:flex><span>	: expression 
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> single_Expressions(<span>$</span><span style=color:#40a070>1</span>); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> argument_list <span style=color:#4070a0>&#39;,&#39;</span> expression
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> append_Expressions(<span>$</span><span style=color:#40a070>1</span>, single_Expressions(<span>$</span><span style=color:#40a070>3</span>)); }
+</span></span><span style=display:flex><span>	<span style=color:#666>|</span> <span style=color:#60a0b0;font-style:italic>/* this is empty */</span>
+</span></span><span style=display:flex><span>	{ <span>$$</span> <span style=color:#666>=</span> nil_Expressions(); }
+</span></span><span style=display:flex><span>	;
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* end of grammar */</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>%%</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* This function is called automatically when Bison detects a parse error. */</span>
+</span></span><span style=display:flex><span>    <span style=color:#902000>void</span> yyerror(<span style=color:#902000>char</span> <span style=color:#666>*</span>s)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>extern</span> <span style=color:#902000>int</span> curr_lineno;
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>      cerr <span style=color:#666>&lt;&lt;</span> <span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\&#34;</span><span style=color:#4070a0>&#34;</span> <span style=color:#666>&lt;&lt;</span> curr_filename <span style=color:#666>&lt;&lt;</span> <span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\&#34;</span><span style=color:#4070a0>, line &#34;</span> <span style=color:#666>&lt;&lt;</span> curr_lineno <span style=color:#666>&lt;&lt;</span> <span style=color:#4070a0>&#34;: &#34;</span> \
+</span></span><span style=display:flex><span>      <span style=color:#666>&lt;&lt;</span> s <span style=color:#666>&lt;&lt;</span> <span style=color:#4070a0>&#34; at or near &#34;</span>;
+</span></span><span style=display:flex><span>      print_cool_token(yychar);
+</span></span><span style=display:flex><span>      cerr <span style=color:#666>&lt;&lt;</span> endl;
+</span></span><span style=display:flex><span>      omerrs<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span>(omerrs<span style=color:#666>&gt;</span><span style=color:#40a070>50</span>) {fprintf(stdout, <span style=color:#4070a0>&#34;More than 50 errors</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>); exit(<span style=color:#40a070>1</span>);}
+</span></span><span style=display:flex><span>    }
+</span></span></code></pre></div><p>最后也是用 life.cl 来测试一下</p><p><img src=https://www.cjovi.icu/usr/uploads/2021/08/1215969176.png alt=cheers!></p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/compilers>compilers</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

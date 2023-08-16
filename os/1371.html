@@ -1,0 +1,109 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>《操作系统真像还原》操作系统实现——从键盘获取输入和缓冲区 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="关于键盘输入我不想写，就是一个和硬件交互的过程，这里主要还是说一下输入输出缓冲区。 代码已经打好 tag，链接，比较重要的就是 ioqueue。 获"><meta property="og:image" content><meta property="og:title" content="《操作系统真像还原》操作系统实现——从键盘获取输入和缓冲区"><meta property="og:description" content="关于键盘输入我不想写，就是一个和硬件交互的过程，这里主要还是说一下输入输出缓冲区。 代码已经打好 tag，链接，比较重要的就是 ioqueue。 获"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/os/1371.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-06-06T20:51:00+00:00"><meta property="article:modified_time" content="2021-06-06T20:51:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="《操作系统真像还原》操作系统实现——从键盘获取输入和缓冲区"><meta name=twitter:description content="关于键盘输入我不想写，就是一个和硬件交互的过程，这里主要还是说一下输入输出缓冲区。 代码已经打好 tag，链接，比较重要的就是 ioqueue。 获"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>《操作系统真像还原》操作系统实现——从键盘获取输入和缓冲区</h1><div class=meta>Posted on Jun 6, 2021</div></div><section class=body><p>关于键盘输入我不想写，就是一个和硬件交互的过程，这里主要还是说一下输入输出缓冲区。</p><p>代码已经打好 tag，<a href=https://github.com/chujDK/chuj-elephant-os/releases/tag/basic_input_output>链接</a>，比较重要的就是 ioqueue。</p><p>获取键盘输入后，可以直接打出到屏幕上，但是这样除了给用户看看之外没有任何的用处，如果想要让输入有效，就必然需要把输入暂存到一个地方，然后让需要从用户读取的线程读取输入，这就需要一个缓冲区来处理这个问题，<em>Dijkstra</em> 提出了一个生产者-消费者模型，基于该模型的思想可以有效地解决这个问题。</p><h3 id=生产者-消费者模型>生产者-消费者模型</h3><p>说到底来，其实这就是一个循环队列。以一个 shell 为例，shell 需要获取用户的输入，那么 shell 就是消费者，消费用户的输入，而用户的输入（通过键盘中断处理程序来输入）就是原料，键盘中断处理程序就是生产者。如果让生产者直接和消费者对接，由于两者是异步的，特别的，用户输入甚至是不确定的，就随时可能会出现供不应求或供过于求的问题。</p><p>于是我们就在两者之间放一个缓冲区，这个缓冲区应该可以做到：消费者随时可以从缓存区中取数据，取不到就阻塞自己，生产者随时可以向缓冲区中放数据，放不进了就阻塞自己；相应的，一旦消费者发现缓冲区里面可以放数据了，就唤醒被阻塞的生产者，生产者一旦发现缓冲区里面可以取数据了，就唤醒被阻塞的消费者。</p><p>为了实现这样的缓存区，我们需要维护一个循环队列（简单的，可以用数组模拟）和被阻塞的消费者和生产者指针，就是这样一个结构</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ioqueue</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>lock</span> lock;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    PCB<span style=color:#666>*</span> sleeping_producer;
+</span></span><span style=display:flex><span>    PCB<span style=color:#666>*</span> sleeping_consumer;
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span> buf[bufsize];
+</span></span><span style=display:flex><span>    size_t head;
+</span></span><span style=display:flex><span>    size_t tail;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>这里的 head 和 tail 维护的是下标。</p><p>然后我们提供这样几个方法</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* get one byte from the buf */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> <span style=color:#06287e>ioqueue_getchar</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ioqueue</span><span style=color:#666>*</span> queue);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* put one byte to the buf */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>ioqueue_putchar</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ioqueue</span><span style=color:#666>*</span> queue, <span style=color:#902000>char</span> byte);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>ioqueueInit</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ioqueue</span><span style=color:#666>*</span> queue);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>uint8_t</span> <span style=color:#06287e>ioqueueFull</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ioqueue</span><span style=color:#666>*</span> queue);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>uint8_t</span> <span style=color:#06287e>ioqueueEmpty</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ioqueue</span><span style=color:#666>*</span> queue);
+</span></span></code></pre></div><p>就可以实现这个缓冲区了。</p><p>getchar 就是一个消费过程</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>char</span> <span style=color:#06287e>ioqueue_getchar</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ioqueue</span><span style=color:#666>*</span> queue)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    ASSERT(GetIntStatus() <span style=color:#666>==</span> INT_OFF);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> (ioqueueEmpty(queue))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        sys_lock_lock(<span style=color:#666>&amp;</span>queue<span style=color:#666>-&gt;</span>lock);
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* make current thread (consumer) blocked, and record it */</span>
+</span></span><span style=display:flex><span>        ioqueueBlock(<span style=color:#666>&amp;</span>queue<span style=color:#666>-&gt;</span>sleeping_consumer);
+</span></span><span style=display:flex><span>        sys_lock_unlock(<span style=color:#666>&amp;</span>queue<span style=color:#666>-&gt;</span>lock);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span> byte <span style=color:#666>=</span> queue<span style=color:#666>-&gt;</span>buf[queue<span style=color:#666>-&gt;</span>tail];
+</span></span><span style=display:flex><span>    queue<span style=color:#666>-&gt;</span>tail <span style=color:#666>=</span> ptr_next_pos(queue<span style=color:#666>-&gt;</span>tail);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (queue<span style=color:#666>-&gt;</span>sleeping_producer <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        ioqueueWakeup(<span style=color:#666>&amp;</span>queue<span style=color:#666>-&gt;</span>sleeping_producer);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> byte;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>putchar 就是生产过程</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>ioqueue_putchar</span>(<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>ioqueue</span><span style=color:#666>*</span> queue, <span style=color:#902000>char</span> byte)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    ASSERT(GetIntStatus() <span style=color:#666>==</span> INT_OFF);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> (ioqueueFull(queue))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        sys_lock_lock(<span style=color:#666>&amp;</span>queue<span style=color:#666>-&gt;</span>lock);
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>/* make current thread (producer) blocked, and record it */</span>
+</span></span><span style=display:flex><span>        ioqueueBlock(<span style=color:#666>&amp;</span>queue<span style=color:#666>-&gt;</span>sleeping_producer);
+</span></span><span style=display:flex><span>        sys_lock_unlock(<span style=color:#666>&amp;</span>queue<span style=color:#666>-&gt;</span>lock);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    queue<span style=color:#666>-&gt;</span>buf[queue<span style=color:#666>-&gt;</span>head] <span style=color:#666>=</span> byte;
+</span></span><span style=display:flex><span>    queue<span style=color:#666>-&gt;</span>head <span style=color:#666>=</span> ptr_next_pos(queue<span style=color:#666>-&gt;</span>head);
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (queue<span style=color:#666>-&gt;</span>sleeping_consumer <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        ioqueueWakeup(<span style=color:#666>&amp;</span>queue<span style=color:#666>-&gt;</span>sleeping_producer);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>修改 main.c 后就可以进行输入输出了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;print.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;init.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;debug.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;memory.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;thread.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;interrupt.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;console.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;keyboard.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&#34;ioqueue.h&#34;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>KThreadTest</span>();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>_start</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    sys_putstr(<span style=color:#4070a0>&#34;this is kernel!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>);
+</span></span><span style=display:flex><span>    InitAll();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* this thread output the input from the keyboard */</span>
+</span></span><span style=display:flex><span>    ThreadStart(<span style=color:#4070a0>&#34;KThreadTestA&#34;</span>, <span style=color:#40a070>31</span>, KThreadTest, <span style=color:#4070a0>&#34;&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    EnableInt();
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span>(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>KThreadTest</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span>(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>enum</span> <span style=color:#0e84b5;font-weight:700>int_status</span> old_statu <span style=color:#666>=</span> DisableInt();
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>ioqueueEmpty(<span style=color:#666>&amp;</span>keyboard_IO_buf))
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>            console_putchar(ioqueue_getchar(<span style=color:#666>&amp;</span>keyboard_IO_buf));   
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>        SetIntStatus(old_statu);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>效果就是</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/06/2732042757.png></div><p>这里总体比较简单，就不再多说了。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/os>OS</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

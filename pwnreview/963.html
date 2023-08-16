@@ -1,0 +1,330 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>从源码看glibc中scanf的实现 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="关于 这是可能会成为一个新的专栏，主要想学习一下glibc对IO这一方面的实现，顺便记录一下。有这个打算的主要原因是最近做题做的心态有些小崩，"><meta property="og:image" content><meta property="og:title" content="从源码看glibc中scanf的实现"><meta property="og:description" content="关于 这是可能会成为一个新的专栏，主要想学习一下glibc对IO这一方面的实现，顺便记录一下。有这个打算的主要原因是最近做题做的心态有些小崩，"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/pwnreview/963.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-01-06T15:45:00+00:00"><meta property="article:modified_time" content="2021-01-06T15:45:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="从源码看glibc中scanf的实现"><meta name=twitter:description content="关于 这是可能会成为一个新的专栏，主要想学习一下glibc对IO这一方面的实现，顺便记录一下。有这个打算的主要原因是最近做题做的心态有些小崩，"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>从源码看glibc中scanf的实现</h1><div class=meta>Posted on Jan 6, 2021</div></div><section class=body><h3 id=关于>关于</h3><p>这是可能会成为一个新的专栏，主要想学习一下glibc对IO这一方面的实现，顺便记录一下。有这个打算的主要原因是最近做题做的心态有些小崩，感觉什么都不会做，于是想着还是先缓一缓，补一补基础知识，就先从IO开始。</p><h3 id=准备工作>准备工作</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;cstdio.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span> a[<span style=color:#40a070>20</span>];
+</span></span><span style=display:flex><span>    scanf(<span style=color:#4070a0>&#34;%saaaa&#34;</span>,a);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>编译以上代码，由于我使用的Ubuntu18.04自带的libc是没有调试信息的，所以使用patchelf将其libc改为了我自己编译的glibc，版本为2.23</p><p>开始调试，首先进入scanf，我们可以看到实际调用的是<code>__isoc99_scanf</code>这个钩子函数，当然我们也可以看到是有<code>__scanf</code>这个钩子函数的，两者的区别是前者严格遵守C99标准，当然也多出来了几行代码。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>__isoc99_scanf</span> (<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>format, ...)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  va_list arg;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> done;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020>#ifdef _IO_MTSAFE_IO
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  _IO_acquire_lock_clear_flags2 (stdin);
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  stdin<span style=color:#666>-&gt;</span>_flags2 <span style=color:#666>|=</span> _IO_FLAGS2_SCANF_STD;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  va_start (arg, format);
+</span></span><span style=display:flex><span>  done <span style=color:#666>=</span> _IO_vfscanf (stdin, format, arg, <span style=color:#007020>NULL</span>);
+</span></span><span style=display:flex><span>  va_end (arg);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020>#ifdef _IO_MTSAFE_IO
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  _IO_release_lock (stdin);
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#007020;font-weight:700>return</span> done;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><code>scanf</code>是典型的变参函数，其实在以前我一直没有使用过变参函数，这里简单讲一下，<code>stdarg.h</code>头文件中提供了变参函数所需要的函数和宏。<code>arg</code>是一个<code>va_list</code>型变量（va是Variable Argument的意思），通过<code>va_start</code>进行了初始化，获得了参数的首地址。然后进入<code>_IO_vfscanf</code>，跟进。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/01/2058594554.png></div><p>可见实际调用的是<code>_IO_vfscanf_internal</code>这个函数，这个函数很长，就不全部一起放上来了。函数一开始定义了一大堆变量，暂且不看。<code>scanf</code>在给要读取的流加锁后，便会开始对格式化字符串进行处理。最先进入的是这个if</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#ifndef COMPILE_WSCANF
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>      <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>isascii ((<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span>) <span style=color:#666>*</span>f))
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>	  <span style=color:#60a0b0;font-style:italic>/* Non-ASCII, may be a multibyte.  */</span>
+</span></span><span style=display:flex><span>	  <span style=color:#902000>int</span> len <span style=color:#666>=</span> __mbrlen (f, strlen (f), <span style=color:#666>&amp;</span>state);
+</span></span><span style=display:flex><span>	  <span style=color:#007020;font-weight:700>if</span> (len <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	    {
+</span></span><span style=display:flex><span>	      <span style=color:#007020;font-weight:700>do</span>
+</span></span><span style=display:flex><span>		{
+</span></span><span style=display:flex><span>		  c <span style=color:#666>=</span> inchar ();
+</span></span><span style=display:flex><span>		  <span style=color:#007020;font-weight:700>if</span> (__glibc_unlikely (c <span style=color:#666>==</span> EOF))
+</span></span><span style=display:flex><span>		    input_error ();
+</span></span><span style=display:flex><span>		  <span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> (c <span style=color:#666>!=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span>) <span style=color:#666>*</span>f<span style=color:#666>++</span>)
+</span></span><span style=display:flex><span>		    {
+</span></span><span style=display:flex><span>		      ungetc_not_eof (c, s);
+</span></span><span style=display:flex><span>		      conv_error ();
+</span></span><span style=display:flex><span>		    }
+</span></span><span style=display:flex><span>		}
+</span></span><span style=display:flex><span>	      <span style=color:#007020;font-weight:700>while</span> (<span style=color:#666>--</span>len <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	      <span style=color:#007020;font-weight:700>continue</span>;
+</span></span><span style=display:flex><span>	    }
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span></code></pre></div><p>这个是对非ASCII字符的处理，这篇文章里就不分析了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>      fc <span style=color:#666>=</span> <span style=color:#666>*</span>f<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (fc <span style=color:#666>!=</span> <span style=color:#4070a0>&#39;%&#39;</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>	  <span style=color:#60a0b0;font-style:italic>/* Remember to skip spaces.  */</span>
+</span></span><span style=display:flex><span>	  <span style=color:#007020;font-weight:700>if</span> (ISSPACE (fc))
+</span></span><span style=display:flex><span>	    {
+</span></span><span style=display:flex><span>	      skip_space <span style=color:#666>=</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>	      <span style=color:#007020;font-weight:700>continue</span>;
+</span></span><span style=display:flex><span>	    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	  <span style=color:#60a0b0;font-style:italic>/* Read a character.  */</span>
+</span></span><span style=display:flex><span>	  c <span style=color:#666>=</span> inchar ();
+</span></span></code></pre></div><p>然后正式开始进行处理，<code>fc</code> 和<code>f</code>的定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>const CHAR_T *f = format;
+</span></span><span style=display:flex><span>UCHAR_T fc;	/* Current character of the format.  */
+</span></span></code></pre></div><p><code>f</code>是一个指向<code>format</code>的指针，初值为<code>format</code>的首地址，作用是对format进行遍历，<code>fc</code>则存储当前<code>f</code>指向的字符，也就是当前处理的字符。</p><p>如果<code>fc</code>是空白字符 (0X09-0x0D 或 0x20)，则跳过本次处理，并且将skip_space置1。若不是空白字符，则进行一次<code>inchar</code>操作</p><h4 id=inchar的实现>inchar()的实现</h4><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020># define inchar()	(c == EOF ? ((errno = inchar_errno), EOF)	      \
+</span></span></span><span style=display:flex><span><span style=color:#007020>			 : ((c = _IO_getc_unlocked (s)),		      \
+</span></span></span><span style=display:flex><span><span style=color:#007020>			    (void) (c != EOF				      \
+</span></span></span><span style=display:flex><span><span style=color:#007020>				    ? ++read_in				      \
+</span></span></span><span style=display:flex><span><span style=color:#007020>				    : (size_t) (inchar_errno = errno)), c))
+</span></span></span></code></pre></div><p>在该操作中，如果没有读到文件尾的话，就会调用<code>_IO_getc_unlocked (s)</code>进行一次读取。</p><p>在这里调用时的参数<code>s</code>，是一个<code>*_IO_FILE</code>，<code>scanf</code>是从标准输入流也就是<code>stdin</code>中读取信息的，也就是说<code>s</code>实际是指向<code>stdin</code>的指针，<code>stdin</code>在glibc中是全局变量，名为<code>_IO_2_1_stdin_</code>。类型为<code>_IO_FILE</code>结构体，是这样定义的</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_FILE</span> {
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> _flags;		<span style=color:#60a0b0;font-style:italic>/* High-order word is _IO_MAGIC; rest is flags. */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define _IO_file_flags _flags
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* The following pointers correspond to the C++ streambuf protocol. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Note:  Tk uses the _IO_read_ptr and _IO_read_end fields directly. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_read_ptr;	<span style=color:#60a0b0;font-style:italic>/* Current read pointer */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_read_end;	<span style=color:#60a0b0;font-style:italic>/* End of get area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_read_base;	<span style=color:#60a0b0;font-style:italic>/* Start of putback+get area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_write_base;	<span style=color:#60a0b0;font-style:italic>/* Start of put area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_write_ptr;	<span style=color:#60a0b0;font-style:italic>/* Current put pointer. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_write_end;	<span style=color:#60a0b0;font-style:italic>/* End of put area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_buf_base;	<span style=color:#60a0b0;font-style:italic>/* Start of reserve area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span><span style=color:#666>*</span> _IO_buf_end;	<span style=color:#60a0b0;font-style:italic>/* End of reserve area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* The following fields are used to support backing up and undo. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_save_base; <span style=color:#60a0b0;font-style:italic>/* Pointer to start of non-current get area. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_backup_base;  <span style=color:#60a0b0;font-style:italic>/* Pointer to first valid character of backup area */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_save_end; <span style=color:#60a0b0;font-style:italic>/* Pointer to end of non-current get area. */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_marker</span> <span style=color:#666>*</span>_markers;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_FILE</span> <span style=color:#666>*</span>_chain;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> _fileno;
+</span></span><span style=display:flex><span><span style=color:#007020>#if 0</span><span style=color:#60a0b0;font-style:italic>
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  int _blksize;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020>#else
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#902000>int</span> _flags2;
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  _IO_off_t _old_offset; <span style=color:#60a0b0;font-style:italic>/* This used to be _offset but it&#39;s too small.  */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define __HAVE_COLUMN </span><span style=color:#60a0b0;font-style:italic>/* temporary */</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#60a0b0;font-style:italic>/* 1+column number of pbase(); 0 is unknown. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#902000>short</span> _cur_column;
+</span></span><span style=display:flex><span>  <span style=color:#902000>signed</span> <span style=color:#902000>char</span> _vtable_offset;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> _shortbuf[<span style=color:#40a070>1</span>];
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/*  char* _save_gptr;  char* _save_egptr; */</span>
+</span></span><span style=display:flex><span>  _IO_lock_t <span style=color:#666>*</span>_lock;
+</span></span><span style=display:flex><span><span style=color:#007020>#ifdef _IO_USE_OLD_IO_FILE
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>};
+</span></span></code></pre></div><p><code>_IO_read_ptr</code>就是当前要读取的字符的地址，<code>_IO_read_end</code>则是要读取的尾地址。</p><p><code>_IO_getc_unlocked</code>同样也是一个宏</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _IO_getc_unlocked(_fp) \
+</span></span></span><span style=display:flex><span><span style=color:#007020>       (_IO_BE ((_fp)-&gt;_IO_read_ptr &gt;= (_fp)-&gt;_IO_read_end, 0) \
+</span></span></span><span style=display:flex><span><span style=color:#007020>	? __uflow (_fp) : *(unsigned char *) (_fp)-&gt;_IO_read_ptr++)
+</span></span></span></code></pre></div><p>当<code>(_fp)->_IO_read_ptr &lt; (_fp)->_IO_read_end</code>时，<code>c = _IO_getc_unlocked (s)</code>等价于<code>c = (s)->_IO_read_ptr++</code>，这很好理解，直接从当前读取的内容中取得一个字符。</p><p>当<code>(_fp)->_IO_read_ptr >= (_fp)->_IO_read_end</code>时，便调用了<code>__uflow (_fp)</code>这样一个函数</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>__uflow</span> (_IO_FILE <span style=color:#666>*</span>fp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span><span style=color:#007020>#if defined _LIBC || defined _GLIBCPP_USE_WCHAR_T
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#007020;font-weight:700>if</span> (_IO_vtable_offset (fp) <span style=color:#666>==</span> <span style=color:#40a070>0</span> <span style=color:#666>&amp;&amp;</span> _IO_fwide (fp, <span style=color:#666>-</span><span style=color:#40a070>1</span>) <span style=color:#666>!=</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> EOF;
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_mode <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    _IO_fwide (fp, <span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (_IO_in_put_mode (fp))
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (_IO_switch_to_get_mode (fp) <span style=color:#666>==</span> EOF)
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> EOF;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_read_ptr <span style=color:#666>&lt;</span> fp<span style=color:#666>-&gt;</span>_IO_read_end)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>(<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>) fp<span style=color:#666>-&gt;</span>_IO_read_ptr<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (_IO_in_backup (fp))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      _IO_switch_to_main_get_area (fp);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_read_ptr <span style=color:#666>&lt;</span> fp<span style=color:#666>-&gt;</span>_IO_read_end)
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>(<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>) fp<span style=color:#666>-&gt;</span>_IO_read_ptr<span style=color:#666>++</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (_IO_have_markers (fp))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (save_for_backup (fp, fp<span style=color:#666>-&gt;</span>_IO_read_end))
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> EOF;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>else</span> <span style=color:#007020;font-weight:700>if</span> (_IO_have_backup (fp))
+</span></span><span style=display:flex><span>    _IO_free_backup_area (fp);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> _IO_UFLOW (fp);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>由于<code>(_fp)->_IO_read_ptr >= (_fp)->_IO_read_end</code>时才调用的这个函数，所以会直接<code>return _IO_UFLOW (fp)</code>，<code>_IO_UFLOW</code>是下面这个宏</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* The &#39;uflow&#39; hook returns the next character in the input stream
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>   (cast to unsigned char), and increments the read position;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>   EOF is returned on failure.
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>   It matches the streambuf::uflow virtual function, which is not in the
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>   cfront implementation, but was added to C++ by the ANSI/ISO committee. */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define _IO_UFLOW(FP) JUMP0 (__uflow, FP)
+</span></span></span></code></pre></div><p>注释解释了<code>__uflow</code>这个钩子返回了下一个在输入流中的字符并增加了读取的地址，跟进看看。在此之前先插一下<code>_IO_FILE_plus</code>这个结构体</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_FILE_plus</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  _IO_FILE file;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>const</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_jump_t</span> <span style=color:#666>*</span>vtable;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>每一个<code>_IO_FILE</code>都被一个<code>_IO_FILE_plus</code>包裹，里面有一个<code>vtable</code>，其类型是这样的一个结构体</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_jump_t</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    JUMP_FIELD(size_t, __dummy);
+</span></span><span style=display:flex><span>    JUMP_FIELD(size_t, __dummy2);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_finish_t, __finish);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_overflow_t, __overflow);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_underflow_t, __underflow);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_underflow_t, __uflow);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_pbackfail_t, __pbackfail);
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>/* showmany */</span>
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_xsputn_t, __xsputn);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_xsgetn_t, __xsgetn);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_seekoff_t, __seekoff);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_seekpos_t, __seekpos);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_setbuf_t, __setbuf);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_sync_t, __sync);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_doallocate_t, __doallocate);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_read_t, __read);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_write_t, __write);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_seek_t, __seek);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_close_t, __close);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_stat_t, __stat);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_showmanyc_t, __showmanyc);
+</span></span><span style=display:flex><span>    JUMP_FIELD(_IO_imbue_t, __imbue);
+</span></span><span style=display:flex><span><span style=color:#007020>#if 0</span><span style=color:#60a0b0;font-style:italic>
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    get_column;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    set_column;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>};
+</span></span></code></pre></div><p>里面存了大量的函数钩子，由于<code>JUMP_FIELD</code>定义成<code>#define JUMP_FIELD(TYPE, NAME) TYPE NAME</code>，其效果就是比如<code>JUMP_FIELD(_IO_underflow_t, __uflow);</code>等价于调用<code>__uflow _IO_underflow_t;</code>这样一个函数。</p><p><strong>以下的斜体字都是对<code>_IO_UFLOW (fp)</code>中所有宏的展开，可以跳过直接看结论</strong></p><p><em><code>JUMP0</code>这个宏是这样定义的<code>#define JUMP0(FUNC, THIS) (_IO_JUMPS_FUNC(THIS)->FUNC) (THIS)</code>，这个宏里面的<code>_IO_JUMPS_FUNC</code>是这样定义的</em></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020># define _IO_JUMPS_FUNC(THIS) \
+</span></span></span><span style=display:flex><span><span style=color:#007020> (*(struct _IO_jump_t **) ((void *) &amp;_IO_JUMPS_FILE_plus (THIS) \
+</span></span></span><span style=display:flex><span><span style=color:#007020>			   + (THIS)-&gt;_vtable_offset))
+</span></span></span></code></pre></div><p><em>值得注意的是<code>vtable</code>就是一个此类型的指针</em></p><p><em>而宏中的<code>_IO_JUMPS_FILE_plus</code>又是这样定义的</em></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _IO_JUMPS_FILE_plus(THIS)
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>_IO_CAST_FIELD_ACCESS ((THIS), <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>_IO_FILE_plus</span>, vtable)
+</span></span></code></pre></div><p><em>其中的<code>_IO_CAST_FIELD_ACCESS</code>是这样的</em></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _IO_CAST_FIELD_ACCESS(THIS, TYPE, MEMBER) \
+</span></span></span><span style=display:flex><span><span style=color:#007020>  (*(_IO_MEMBER_TYPE (TYPE, MEMBER) *)(((char *) (THIS)) \
+</span></span></span><span style=display:flex><span><span style=color:#007020>				       + offsetof(TYPE, MEMBER)))
+</span></span></span></code></pre></div><p><em>这其中的<code>_IO_MEMBER_TYPE</code>是这样的</em></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define _IO_MEMBER_TYPE(TYPE, MEMBER) __typeof__ (((TYPE){}).MEMBER)
+</span></span></span></code></pre></div><p><em>在C下编译时<code>offsetof</code>是这样定义的</em></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#define offsetof(s,m) ((size_t)&amp;(((s*)0)-&gt;m))
+</span></span></span></code></pre></div><p><em>展开时，<code>return _IO_UFLOW (fp)</code>就等价于（伪代码）return (<code>fp</code>所在的<code>_IO_FILE_plus</code>的<code>vtable</code>中的<code>JUMP_FIELD(_IO_underflow_t, __uflow)</code>)，也就是<code>return __uflow(fp)</code>，而<code>__uflow</code>钩住的就是<code>_IO_new_file_underflow</code>这个函数</em></p><p>所以<code>return _IO_UFLOW (fp)</code>等价于<code>return _IO_new_file_underflow(fp)</code>。所以我们跟进这个函数</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>_IO_new_file_underflow</span> (_IO_FILE <span style=color:#666>*</span>fp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  _IO_ssize_t count;
+</span></span><span style=display:flex><span><span style=color:#007020>#if 0</span><span style=color:#60a0b0;font-style:italic>
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  /* SysV does not make this test; take it out for compatibility */
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  if (fp-&gt;_flags &amp; _IO_EOF_SEEN)
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    return (EOF);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> _IO_NO_READS)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>|=</span> _IO_ERR_SEEN;
+</span></span><span style=display:flex><span>      __set_errno (EBADF);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> EOF;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_read_ptr <span style=color:#666>&lt;</span> fp<span style=color:#666>-&gt;</span>_IO_read_end)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>(<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>) fp<span style=color:#666>-&gt;</span>_IO_read_ptr;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_buf_base <span style=color:#666>==</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#60a0b0;font-style:italic>/* Maybe we already have a push back pointer.  */</span>
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_save_base <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>	  free (fp<span style=color:#666>-&gt;</span>_IO_save_base);
+</span></span><span style=display:flex><span>	  fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;=</span> <span style=color:#666>~</span>_IO_IN_BACKUP;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>      _IO_doallocbuf (fp);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Flush all line buffered files before reading. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* FIXME This can/should be moved to genops ?? */</span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> (_IO_LINE_BUF<span style=color:#666>|</span>_IO_UNBUFFERED))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span><span style=color:#007020>#if 0</span><span style=color:#60a0b0;font-style:italic>
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>      _IO_flush_all_linebuffered ();
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020>#else
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>      <span style=color:#60a0b0;font-style:italic>/* We used to flush all line-buffered stream.  This really isn&#39;t
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 required by any standard.  My recollection is that
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 traditional Unix systems did this for stdout.  stderr better
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 not be line buffered.  So we do just that here
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 explicitly.  --drepper */</span>
+</span></span><span style=display:flex><span>      _IO_acquire_lock (_IO_stdout);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ((_IO_stdout<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> (_IO_LINKED <span style=color:#666>|</span> _IO_NO_WRITES <span style=color:#666>|</span> _IO_LINE_BUF))
+</span></span><span style=display:flex><span>	  <span style=color:#666>==</span> (_IO_LINKED <span style=color:#666>|</span> _IO_LINE_BUF))
+</span></span><span style=display:flex><span>	_IO_OVERFLOW (_IO_stdout, EOF);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>      _IO_release_lock (_IO_stdout);
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  _IO_switch_to_get_mode (fp);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* This is very tricky. We have to adjust those
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     pointers before we call _IO_SYSREAD () since
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     we may longjump () out while waiting for
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     input. Those pointers may be screwed up. H.J. */</span>
+</span></span><span style=display:flex><span>  fp<span style=color:#666>-&gt;</span>_IO_read_base <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_read_ptr <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_buf_base;
+</span></span><span style=display:flex><span>  fp<span style=color:#666>-&gt;</span>_IO_read_end <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_buf_base;
+</span></span><span style=display:flex><span>  fp<span style=color:#666>-&gt;</span>_IO_write_base <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_write_ptr <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_write_end
+</span></span><span style=display:flex><span>    <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_buf_base;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  count <span style=color:#666>=</span> _IO_SYSREAD (fp, fp<span style=color:#666>-&gt;</span>_IO_buf_base,
+</span></span><span style=display:flex><span>		       fp<span style=color:#666>-&gt;</span>_IO_buf_end <span style=color:#666>-</span> fp<span style=color:#666>-&gt;</span>_IO_buf_base);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (count <span style=color:#666>&lt;=</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (count <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>|=</span> _IO_EOF_SEEN;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>	fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>|=</span> _IO_ERR_SEEN, count <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>  }
+</span></span><span style=display:flex><span>  fp<span style=color:#666>-&gt;</span>_IO_read_end <span style=color:#666>+=</span> count;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (count <span style=color:#666>==</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#60a0b0;font-style:italic>/* If a stream is read to EOF, the calling application may switch active
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 handles.  As a result, our offset cache would no longer be valid, so
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>	 unset it.  */</span>
+</span></span><span style=display:flex><span>      fp<span style=color:#666>-&gt;</span>_offset <span style=color:#666>=</span> _IO_pos_BAD;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> EOF;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_offset <span style=color:#666>!=</span> _IO_pos_BAD)
+</span></span><span style=display:flex><span>    _IO_pos_adjust (fp<span style=color:#666>-&gt;</span>_offset, count);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>(<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>) fp<span style=color:#666>-&gt;</span>_IO_read_ptr;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这是函数的全景，我们一段段分析</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>  _IO_ssize_t count;
+</span></span><span style=display:flex><span><span style=color:#007020>#if 0</span><span style=color:#60a0b0;font-style:italic>
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  /* SysV does not make this test; take it out for compatibility */
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>  if (fp-&gt;_flags &amp; _IO_EOF_SEEN)
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>    return (EOF);
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> _IO_NO_READS)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>|=</span> _IO_ERR_SEEN;
+</span></span><span style=display:flex><span>      __set_errno (EBADF);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> EOF;
+</span></span><span style=display:flex><span>    }
+</span></span></code></pre></div><p>这里初始化了一个<code>count</code>变量用来存储读入的字节数，<code>#if</code>到<code>#endif</code>这一段是为了兼容性存在的，和下面一个if一样，都是对<code>_flags</code>进行判断，如果已经读到文件尾，就返回<code>EOF</code>。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_read_ptr <span style=color:#666>&lt;</span> fp<span style=color:#666>-&gt;</span>_IO_read_end)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>*</span>(<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>) fp<span style=color:#666>-&gt;</span>_IO_read_ptr;
+</span></span></code></pre></div><p>这里是<code>fp->_IO_read_ptr &lt; fp->_IO_read_end</code>的时候才会执行的<code>if</code>，效果是直接返回当前读取的字符，并且不将<code>_IO_read_ptr</code>指向下一个字符。不过考虑到这个条件不成立时才会执行这个函数，所以对inchar来说这个是直接跳过的。</p><p>接下来是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_buf_base <span style=color:#666>==</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      <span style=color:#60a0b0;font-style:italic>/* Maybe we already have a push back pointer.  */</span>
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_save_base <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>	  free (fp<span style=color:#666>-&gt;</span>_IO_save_base);
+</span></span><span style=display:flex><span>	  fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;=</span> <span style=color:#666>~</span>_IO_IN_BACKUP;
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>      _IO_doallocbuf (fp);
+</span></span><span style=display:flex><span>    }
+</span></span></code></pre></div><p>对<code>_IO_buf_base</code>为<code>NULL</code>时的处理，也就是说还没有在堆段分配缓冲区的时候进行的处理。效果就是将<code>fp</code>变成无备份的状态（<code>_IO_save_base</code>、<code>_IO_backup_base</code>、<code>_IO_save_end</code>三个变量是处理撤销读入的操作的，比如读入了<code>'\n'</code>需要退回缓冲区的情况），然后为<code>fp</code>分配了缓冲区上的空间，通过下面两个函数实现</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>_IO_doallocbuf</span> (_IO_FILE <span style=color:#666>*</span>fp)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_buf_base)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span>;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>(fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> _IO_UNBUFFERED) <span style=color:#666>||</span> fp<span style=color:#666>-&gt;</span>_mode <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (_IO_DOALLOCATE (fp) <span style=color:#666>!=</span> EOF)
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span>;
+</span></span><span style=display:flex><span>  _IO_setb (fp, fp<span style=color:#666>-&gt;</span>_shortbuf, fp<span style=color:#666>-&gt;</span>_shortbuf<span style=color:#666>+</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>_IO_setb</span> (_IO_FILE <span style=color:#666>*</span>f, <span style=color:#902000>char</span> <span style=color:#666>*</span>b, <span style=color:#902000>char</span> <span style=color:#666>*</span>eb, <span style=color:#902000>int</span> a)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (f<span style=color:#666>-&gt;</span>_IO_buf_base <span style=color:#666>&amp;&amp;</span> <span style=color:#666>!</span>(f<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> _IO_USER_BUF))
+</span></span><span style=display:flex><span>    free (f<span style=color:#666>-&gt;</span>_IO_buf_base);
+</span></span><span style=display:flex><span>  f<span style=color:#666>-&gt;</span>_IO_buf_base <span style=color:#666>=</span> b;
+</span></span><span style=display:flex><span>  f<span style=color:#666>-&gt;</span>_IO_buf_end <span style=color:#666>=</span> eb;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (a)
+</span></span><span style=display:flex><span>    f<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;=</span> <span style=color:#666>~</span>_IO_USER_BUF;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>else</span>
+</span></span><span style=display:flex><span>    f<span style=color:#666>-&gt;</span>_flags <span style=color:#666>|=</span> _IO_USER_BUF;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/_io_file>_IO_FILE</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

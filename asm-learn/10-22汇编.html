@@ -1,0 +1,272 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>10.22汇编 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="今天看完了int指令和端口，由于这些知识和32位的有一定区别，所以知识点就不列了，我也只是粗略的看了一下，做了一下实验而已 实验13 assume cs:code,ds:data data segment db"><meta property="og:image" content><meta property="og:title" content="10.22汇编"><meta property="og:description" content="今天看完了int指令和端口，由于这些知识和32位的有一定区别，所以知识点就不列了，我也只是粗略的看了一下，做了一下实验而已 实验13 assume cs:code,ds:data data segment db"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/asm-learn/10-22%E6%B1%87%E7%BC%96.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-10-22T13:38:00+00:00"><meta property="article:modified_time" content="2020-10-22T13:38:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="10.22汇编"><meta name=twitter:description content="今天看完了int指令和端口，由于这些知识和32位的有一定区别，所以知识点就不列了，我也只是粗略的看了一下，做了一下实验而已 实验13 assume cs:code,ds:data data segment db"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>10.22汇编</h1><div class=meta>Posted on Oct 22, 2020</div></div><section class=body><p>今天看完了int指令和端口，由于这些知识和32位的有一定区别，所以知识点就不列了，我也只是粗略的看了一下，做了一下实验而已</p><p>实验13</p><pre class=wp-block-code><code>assume cs:code,ds:data
+
+data segment
+    db 'welcome to masm!',0
+data ends
+
+stack segment
+     dd 8 dup(0)
+stack ends
+
+code segment
+main:
+    ;---------------------------------setup inter7ch---------------------------------
+    mov ax,0
+    mov es,ax
+    mov ax,cs
+    mov ds,ax
+    mov cx,offset end_of_inter7ch-inter7ch
+    mov si,offset inter7ch
+    mov di,200h
+    cld
+    rep movsb
+    ;set err vector
+    mov ax,0
+    mov es,ax
+    mov es:[7ch*4+0],word ptr 200h
+    mov es:[7ch*4+2],word ptr 0h
+    ;---------------------------------setup inter7ch---------------------------------
+    mov dh,10
+    mov dl,10
+    mov cl,2
+    mov ax,data
+    mov ds,ax
+    mov ax,stack
+    mov ss,ax
+    mov sp,32
+    mov si,0
+    int 7ch
+    mov ax,4c00h
+    int 21h
+
+inter7ch:
+    push ax
+    push bx
+    push di
+    ;------------------------------clear the screen------------------------------
+    push cx
+    push bx
+    mov bx,0b800h
+    mov es,bx
+    mov bx,0
+    mov cx,2000
+    s_clear:
+        mov word ptr es:[bx],0
+        add bx,2
+    loop s_clear
+    pop bx
+    pop cx
+    ;------------------------------clear the screen------------------------------
+    ;--------------------------dispaly error information-------------------------
+    mov ax,0b800h
+    mov es,ax
+    mov ax,160
+    mul dh
+    add al,dl
+    adc ah,0
+    add al,dl
+    adc ah,0
+    mov di,ax
+    mov ah,cl
+    mov ch,0
+    mov cl,ds:[si]
+    s0_inter7ch:
+        jcxz end_loop_inter7ch
+        mov al,ds:[si]
+        mov es:[di].0,al
+        mov es:[di].1,ah
+        inc si
+        add di,2
+        mov cl,al
+    jmp short s0_inter7ch
+    end_loop_inter7ch:
+
+    pop di
+    pop bx
+    pop ax
+iret
+end_of_inter7ch:nop
+code ends
+
+end main</code></pre><p>实验14</p><pre class=wp-block-code><code>assume cs:code
+
+code segment
+main:
+    ;------------------------------clear the screen------------------------------
+    mov bx,0b800h
+    mov es,bx
+    mov bx,0
+    mov cx,2000
+    s_clear:
+        mov word ptr es:[bx],0
+        add bx,2
+    loop s_clear
+    ;------------------------------clear the screen------------------------------
+    loop_main:
+    mov ax,0b800h
+    mov es,ax
+    mov di,0
+    ;year
+    mov al,9
+    mov dx,070h;input from CMOS
+    out dx,al
+    mov dx,071h;input from CMOS
+    in al,dx
+    mov ah,al
+    and ah,11110000b
+    mov cl,4
+    shr ah,cl
+    and al,00001111b
+    add ah,48
+    add al,48
+    mov dx,2
+    mov es:[di].0,ah
+    mov es:[di].1,dx
+    add di,2
+    mov es:[di].0,al
+    mov es:[di].1,dx
+    add di,2
+
+    mov al,'/'
+    mov es:[di].0,al
+    mov ah,00000111b
+    mov es:[di].1,ah
+    add di,2
+    ;month
+    mov al,8
+    mov dx,070h;input from CMOS
+    out dx,al
+    mov dx,071h;input from CMOS
+    in al,dx
+    mov ah,al
+    and ah,11110000b
+    mov cl,4
+    shr ah,cl
+    and al,00001111b
+    add ah,48
+    add al,48
+    mov dx,2
+    mov es:[di].0,ah
+    mov es:[di].1,dx
+    add di,2
+    mov es:[di].0,al
+    mov es:[di].1,dx
+    add di,2
+
+    mov al,'/'
+    mov es:[di].0,al
+    mov ah,00000111b
+    mov es:[di].1,ah
+    add di,2
+    ;day
+    mov al,7
+    mov dx,070h;input from CMOS
+    out dx,al
+    mov dx,071h;input from CMOS
+    in al,dx
+    mov ah,al
+    and ah,11110000b
+    mov cl,4
+    shr ah,cl
+    and al,00001111b
+    add ah,48
+    add al,48
+    mov dx,2
+    mov es:[di].0,ah
+    mov es:[di].1,dx
+    add di,2
+    mov es:[di].0,al
+    mov es:[di].1,dx
+    add di,2
+
+    mov al,' '
+    mov es:[di].0,al
+    mov ah,00000111b
+    mov es:[di].1,ah
+    add di,2
+    ;hour
+    mov al,4
+    mov dx,070h;input from CMOS
+    out dx,al
+    mov dx,071h;input from CMOS
+    in al,dx
+    mov ah,al
+    and ah,11110000b
+    mov cl,4
+    shr ah,cl
+    and al,00001111b
+    add ah,48
+    add al,48
+    mov dx,2
+    mov es:[di].0,ah
+    mov es:[di].1,dx
+    add di,2
+    mov es:[di].0,al
+    mov es:[di].1,dx
+    add di,2
+
+    mov al,':'
+    mov es:[di].0,al
+    mov ah,00000111b
+    mov es:[di].1,ah
+    add di,2
+    ;minutes
+    mov al,2
+    mov dx,070h;input from CMOS
+    out dx,al
+    mov dx,071h;input from CMOS
+    in al,dx
+    mov ah,al
+    and ah,11110000b
+    mov cl,4
+    shr ah,cl
+    and al,00001111b
+    add ah,48
+    add al,48
+    mov dx,2
+    mov es:[di].0,ah
+    mov es:[di].1,dx
+    add di,2
+    mov es:[di].0,al
+    mov es:[di].1,dx
+    add di,2
+
+    mov al,':'
+    mov es:[di].0,al
+    mov ah,00000111b
+    mov es:[di].1,ah
+    add di,2
+    ;second
+    mov al,0
+    mov dx,070h;input from CMOS
+    out dx,al
+    mov dx,071h;input from CMOS
+    in al,dx
+    mov ah,al
+    and ah,11110000b
+    mov cl,4
+    shr ah,cl
+    and al,00001111b
+    add ah,48
+    add al,48
+    mov dx,2
+    mov es:[di].0,ah
+    mov es:[di].1,dx
+    add di,2
+    mov es:[di].0,al
+    mov es:[di].1,dx
+    add di,2
+
+    jmp near ptr loop_main
+    ;mov ax,4c00h
+    ;int 21h
+code ends
+
+end main</code></pre></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

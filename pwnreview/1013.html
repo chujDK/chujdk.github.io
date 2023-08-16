@@ -1,0 +1,192 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>ptmalloc的深入分析 - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="好吧，这篇文章应该是不会发布的。 看这个东西主要的目的是为了获得一个对堆的理性认知，从知其然到知其所以然。当然由于本人才学疏浅，肯定会有许多纰"><meta property="og:image" content><meta property="og:title" content="ptmalloc的深入分析"><meta property="og:description" content="好吧，这篇文章应该是不会发布的。 看这个东西主要的目的是为了获得一个对堆的理性认知，从知其然到知其所以然。当然由于本人才学疏浅，肯定会有许多纰"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/pwnreview/1013.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-01-22T23:43:00+00:00"><meta property="article:modified_time" content="2021-01-22T23:43:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="ptmalloc的深入分析"><meta name=twitter:description content="好吧，这篇文章应该是不会发布的。 看这个东西主要的目的是为了获得一个对堆的理性认知，从知其然到知其所以然。当然由于本人才学疏浅，肯定会有许多纰"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>ptmalloc的深入分析</h1><div class=meta>Posted on Jan 22, 2021</div></div><section class=body><p>好吧，这篇文章应该是不会发布的。</p><p>看这个东西主要的目的是为了获得一个对堆的理性认知，从知其然到知其所以然。当然由于本人才学疏浅，肯定会有许多纰漏，欢迎各位指正。</p><p><em>本文分析的版本为 glibc 2.33</em></p><p>glibc 通过 <code>strong_alias (__libc_malloc, malloc)</code> 使 malloc 成了 __libc_malloc 的别名，我们在调用 malloc 时，实际调用的是 __libc_malloc。其实现如下。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>__libc_malloc</span> (size_t bytes)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  mstate ar_ptr;
+</span></span><span style=display:flex><span>  <span style=color:#902000>void</span> <span style=color:#666>*</span>victim;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  _Static_assert (PTRDIFF_MAX <span style=color:#666>&lt;=</span> SIZE_MAX <span style=color:#666>/</span> <span style=color:#40a070>2</span>,
+</span></span><span style=display:flex><span>                  <span style=color:#4070a0>&#34;PTRDIFF_MAX is not more than half of SIZE_MAX&#34;</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>void</span> <span style=color:#666>*</span>(<span style=color:#666>*</span>hook) (size_t, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>void</span> <span style=color:#666>*</span>)
+</span></span><span style=display:flex><span>    <span style=color:#666>=</span> atomic_forced_read (__malloc_hook);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (__builtin_expect (hook <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>, <span style=color:#40a070>0</span>))
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (<span style=color:#666>*</span>hook)(bytes, RETURN_ADDRESS (<span style=color:#40a070>0</span>));
+</span></span><span style=display:flex><span><span style=color:#007020>#if USE_TCACHE
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#60a0b0;font-style:italic>/* int_free also calls request2size, be careful to not pad twice.  */</span>
+</span></span><span style=display:flex><span>  size_t tbytes;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>checked_request2size (bytes, <span style=color:#666>&amp;</span>tbytes))
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      __set_errno (ENOMEM);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  size_t tc_idx <span style=color:#666>=</span> csize2tidx (tbytes);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  MAYBE_INIT_TCACHE ();
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  DIAG_PUSH_NEEDS_COMMENT;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (tc_idx <span style=color:#666>&lt;</span> mp_.tcache_bins
+</span></span><span style=display:flex><span>      <span style=color:#666>&amp;&amp;</span> tcache
+</span></span><span style=display:flex><span>      <span style=color:#666>&amp;&amp;</span> tcache<span style=color:#666>-&gt;</span>counts[tc_idx] <span style=color:#666>&gt;</span> <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      victim <span style=color:#666>=</span> tcache_get (tc_idx);
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> TAG_NEW_USABLE (victim);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>  DIAG_POP_NEEDS_COMMENT;
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (SINGLE_THREAD_P)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      victim <span style=color:#666>=</span> TAG_NEW_USABLE (_int_malloc (<span style=color:#666>&amp;</span>main_arena, bytes));
+</span></span><span style=display:flex><span>      assert (<span style=color:#666>!</span>victim <span style=color:#666>||</span> chunk_is_mmapped (mem2chunk (victim)) <span style=color:#666>||</span>
+</span></span><span style=display:flex><span>	      <span style=color:#666>&amp;</span>main_arena <span style=color:#666>==</span> arena_for_chunk (mem2chunk (victim)));
+</span></span><span style=display:flex><span>      <span style=color:#007020;font-weight:700>return</span> victim;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  arena_get (ar_ptr, bytes);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  victim <span style=color:#666>=</span> _int_malloc (ar_ptr, bytes);
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Retry with another arena only if we were able to find a usable arena
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     before.  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (<span style=color:#666>!</span>victim <span style=color:#666>&amp;&amp;</span> ar_ptr <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>    {
+</span></span><span style=display:flex><span>      LIBC_PROBE (memory_malloc_retry, <span style=color:#40a070>1</span>, bytes);
+</span></span><span style=display:flex><span>      ar_ptr <span style=color:#666>=</span> arena_get_retry (ar_ptr, bytes);
+</span></span><span style=display:flex><span>      victim <span style=color:#666>=</span> _int_malloc (ar_ptr, bytes);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (ar_ptr <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>    __libc_lock_unlock (ar_ptr<span style=color:#666>-&gt;</span>mutex);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  victim <span style=color:#666>=</span> TAG_NEW_USABLE (victim);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  assert (<span style=color:#666>!</span>victim <span style=color:#666>||</span> chunk_is_mmapped (mem2chunk (victim)) <span style=color:#666>||</span>
+</span></span><span style=display:flex><span>          ar_ptr <span style=color:#666>==</span> arena_for_chunk (mem2chunk (victim)));
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> victim;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>libc_hidden_def (__libc_malloc)
+</span></span></code></pre></div><p><code>_Static_assert</code> 是静态断言，在编译期完成，和我们分析的关系不大。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> <span style=color:#666>*</span>(<span style=color:#666>*</span>hook) (size_t, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>void</span> <span style=color:#666>*</span>)
+</span></span><span style=display:flex><span>    <span style=color:#666>=</span> atomic_forced_read (__malloc_hook);
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (__builtin_expect (hook <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>, <span style=color:#40a070>0</span>))
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> (<span style=color:#666>*</span>hook)(bytes, RETURN_ADDRESS (<span style=color:#40a070>0</span>));
+</span></span></code></pre></div><p><em>关于这里的 <code>atomic_forced_read</code>，大体是为了保证 <code>__malloc_hook</code> 被存入寄存器中，避免其他线程对该钩子的修改造成后续的错误。</em></p><p>进入流程第一步是对 <code>__malloc_hook</code> 进行检测，如果 <code>__malloc_hook</code> 的值不为零，则直接调用其所指的函数。在第一次执行 <code>__libc_malloc</code>，也就是堆尚未初始化的情况下，<code>__malloc_hook</code> 指向的是 <code>malloc_hook_ini</code> 这个函数。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#902000>void</span> <span style=color:#666>*</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>malloc_hook_ini</span> (size_t sz, <span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>void</span> <span style=color:#666>*</span>caller)
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  __malloc_hook <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>  ptmalloc_init ();
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> __libc_malloc (sz);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p>这个函数会调用 <code>ptmalloc_init ();</code> 来对堆进行初始化，然后重新调用 <code>__libc_malloc</code> 来为用户申请空间。</p><h3 id=ptmalloc_init-的实现>ptmalloc_init 的实现</h3><p>首先给出两个相关结构体的定义</p><h6 id=malloc_state>malloc_state</h6><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>malloc_state</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Serialize access.  */</span>
+</span></span><span style=display:flex><span>  __libc_lock_define (, mutex);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Flags (formerly in max_fast).  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> flags;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Set if the fastbin chunks contain recently inserted free blocks.  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Note this is a bool but not all targets support atomics on booleans.  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> have_fastchunks;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Fastbins */</span>
+</span></span><span style=display:flex><span>  mfastbinptr fastbinsY[NFASTBINS];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Base of the topmost chunk -- not otherwise kept in a bin */</span>
+</span></span><span style=display:flex><span>  mchunkptr top;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* The remainder from the most recent split of a small request */</span>
+</span></span><span style=display:flex><span>  mchunkptr last_remainder;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Normal bins packed as described above */</span>
+</span></span><span style=display:flex><span>  mchunkptr bins[NBINS <span style=color:#666>*</span> <span style=color:#40a070>2</span> <span style=color:#666>-</span> <span style=color:#40a070>2</span>];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Bitmap of bins */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#902000>int</span> binmap[BINMAPSIZE];
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Linked list */</span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>malloc_state</span> <span style=color:#666>*</span>next;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Linked list for free arenas.  Access to this field is serialized
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     by free_list_lock in arena.c.  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>malloc_state</span> <span style=color:#666>*</span>next_free;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Number of threads attached to this arena.  0 if the arena is on
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     the free list.  Access to this field is serialized by
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     free_list_lock in arena.c.  */</span>
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T attached_threads;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Memory allocated from the system in this arena.  */</span>
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T system_mem;
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T max_system_mem;
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><ul><li><code>__libc_lock_define (, mutex)</code><ul><li>宏展开为 <code>pthread_mutex_t mutex</code>，定义了一个锁，在多线程情况下实现各行程可以对该结构体串行化访问，第一个获得该锁的线程可以使用锁对应的分配区来分配空间，此时别的线程都无法访问该分配区。在分配完成后，线程释放该锁，其他线程可以再使用该分配区。</li></ul></li><li><code>int flags</code><ul><li>记录分配区的一些状态。</li></ul></li></ul><p>其他变量都有注释，写的还是比较清楚的。该结构体用于管理分配区，每个分配区都有一个对应的实例。</p><p>全局仅有一个主分配区，其对应的结构体为 <code>main_arena</code>，定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* There are several instances of this struct (&#34;arenas&#34;) in this
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>   malloc.  If you are adapting this malloc in a way that does NOT use
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>   a static or mmapped malloc_state, you MUST explicitly zero-fill it
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>   before using. This malloc relies on the property that malloc_state
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>   is initialized to all zeroes (as is true of C statics).  */</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>malloc_state</span> main_arena <span style=color:#666>=</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  .mutex <span style=color:#666>=</span> _LIBC_LOCK_INITIALIZER,
+</span></span><span style=display:flex><span>  .next <span style=color:#666>=</span> <span style=color:#666>&amp;</span>main_arena,
+</span></span><span style=display:flex><span>  .attached_threads <span style=color:#666>=</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>};
+</span></span></code></pre></div><h6 id=malloc_par>malloc_par</h6><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>malloc_par</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Tunable parameters */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>unsigned</span> <span style=color:#902000>long</span> trim_threshold;
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T top_pad;
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T mmap_threshold;
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T arena_test;
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T arena_max;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Memory map support */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> n_mmaps;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> n_mmaps_max;
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> max_n_mmaps;
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* the mmap_threshold is dynamic, until the user sets
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     it manually, at which point we need to disable any
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     dynamic behavior. */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>int</span> no_dyn_threshold;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Statistics */</span>
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T mmapped_mem;
+</span></span><span style=display:flex><span>  INTERNAL_SIZE_T max_mmapped_mem;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* First address handed out by MORECORE/sbrk.  */</span>
+</span></span><span style=display:flex><span>  <span style=color:#902000>char</span> <span style=color:#666>*</span>sbrk_base;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#007020>#if USE_TCACHE
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#60a0b0;font-style:italic>/* Maximum number of buckets to use.  */</span>
+</span></span><span style=display:flex><span>  size_t tcache_bins;
+</span></span><span style=display:flex><span>  size_t tcache_max_bytes;
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Maximum number of chunks in each bucket.  */</span>
+</span></span><span style=display:flex><span>  size_t tcache_count;
+</span></span><span style=display:flex><span>  <span style=color:#60a0b0;font-style:italic>/* Maximum number of chunks to remove from the unsorted list, which
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>     aren&#39;t used to prefill the cache.  */</span>
+</span></span><span style=display:flex><span>  size_t tcache_unsorted_limit;
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>};
+</span></span></code></pre></div><p>这个结构体进行参数管理，全局仅有一个该结构体的实例。定义为</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>static</span> <span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>malloc_par</span> mp_ <span style=color:#666>=</span>
+</span></span><span style=display:flex><span>{
+</span></span><span style=display:flex><span>  .top_pad <span style=color:#666>=</span> DEFAULT_TOP_PAD,
+</span></span><span style=display:flex><span>  .n_mmaps_max <span style=color:#666>=</span> DEFAULT_MMAP_MAX,
+</span></span><span style=display:flex><span>  .mmap_threshold <span style=color:#666>=</span> DEFAULT_MMAP_THRESHOLD,
+</span></span><span style=display:flex><span>  .trim_threshold <span style=color:#666>=</span> DEFAULT_TRIM_THRESHOLD,
+</span></span><span style=display:flex><span><span style=color:#007020>#define NARENAS_FROM_NCORES(n) ((n) * (sizeof (long) == 4 ? 2 : 8))
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  .arena_test <span style=color:#666>=</span> NARENAS_FROM_NCORES (<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span><span style=color:#007020>#if USE_TCACHE
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  ,
+</span></span><span style=display:flex><span>  .tcache_count <span style=color:#666>=</span> TCACHE_FILL_COUNT,
+</span></span><span style=display:flex><span>  .tcache_bins <span style=color:#666>=</span> TCACHE_MAX_BINS,
+</span></span><span style=display:flex><span>  .tcache_max_bytes <span style=color:#666>=</span> tidx2usize (TCACHE_MAX_BINS<span style=color:#666>-</span><span style=color:#40a070>1</span>),
+</span></span><span style=display:flex><span>  .tcache_unsorted_limit <span style=color:#666>=</span> <span style=color:#40a070>0</span> <span style=color:#60a0b0;font-style:italic>/* No limit.  */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>};
+</span></span></code></pre></div></section><div class=post-tags></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>

