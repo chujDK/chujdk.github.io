@@ -330,6 +330,11 @@ content: 'C++';
 background: cyan;
 color: royalblue ;
 }
+.highlight pre code[class*='language-diff']::before{
+content: 'diff';
+background: cyan;
+color: royalblue ;
+}
 
 /* table */
 table {
