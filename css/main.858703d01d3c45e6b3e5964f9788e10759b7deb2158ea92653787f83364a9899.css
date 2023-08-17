@@ -111,7 +111,7 @@ pre {
 }
 
 .highlight pre ::selection {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(200, 033, 200, 0.2);
   color: inherit;
 }
 
@@ -168,6 +168,7 @@ footer {
   border-top: 0.4rem dotted var(--bordercl);
   padding: 2rem 0rem;
   margin-top: 2rem;
+  font-size: 0.85rem;
 }
 .soc {
   display: flex;
