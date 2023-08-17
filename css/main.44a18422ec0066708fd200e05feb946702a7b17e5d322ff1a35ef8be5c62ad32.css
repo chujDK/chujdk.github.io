@@ -269,6 +269,7 @@ svg{
 }
 
 .highlight pre code[class=language-javaScript]::before,
+.highlight pre code[class=language-javascript]::before,
 .highlight pre code[class="language-js"]::before {
 content: "js";
 background: #f7df1e;
@@ -284,6 +285,11 @@ color: white;
 .highlight pre code[class*='language-bash']::before,
 .highlight pre code[class*='language-sh']::before {
 content: 'shell';
+background: green;
+color:white
+}
+.highlight pre code[class*='language-fish']::before {
+content: 'fish';
 background: green;
 color:white
 }
@@ -308,11 +314,21 @@ content: 'Go';
 background: cyan;
 color: royalblue ;
 }
-.highlight pre code[class*='language-md']::before,
+.highlight pre code[class*='language-markdown']::before,
 .highlight pre code[class*='language-md']::before{
 content: 'Markdown';
 background: royalblue;
 color: whitesmoke ;
+}
+.highlight pre code[class*='language-c']::before{
+content: 'C';
+background: cyan;
+color: royalblue ;
+}
+.highlight pre code[class*='language-cpp']::before{
+content: 'C++';
+background: cyan;
+color: royalblue ;
 }
 
 /* table */
