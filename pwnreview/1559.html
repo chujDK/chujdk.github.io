@@ -98,11 +98,11 @@
 </span></span><span style=display:flex><span><span style=color:#40a070>010</span> MOV             X11, <span>#</span><span style=color:#40a070>0</span> ; Rd <span style=color:#666>=</span> Op2
 </span></span><span style=display:flex><span><span style=color:#40a070>010</span> LDR             W10, [X0] ; Load from Memory
 </span></span><span style=display:flex><span><span style=color:#40a070>010</span> PACIA           X10, SP ; Pointer Authentication Code <span style=color:#007020;font-weight:700>for</span> address
-</span></span></code></pre></div><p>这里的 X10 就是 data，SP 就是 modifier。那么 protect 的加密过程就是根据输入的字符串，四个字节一组，使用硬编码的 modifier 进行加密，加密 8 次。</p><p>由于有了 key，modifier 也已知，所以我们可以直接绕过。为了计算，比赛的时候学长根据 qemu 源码写了一个对拍程序</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span><span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span><span style=color:#007020>&lt;stdint.h&gt;</span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span><span style=color:#007020>&lt;assert.h&gt;</span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span><span style=color:#007020>&lt;string.h&gt;</span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span><span style=color:#007020>&lt;stdlib.h&gt;</span><span style=color:#007020>
+</span></span></code></pre></div><p>这里的 X10 就是 data，SP 就是 modifier。那么 protect 的加密过程就是根据输入的字符串，四个字节一组，使用硬编码的 modifier 进行加密，加密 8 次。</p><p>由于有了 key，modifier 也已知，所以我们可以直接绕过。为了计算，比赛的时候学长根据 qemu 源码写了一个对拍程序</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include&lt;stdio.h&gt;
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include&lt;stdint.h&gt;
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include&lt;assert.h&gt;
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include&lt;string.h&gt;
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include&lt;stdlib.h&gt;
 </span></span></span><span style=display:flex><span><span style=color:#007020>#define MAKE_64BIT_MASK(shift, length) \
 </span></span></span><span style=display:flex><span><span style=color:#007020>    (((~0ULL) &gt;&gt; (64 - (length))) &lt;&lt; (shift))
 </span></span></span><span style=display:flex><span><span style=color:#007020></span>

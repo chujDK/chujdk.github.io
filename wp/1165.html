@@ -4,43 +4,43 @@
 <script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
 <a href=/posts.html>All posts</a>
 <a href=/about.html>About</a>
-<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>XCTF-magic-WP</h1><div class=meta>Posted on Mar 7, 2021</div></div><section class=body><h1 id=这篇-wp-没有写完>这篇 WP 没有写完！！！</h1><p>我还没有完成这篇 WP，因为有太多的源码没有研究，建议您看<a href=https://blog.csdn.net/seaaseesa/article/details/103479788>这一篇</a></p><h3 id=写在前面>写在前面</h3><p>这道题是一个 <code>_IO_FILE</code> 利用，大概是我做过的最难的一道题，基本是看着 wp 才做出来的。同时 <code>_IO_FILE</code> 利用和源码的联系非常紧密，之后我会仔细研究一下源码，现在这篇 wp 还是非常的不成熟，许多地方我没有详细解释。</p><h3 id=漏洞点>漏洞点</h3><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/2211904355.png></div><p>红框中的 <code>v2</code> 的检验不甚严格，当我们输入 <code>-2</code> 时可以访问到 <code>log_file</code> 指针</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/1842294177.png></div><p>然后通过橙框中的语句我们可以对 <code>*log_file</code> 做修改，由 <code>_IO_FILE</code> 的结构</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>struct _IO_FILE {
-</span></span><span style=display:flex><span>int _flags;		/* High-order word is _IO_MAGIC; rest is flags. */
-</span></span><span style=display:flex><span>#define _IO_file_flags _flags
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>XCTF-magic-WP</h1><div class=meta>Posted on Mar 7, 2021</div></div><section class=body><h1 id=这篇-wp-没有写完>这篇 WP 没有写完！！！</h1><p>我还没有完成这篇 WP，因为有太多的源码没有研究，建议您看<a href=https://blog.csdn.net/seaaseesa/article/details/103479788>这一篇</a></p><h3 id=写在前面>写在前面</h3><p>这道题是一个 <code>_IO_FILE</code> 利用，大概是我做过的最难的一道题，基本是看着 wp 才做出来的。同时 <code>_IO_FILE</code> 利用和源码的联系非常紧密，之后我会仔细研究一下源码，现在这篇 wp 还是非常的不成熟，许多地方我没有详细解释。</p><h3 id=漏洞点>漏洞点</h3><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/2211904355.png></div><p>红框中的 <code>v2</code> 的检验不甚严格，当我们输入 <code>-2</code> 时可以访问到 <code>log_file</code> 指针</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/1842294177.png></div><p>然后通过橙框中的语句我们可以对 <code>*log_file</code> 做修改，由 <code>_IO_FILE</code> 的结构</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> _IO_FILE {
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> _flags;		<span style=color:#60a0b0;font-style:italic>/* High-order word is _IO_MAGIC; rest is flags. */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define _IO_file_flags _flags
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* The following pointers correspond to the C++ streambuf protocol. */</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* Note:  Tk uses the _IO_read_ptr and _IO_read_end fields directly. */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span><span style=color:#666>*</span> _IO_read_ptr;	<span style=color:#60a0b0;font-style:italic>/* Current read pointer */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span><span style=color:#666>*</span> _IO_read_end;	<span style=color:#60a0b0;font-style:italic>/* End of get area. */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span><span style=color:#666>*</span> _IO_read_base;	<span style=color:#60a0b0;font-style:italic>/* Start of putback+get area. */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span><span style=color:#666>*</span> _IO_write_base;	<span style=color:#60a0b0;font-style:italic>/* Start of put area. */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span><span style=color:#666>*</span> _IO_write_ptr;	<span style=color:#60a0b0;font-style:italic>/* Current put pointer. */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span><span style=color:#666>*</span> _IO_write_end;	<span style=color:#60a0b0;font-style:italic>/* End of put area. */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span><span style=color:#666>*</span> _IO_buf_base;	<span style=color:#60a0b0;font-style:italic>/* Start of reserve area. */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span><span style=color:#666>*</span> _IO_buf_end;	<span style=color:#60a0b0;font-style:italic>/* End of reserve area. */</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/* The following fields are used to support backing up and undo. */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_save_base; <span style=color:#60a0b0;font-style:italic>/* Pointer to start of non-current get area. */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_backup_base;  <span style=color:#60a0b0;font-style:italic>/* Pointer to first valid character of backup area */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> <span style=color:#666>*</span>_IO_save_end; <span style=color:#60a0b0;font-style:italic>/* Pointer to end of non-current get area. */</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>/* The following pointers correspond to the C++ streambuf protocol. */
-</span></span><span style=display:flex><span>/* Note:  Tk uses the _IO_read_ptr and _IO_read_end fields directly. */
-</span></span><span style=display:flex><span>char* _IO_read_ptr;	/* Current read pointer */
-</span></span><span style=display:flex><span>char* _IO_read_end;	/* End of get area. */
-</span></span><span style=display:flex><span>char* _IO_read_base;	/* Start of putback+get area. */
-</span></span><span style=display:flex><span>char* _IO_write_base;	/* Start of put area. */
-</span></span><span style=display:flex><span>char* _IO_write_ptr;	/* Current put pointer. */
-</span></span><span style=display:flex><span>char* _IO_write_end;	/* End of put area. */
-</span></span><span style=display:flex><span>char* _IO_buf_base;	/* Start of reserve area. */
-</span></span><span style=display:flex><span>char* _IO_buf_end;	/* End of reserve area. */
-</span></span><span style=display:flex><span>/* The following fields are used to support backing up and undo. */
-</span></span><span style=display:flex><span>char *_IO_save_base; /* Pointer to start of non-current get area. */
-</span></span><span style=display:flex><span>char *_IO_backup_base;  /* Pointer to first valid character of backup area */
-</span></span><span style=display:flex><span>char *_IO_save_end; /* Pointer to end of non-current get area. */
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>struct _IO_marker *_markers;
-</span></span><span style=display:flex><span>struct _IO_FILE *_chain;
-</span></span><span style=display:flex><span>int _fileno;
-</span></span><span style=display:flex><span>#if 0
-</span></span><span style=display:flex><span>int _blksize;
-</span></span><span style=display:flex><span>#else
-</span></span><span style=display:flex><span>int _flags2;
-</span></span><span style=display:flex><span>#endif
-</span></span><span style=display:flex><span>_IO_off_t _old_offset; /* This used to be _offset but it&#39;s too small.  */
-</span></span><span style=display:flex><span>#define __HAVE_COLUMN /* temporary */
-</span></span><span style=display:flex><span>/* 1+column number of pbase(); 0 is unknown. */
-</span></span><span style=display:flex><span>unsigned short _cur_column;
-</span></span><span style=display:flex><span>signed char _vtable_offset;
-</span></span><span style=display:flex><span>char _shortbuf[1];
-</span></span><span style=display:flex><span>/*  char* _save_gptr;  char* _save_egptr; */
-</span></span><span style=display:flex><span>_IO_lock_t *_lock;
-</span></span><span style=display:flex><span>#ifdef _IO_USE_OLD_IO_FILE
-</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> _IO_marker <span style=color:#666>*</span>_markers;
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> _IO_FILE <span style=color:#666>*</span>_chain;
+</span></span><span style=display:flex><span><span style=color:#902000>int</span> _fileno;
+</span></span><span style=display:flex><span><span style=color:#007020>#if 0</span><span style=color:#60a0b0;font-style:italic>
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>int _blksize;
+</span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic></span><span style=color:#007020>#else
+</span></span></span><span style=display:flex><span><span style=color:#007020></span><span style=color:#902000>int</span> _flags2;
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>_IO_off_t _old_offset; <span style=color:#60a0b0;font-style:italic>/* This used to be _offset but it&#39;s too small.  */</span>
+</span></span><span style=display:flex><span><span style=color:#007020>#define __HAVE_COLUMN </span><span style=color:#60a0b0;font-style:italic>/* temporary */</span><span style=color:#007020>
+</span></span></span><span style=display:flex><span><span style=color:#007020></span><span style=color:#60a0b0;font-style:italic>/* 1+column number of pbase(); 0 is unknown. */</span>
+</span></span><span style=display:flex><span><span style=color:#902000>unsigned</span> <span style=color:#902000>short</span> _cur_column;
+</span></span><span style=display:flex><span><span style=color:#902000>signed</span> <span style=color:#902000>char</span> _vtable_offset;
+</span></span><span style=display:flex><span><span style=color:#902000>char</span> _shortbuf[<span style=color:#40a070>1</span>];
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>/*  char* _save_gptr;  char* _save_egptr; */</span>
+</span></span><span style=display:flex><span>_IO_lock_t <span style=color:#666>*</span>_lock;
+</span></span><span style=display:flex><span><span style=color:#007020>#ifdef _IO_USE_OLD_IO_FILE
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>};
 </span></span></code></pre></div><p>可知可以做到 <code>log_file->_IO_write_ptr -= 50</code> 的效果。</p><h3 id=利用思路>利用思路</h3><p>首先我们要先初始化一下 <code>*log_file</code> 这个结构体，也就是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>create_wizard()
 </span></span><span style=display:flex><span>wizard_spell(0,&#39;Avada_Kedavra&#39;)
 </span></span></code></pre></div><p>然后调试一下看看 <code>*log_file</code> 的值是怎么样的</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/1155929803.png></div><p>可见 <code>_IO_write_ptr</code> 指向的地址就在 <code>*log_file</code> 上方不远处，我们通过多次利用 <code>log_file->_IO_write_ptr -= 50</code> 就可以实现对 <code>*log_file</code> 的完全修改。同时，<code>read_spell()</code> 函数可以输出 <code>(char*) _IO_read_ptr</code> 指向的地址中的值，所以我们可以实现任意地址读写。</p><p>为了将 <code>_IO_write_ptr</code> 指向 <code>*log_file</code> 下面，需要调用 13 次 <code>wizard_spell()</code>，注意当我们输入的时候，会修改 <code>_IO_write_ptr</code> 指向的地址中的值，同时每输入一个字节就会使 <code>_IO_write_ptr</code> 加一。对于不同的机器，哪些地方有数据且不能被修改是不一样的，需要通过调试获得，这里提供一种可以通过远程靶机的输入方法，参考自<a href=https://blog.csdn.net/seaaseesa/article/details/103479788>这篇博客</a></p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>for i in range(8):

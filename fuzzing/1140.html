@@ -4,11 +4,11 @@
 <script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
 <a href=/posts.html>All posts</a>
 <a href=/about.html>About</a>
-<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>AFL学习记录（二）——一次简单的测试</h1><div class=meta>Posted on Mar 4, 2021</div></div><section class=body><p>题目做不出来，先来写这篇记录。</p><p>昨天把环境搭建好了，今天就拿来简单的进行一次测试。还是使用昨天的代码</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt; </span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdlib.h&gt; </span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt; </span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;string.h&gt; </span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;signal.h&gt; </span><span style=color:#007020>
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>AFL学习记录（二）——一次简单的测试</h1><div class=meta>Posted on Mar 4, 2021</div></div><section class=body><p>题目做不出来，先来写这篇记录。</p><p>昨天把环境搭建好了，今天就拿来简单的进行一次测试。还是使用昨天的代码</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020> 
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdlib.h&gt;</span><span style=color:#007020> 
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt;</span><span style=color:#007020> 
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;string.h&gt;</span><span style=color:#007020> 
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;signal.h&gt;</span><span style=color:#007020> 
 </span></span></span><span style=display:flex><span><span style=color:#007020></span>
 </span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>vuln</span>(<span style=color:#902000>char</span> <span style=color:#666>*</span>str)
 </span></span><span style=display:flex><span>{

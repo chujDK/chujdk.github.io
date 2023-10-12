@@ -11,11 +11,11 @@
 </span></span><span style=display:flex><span>cd afl-2.52b
 </span></span><span style=display:flex><span>make
 </span></span><span style=display:flex><span>sudo make install
-</span></span></code></pre></div><p>这样在此目录中就可以运行 <code>./afl-fuzz</code> 了。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/3877595345.png></div><p>当然也可以编译出使用 <code>llvm</code> 模式来编译，这样可以加快 fuzz，使用 <code>afl-clang-fast</code> 来编译就可以了。</p><p>先来试一试有源码情况的 fuzz，我自己写的代码漏洞点布置的好像都太明显、危害性太大了，这个模糊器都不给我 fuzz 的机会，所以就到网上找了了代码（<a href=https://xz.aliyun.com/t/4314>来源</a>）</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt; </span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdlib.h&gt; </span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt; </span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;string.h&gt; </span><span style=color:#007020>
-</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;signal.h&gt; </span><span style=color:#007020>
+</span></span></code></pre></div><p>这样在此目录中就可以运行 <code>./afl-fuzz</code> 了。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/3877595345.png></div><p>当然也可以编译出使用 <code>llvm</code> 模式来编译，这样可以加快 fuzz，使用 <code>afl-clang-fast</code> 来编译就可以了。</p><p>先来试一试有源码情况的 fuzz，我自己写的代码漏洞点布置的好像都太明显、危害性太大了，这个模糊器都不给我 fuzz 的机会，所以就到网上找了了代码（<a href=https://xz.aliyun.com/t/4314>来源</a>）</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdio.h&gt;</span><span style=color:#007020> 
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;stdlib.h&gt;</span><span style=color:#007020> 
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;unistd.h&gt;</span><span style=color:#007020> 
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;string.h&gt;</span><span style=color:#007020> 
+</span></span></span><span style=display:flex><span><span style=color:#007020>#include</span> <span style=color:#007020>&lt;signal.h&gt;</span><span style=color:#007020> 
 </span></span></span><span style=display:flex><span><span style=color:#007020></span>
 </span></span><span style=display:flex><span><span style=color:#902000>int</span> <span style=color:#06287e>vuln</span>(<span style=color:#902000>char</span> <span style=color:#666>*</span>str)
 </span></span><span style=display:flex><span>{

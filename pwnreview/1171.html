@@ -262,29 +262,29 @@ specific to this implementation. */</p></blockquote><p>也就是说该函数将�
 </span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>return</span> INLINE_SYSCALL_CALL (close, fd);
 </span></span><span style=display:flex><span>}
 </span></span><span style=display:flex><span>libc_hidden_def (__close_nocancel)
-</span></span></code></pre></div><p>实现比较简单，就是调用系统调用来关闭当前文件。</p><hr><p>关闭文件后，调用 <code>_IO_default_finish</code> 做最后的去除操作</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>void
-</span></span><span style=display:flex><span>_IO_default_finish (FILE *fp, int dummy)
+</span></span></code></pre></div><p>实现比较简单，就是调用系统调用来关闭当前文件。</p><hr><p>关闭文件后，调用 <code>_IO_default_finish</code> 做最后的去除操作</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#902000>void</span>
+</span></span><span style=display:flex><span><span style=color:#06287e>_IO_default_finish</span> (FILE <span style=color:#666>*</span>fp, <span style=color:#902000>int</span> dummy)
 </span></span><span style=display:flex><span>{
-</span></span><span style=display:flex><span>  struct _IO_marker *mark;
-</span></span><span style=display:flex><span>  if (fp-&gt;_IO_buf_base &amp;&amp; !(fp-&gt;_flags &amp; _IO_USER_BUF))
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>struct</span> _IO_marker <span style=color:#666>*</span>mark;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_buf_base <span style=color:#666>&amp;&amp;</span> <span style=color:#666>!</span>(fp<span style=color:#666>-&gt;</span>_flags <span style=color:#666>&amp;</span> _IO_USER_BUF))
 </span></span><span style=display:flex><span>    {
-</span></span><span style=display:flex><span>      free (fp-&gt;_IO_buf_base);
-</span></span><span style=display:flex><span>      fp-&gt;_IO_buf_base = fp-&gt;_IO_buf_end = NULL;
+</span></span><span style=display:flex><span>      <span style=color:#06287e>free</span> (fp<span style=color:#666>-&gt;</span>_IO_buf_base);
+</span></span><span style=display:flex><span>      fp<span style=color:#666>-&gt;</span>_IO_buf_base <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_IO_buf_end <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
 </span></span><span style=display:flex><span>    }
-</span></span><span style=display:flex><span>  for (mark = fp-&gt;_markers; mark != NULL; mark = mark-&gt;_next)
-</span></span><span style=display:flex><span>    mark-&gt;_sbuf = NULL;
-</span></span><span style=display:flex><span>  if (fp-&gt;_IO_save_base)
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>for</span> (mark <span style=color:#666>=</span> fp<span style=color:#666>-&gt;</span>_markers; mark <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>; mark <span style=color:#666>=</span> mark<span style=color:#666>-&gt;</span>_next)
+</span></span><span style=display:flex><span>    mark<span style=color:#666>-&gt;</span>_sbuf <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
+</span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_IO_save_base)
 </span></span><span style=display:flex><span>    {
-</span></span><span style=display:flex><span>      free (fp-&gt;_IO_save_base);
-</span></span><span style=display:flex><span>      fp-&gt;_IO_save_base = NULL;
+</span></span><span style=display:flex><span>      <span style=color:#06287e>free</span> (fp<span style=color:#666>-&gt;</span>_IO_save_base);
+</span></span><span style=display:flex><span>      fp<span style=color:#666>-&gt;</span>_IO_save_base <span style=color:#666>=</span> <span style=color:#007020>NULL</span>;
 </span></span><span style=display:flex><span>    }
-</span></span><span style=display:flex><span>  _IO_un_link ((struct _IO_FILE_plus *) fp);
-</span></span><span style=display:flex><span>#ifdef _IO_MTSAFE_IO
-</span></span><span style=display:flex><span>  if (fp-&gt;_lock != NULL)
-</span></span><span style=display:flex><span>    _IO_lock_fini (*fp-&gt;_lock);
-</span></span><span style=display:flex><span>#endif
-</span></span><span style=display:flex><span>}
-</span></span><span style=display:flex><span>libc_hidden_def (_IO_default_finish)
+</span></span><span style=display:flex><span>  <span style=color:#06287e>_IO_un_link</span> ((<span style=color:#007020;font-weight:700>struct</span> _IO_FILE_plus <span style=color:#666>*</span>) fp);
+</span></span><span style=display:flex><span><span style=color:#007020>#ifdef _IO_MTSAFE_IO
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>  <span style=color:#007020;font-weight:700>if</span> (fp<span style=color:#666>-&gt;</span>_lock <span style=color:#666>!=</span> <span style=color:#007020>NULL</span>)
+</span></span><span style=display:flex><span>    <span style=color:#06287e>_IO_lock_fini</span> (<span style=color:#666>*</span>fp<span style=color:#666>-&gt;</span>_lock);
+</span></span><span style=display:flex><span><span style=color:#007020>#endif
+</span></span></span><span style=display:flex><span><span style=color:#007020></span>}
+</span></span><span style=display:flex><span><span style=color:#06287e>libc_hidden_def</span> (_IO_default_finish)
 </span></span></code></pre></div><p>这里主要做了 <code>free</code> 缓冲区和将该文件从文件链表上解链的操作。</p><p>至此 <code>__finish</code> 的调用已经分析完了，可见他主要做了将缓冲区刷新、释放缓冲区和将文件解链的操作。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/_io_file>_IO_FILE</a></li></ul></nav></div><script src=https://giscus.app/client.js data-repo=chujDK/chujdk.github.io data-repo-id=R_kgDOI__mNg data-category=Announcements data-category-id=DIC_kwDOI__mNs4CYoyP data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=top data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
