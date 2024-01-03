@@ -44,11 +44,15 @@ blockquote {
 }
 
 a {
-  border-bottom: 3px solid var(--maincolor);
+  background: linear-gradient(to right, var(--maincolor), var(--maincolor)) no-repeat left bottom;
+  background-size: 100% 3px;
+  transition: background-size 600ms;
   color: inherit;
   text-decoration: none;
 }
 a:hover {
+    background-position-x: right;
+    background-size: 0 3px;
     background-color: var(--hovercolor);
     color: #fff;
 }

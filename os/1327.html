@@ -1,7 +1,5 @@
-<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>《操作系统真像还原》操作系统实现——进入分页模式 - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="进入保护模式后，我们对内存的访问仍然是基于物理地址的，我们运行的程序，大多是希望自己有一段连续的地址空间的，这样方便寻址。如果使用物理地址来"><meta property="og:image" content><meta property="og:title" content="《操作系统真像还原》操作系统实现——进入分页模式"><meta property="og:description" content="进入保护模式后，我们对内存的访问仍然是基于物理地址的，我们运行的程序，大多是希望自己有一段连续的地址空间的，这样方便寻址。如果使用物理地址来"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/os/1327.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-05-17T09:51:00+00:00"><meta property="article:modified_time" content="2021-05-17T09:51:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="《操作系统真像还原》操作系统实现——进入分页模式"><meta name=twitter:description content="进入保护模式后，我们对内存的访问仍然是基于物理地址的，我们运行的程序，大多是希望自己有一段连续的地址空间的，这样方便寻址。如果使用物理地址来"><script src=https://www.cjovi.icu/js/feather.min.js></script>
-<link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.bfb8dec0e2220d86f104bd8230dbf2c35b583e46ccfef90bb620854db94ef7a5.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
-<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
-<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>《操作系统真像还原》操作系统实现——进入分页模式 - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="进入保护模式后，我们对内存的访问仍然是基于物理地址的，我们运行的程序，大多是希望自己有一段连续的地址空间的，这样方便寻址。如果使用物理地址来"><meta property="og:image" content><meta property="og:title" content="《操作系统真像还原》操作系统实现——进入分页模式"><meta property="og:description" content="进入保护模式后，我们对内存的访问仍然是基于物理地址的，我们运行的程序，大多是希望自己有一段连续的地址空间的，这样方便寻址。如果使用物理地址来"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/os/1327.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-05-17T09:51:00+00:00"><meta property="article:modified_time" content="2021-05-17T09:51:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="《操作系统真像还原》操作系统实现——进入分页模式"><meta name=twitter:description content="进入保护模式后，我们对内存的访问仍然是基于物理地址的，我们运行的程序，大多是希望自己有一段连续的地址空间的，这样方便寻址。如果使用物理地址来"><script src=https://www.cjovi.icu/js/feather.min.js></script><link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.6dc922b4122291f1967a53b3e802e564596ed5068a8571e4221c9ead17563c3a.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
 <a href=/posts.html>All posts</a>
 <a href=/about.html>About</a>
 <a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>《操作系统真像还原》操作系统实现——进入分页模式</h1><div class=meta>Posted on May 17, 2021</div></div><section class=body><p>进入保护模式后，我们对内存的访问仍然是基于物理地址的，我们运行的程序，大多是希望自己有一段连续的地址空间的，这样方便寻址。如果使用物理地址来访问内存，就必须真的给每个进程都分配大段地连续物理内存空间，这可能造成内存碎片难以处理的问题。为了解决这个问题，可以引入<strong>分页模式</strong>（<strong>Paging mode</strong>），好处非常多，此处不再赘述，可以看 <a href=https://zh.wikipedia.org/wiki/%E5%88%86%E9%A0%81>WIKI</a>。</p><p>直观地来看，分页模式做的就是将地址虚拟化，将物理地址以页（一页为 4KB）的粒度映射到虚拟地址上。这样可以给每个进程一个连续的虚拟地址，但是该进程实际使用的物理地址不是连续的，而是以 4K 为粒度的离散的空间，这样最大的碎片就只会有 4KB，基本解决了内存碎片的问题。</p><h3 id=一级页表>一级页表</h3><p>为了实现这样的映射，自然的想法是就建立一张页表，把虚拟地址全部映射到物理地址上。由于一页为 4KB，32 位系统能够寻到的地址上限为 4GB，所以为了实现完全的映射，这个页表就需要有 1024 * 1024 个项，共计 1M，如果用一个 32 位数做为一个项，一个页表的大小就是 4M，考虑到一台电脑中同时会运行多个进程，进程一多，页表就会占用大量空间，非常的浪费，同时页表是需要有连续的物理地址空间的，这就又回到了物理地址时代的内存碎片的问题上了。</p><p>总结一下，一级页表存在这两个问题：</p><ol><li>1M 个页表项常驻于内存，占用内存空间</li><li>页表需要连续的物理地址空间，会造成内存碎片过大的问题</li></ol><p>通过二级页表可以解决这两个问题。</p><h3 id=二级页表>二级页表</h3><p>二级页表就是通过一个<strong>页目录表</strong>（<strong>Page Directory Entry</strong>，<strong>PDE</strong>）来管理之前的一级页表的。</p><p>一级页表有 1024 * 1024 个项，每个项大小 4B，也就是 1024 * 4KB，那么用一个内存页可以存下 1024 个页表项，1024 个这样的<strong>页表</strong>（在二级页表中，<strong>页表</strong>特指有 1024 个项的页表，英文为<strong>Page Table Entry</strong>，<strong>PTE</strong>）就可以将虚拟地址映射到物理地址上了，那么我们用一个目录存下这 1024 个页表的地址，就可以实现映射了，这一个目录，即<strong>页目录表</strong>也只需要占用一个页，原来的 4M 的空间就被拆分成了 1024 + 1 个页，解决了页表产生内存碎片的问题。</p><p>另外，由于我们往往不会在程序中使用全部的虚拟地址，所以没有必要把所有的虚拟地址都做好映射，只要把需要的段做上映射就可以了，通过二级页表，我们不需要一次性建好所有的页表项。</p><p>这里的不需要一次性建好可以多说两句，一级页表其实也是可以不一次性建好的，打个比方，不需要映射的地方清零就行了，代表不需要映射，但是要知道这里仍然占用了连续空间，存储这个项没有被建立的形象。而二级页表可以在页目录表直接表示这 4M 空间都没有映射，对应的 1024 个页表也不需要存在于内存中了。换句话说，就是二级页表的页目录表一项可以表示 4M 空间的状态，比一级页表一项表示 4KB 高到不知道哪里去了。这样就不需要让所有的页表存在于内存中，只需要让需要的存在，减少了内存占用。</p><h3 id=宏观实现>宏观实现</h3><p>实现的方法就是用 1025 个页来映射虚拟地址，其中只有页目录表一个页是必须存在且存在于固定的物理地址上。开启分页机制前，需要把页目录表基址存到控制寄存器 CR3 中。</p><p>然后硬件页部件就可以根据 32 位虚拟地址可以计算物理地址。虚拟地址的高10位（22 ~ 31 位）作为页目录表的索引，从目录中找到对应的页表，然后以虚拟地址的 12 ~ 21 作为页表的索引，找到虚拟地址的物理地址基址，以虚拟地址的低 12 位作为偏移，就可以访问到这整个页中的数据。这个计算过程是由硬件完成的。</p><p>从上面可以看出，由于页表和目录都是页对齐的，所以低 12 位都不需要使用，可以在其中存储一些控制信息，每一位对应如下</p><p>页目录表：</p><table><thead><tr><th>31 ~ 12</th><th>11 ~ 9</th><th>8</th><th>7</th><th>6</th><th>5</th><th>4</th><th>3</th><th>2</th><th>1</th><th>0</th></tr></thead><tbody><tr><td>页表物理地址高 20 位</td><td>AVL</td><td>G</td><td>0</td><td>0</td><td>A</td><td>PCD</td><td>PWT</td><td>US</td><td>RW</td><td>P</td></tr></tbody></table><p>页表：</p><table><thead><tr><th>31 ~ 12</th><th>11 ~ 9</th><th>8</th><th>7</th><th>6</th><th>5</th><th>4</th><th>3</th><th>2</th><th>1</th><th>0</th></tr></thead><tbody><tr><td>物理页地址高 20 位</td><td>AVL</td><td>G</td><td>PAT</td><td>D</td><td>A</td><td>PCD</td><td>PWT</td><td>US</td><td>RW</td><td>P</td></tr></tbody></table><p>AVL：未被硬件使用</p><p>G：Global 位，若该位为 1，TLB（Translation Lookaside Buffer）中会缓存这个虚拟地址的映射。</p><p>PAT：页属性表位，在页粒度上设置内存属性</p><p>D：Dirty 位，脏位，CPU 在对一个页执行写操作时，会置该位为 1。该位仅对页表有效。</p><p>A：Accessed 位，访问位，为 1 表示被访问过。</p><p>PCD：Page-level Cache Disabled，页级高速缓冲禁止位，设置为 0 禁用高速缓存。</p><p>PWT：Page-level Write-Through，页级通写位，和高速缓存有关。</p><p>US：User/Supervisor 位，该位为 1 时，表示为 User 级，所有特权级都可以访问，为 0 时仅有 Ring 0 可以访问。</p><p>RW：设置读写属性，1 表示可读写，0 表示只读。</p><p>P：Present 位，<strong>特别的</strong>，与页中的 P 位不同，对于 PDE，1 表示对应的页目录表已存在，对于 PTE 表示对应的页已分配。</p><p>接下来我们在 loader 中设置并开启页表。</p><h3 id=设置页表>设置页表</h3><p>使用一个函数来设置页表。由于现在还没有用户进程，所以暂时不需要设置内核地址之外的页表。使用类似于 Linux 的内核布局，内核代码处于虚拟地址 3G - 4G。不过其映射的物理地址，我们希望它处于低段。也就是把 3G - 4G 这个虚拟地址映射到低 0 - 1G 上。当然实际上我们的内核完全不需要这么多的空间，1M 的数量级都远远不到，所以就提前约定，内核使用物理地址 0 - 1M 的空间（也不是这里面的全部，有些硬件也映射到了这里）。那么我们的页目录表就建立在 0x10000 上（物理地址 1M 处）。</p><p>内核的虚拟地址处于 3G-4G 即 0xC0000000 ~ 0xFFFFFFFF，对应到页目录表中，就是 0x300 ~ 0x3FF 项（取高十位），换算成偏移地址（左移 2 位）就是 0xC00 ~ 0xFFC 这 256 项，每一项对应的页表可以映射 4M 的物理内存。之前也说了我们的内核只是用 0 - 1M 的空间，所以我们首先建立好 PDE[0x300] 对应的页表。</p><p>然后还需要建立 PDE[0]，这是因为当前运行的 loader 原先是使用物理地址的，进入分页模式后，要保证物理地址转为虚拟地址后仍然能够映射到物理地址上，即自己映射自己，这样 loader 才能继续工作。loader 的基址是 0x600，对应的页目录表索引位 0，所以我们需要建立 PDE[0]，不过由于 PDE[0] 和 PDE[0x300] 指向的是同一个页表，建立也不麻烦。</p><p>PDE 的位置固定，内核所使用的页表完全可以直接建立在 PDE 之后，反正这些页表是一直要使用的，不存在碎片的问题，所以就直接建立在 PDE 之后。</p><p>建立的过程就是下面的代码这样：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>SetupPage:
@@ -51,93 +49,93 @@
 </span></span><span style=display:flex><span>        loop .SetupPage_CreateKernelPDE
 </span></span><span style=display:flex><span>        ret
 </span></span><span style=display:flex><span>; ---------- end of function SetupPage ----------
-</span></span></code></pre></div><p>这里需要说明几点：</p><ul><li>页属性设置位 User 的原因是以后要在内核段中执行 init 进程，该进程是 Ring 3 的，所以需要这样设置</li><li>最后把内核的需要的所有页目录都建立好了，看似没有意义，因为我们的内核明明只占用 1M 空间，但是实际上这是为了未来将内核共享给所有用户进程所做的处理。具体的，每个用户进程页表的内核段都是直接从 0x10000 的 PDE 拷被过去的，如果不提前建好页目录，当内核为一个用户进程建立了超过 4M 的资源后，其他用户由于页表对应索引处为零，就无法访问到这里的资源。</li></ul><h3 id=进入分页模式>进入分页模式</h3><p>进入分页模式，需要完成以下 4 步：</p><ol><li>建立页表（之前已经完成）</li><li>预更新 GDT，使进入分页模式后能够立刻修改 GDTR，使各段使用正确的虚拟地址</li><li>设置 CR3 为 PDT 的地址</li><li>设置 CR0 的最高位为 1，正式开启分页模式</li></ol><p>进入分页模式后，更新 GDTR，让各段可以使用上虚拟地址。</p><p>最后完成的 loader.S：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>%include &#34;boot.inc&#34;
+</span></span></code></pre></div><p>这里需要说明几点：</p><ul><li>页属性设置位 User 的原因是以后要在内核段中执行 init 进程，该进程是 Ring 3 的，所以需要这样设置</li><li>最后把内核的需要的所有页目录都建立好了，看似没有意义，因为我们的内核明明只占用 1M 空间，但是实际上这是为了未来将内核共享给所有用户进程所做的处理。具体的，每个用户进程页表的内核段都是直接从 0x10000 的 PDE 拷被过去的，如果不提前建好页目录，当内核为一个用户进程建立了超过 4M 的资源后，其他用户由于页表对应索引处为零，就无法访问到这里的资源。</li></ul><h3 id=进入分页模式>进入分页模式</h3><p>进入分页模式，需要完成以下 4 步：</p><ol><li>建立页表（之前已经完成）</li><li>预更新 GDT，使进入分页模式后能够立刻修改 GDTR，使各段使用正确的虚拟地址</li><li>设置 CR3 为 PDT 的地址</li><li>设置 CR0 的最高位为 1，正式开启分页模式</li></ol><p>进入分页模式后，更新 GDTR，让各段可以使用上虚拟地址。</p><p>最后完成的 loader.S：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span><span style=color:#666>%</span>include <span style=color:#4070a0>&#34;boot.inc&#34;</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>section loader vstart=LOADER_BASE_ADDR
+</span></span><span style=display:flex><span>section loader vstart<span style=color:#666>=</span>LOADER_BASE_ADDR
 </span></span><span style=display:flex><span>LOADER_STACK_TOP equ LOADER_BASE_ADDR
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>jmp LoaderStart                         ; 3 bytes
-</span></span><span style=display:flex><span>db 0
-</span></span><span style=display:flex><span>dd 0,0,0                                ; addr align
-</span></span><span style=display:flex><span>; offset 0x10
+</span></span><span style=display:flex><span>jmp LoaderStart                         ; <span style=color:#40a070>3</span> bytes
+</span></span><span style=display:flex><span>db <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>dd <span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>                                ; addr align
+</span></span><span style=display:flex><span>; offset <span style=color:#40a070>0x10</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; set up GOT and descriptor
-</span></span><span style=display:flex><span>GDT_BASE: dd 0x00000000   
-</span></span><span style=display:flex><span>          dd 0x00000000   
+</span></span><span style=display:flex><span>; set up GOT <span style=color:#007020;font-weight:700>and</span> descriptor
+</span></span><span style=display:flex><span>GDT_BASE: dd <span style=color:#40a070>0x00000000</span>   
+</span></span><span style=display:flex><span>          dd <span style=color:#40a070>0x00000000</span>   
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>CODE_DESC: dd 0x0000FFFF                ; low 32 bits
-</span></span><span style=display:flex><span>           dd DESC_CODE_HIGH4           ; high 32 bits
+</span></span><span style=display:flex><span>CODE_DESC: dd <span style=color:#40a070>0x0000FFFF</span>                ; low <span style=color:#40a070>32</span> bits
+</span></span><span style=display:flex><span>           dd DESC_CODE_HIGH4           ; high <span style=color:#40a070>32</span> bits
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>DATA_STACK_DESC: dd 0x0000FFFF          ; used by stack and data seg
+</span></span><span style=display:flex><span>DATA_STACK_DESC: dd <span style=color:#40a070>0x0000FFFF</span>          ; used by stack <span style=color:#007020;font-weight:700>and</span> data seg
 </span></span><span style=display:flex><span>            dd DESC_DATA_HIGH4
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; text-mode display
-</span></span><span style=display:flex><span>; limit = (0xBFFFF - 0xB8000) / 4K = 0x7
-</span></span><span style=display:flex><span>VIDEO_DESC: dd 0x80000007 
+</span></span><span style=display:flex><span>; text<span style=color:#666>-</span>mode display
+</span></span><span style=display:flex><span>; limit <span style=color:#666>=</span> (<span style=color:#40a070>0xBFFFF</span> <span style=color:#666>-</span> <span style=color:#40a070>0xB8000</span>) <span style=color:#666>/</span> <span style=color:#40a070>4</span>K <span style=color:#666>=</span> <span style=color:#40a070>0x7</span>
+</span></span><span style=display:flex><span>VIDEO_DESC: dd <span style=color:#40a070>0x80000007</span> 
 </span></span><span style=display:flex><span>            dd DESC_VIDEO_HIGH4
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>GDT_SIZE  equ $ - GDT_BASE
-</span></span><span style=display:flex><span>GDT_LIMIT equ GDT_SIZE - 1
+</span></span><span style=display:flex><span>GDT_SIZE  equ <span style=color:#666>$</span> <span style=color:#666>-</span> GDT_BASE
+</span></span><span style=display:flex><span>GDT_LIMIT equ GDT_SIZE <span style=color:#666>-</span> <span style=color:#40a070>1</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>times 60 dq 0                           ; reserve 60 GDTs
+</span></span><span style=display:flex><span>times <span style=color:#40a070>60</span> dq <span style=color:#40a070>0</span>                           ; reserve <span style=color:#40a070>60</span> GDTs
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>TOTAL_MEM_BYTES dd 0                    ; memory of the machine
-</span></span><span style=display:flex><span>                                        ; addr: LOADER_BASE_ADDR + 0x10 + 0x200 = 0x800
+</span></span><span style=display:flex><span>TOTAL_MEM_BYTES dd <span style=color:#40a070>0</span>                    ; memory of the machine
+</span></span><span style=display:flex><span>                                        ; addr: LOADER_BASE_ADDR <span style=color:#666>+</span> <span style=color:#40a070>0x10</span> <span style=color:#666>+</span> <span style=color:#40a070>0x200</span> <span style=color:#666>=</span> <span style=color:#40a070>0x800</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>SELECTOR_CODE equ ((CODE_DESC - GDT_BASE) / 8) &lt;&lt; 3 + TI_GDT + RPL0
-</span></span><span style=display:flex><span>SELECTOR_DATA equ ((DATA_STACK_DESC - GDT_BASE) / 8) &lt;&lt; 3 + TI_GDT + RPL0
-</span></span><span style=display:flex><span>SELECTOR_VIDEO equ ((VIDEO_DESC - GDT_BASE) / 8) &lt;&lt; 3 + TI_GDT + RPL0
+</span></span><span style=display:flex><span>SELECTOR_CODE equ ((CODE_DESC <span style=color:#666>-</span> GDT_BASE) <span style=color:#666>/</span> <span style=color:#40a070>8</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>3</span> <span style=color:#666>+</span> TI_GDT <span style=color:#666>+</span> RPL0
+</span></span><span style=display:flex><span>SELECTOR_DATA equ ((DATA_STACK_DESC <span style=color:#666>-</span> GDT_BASE) <span style=color:#666>/</span> <span style=color:#40a070>8</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>3</span> <span style=color:#666>+</span> TI_GDT <span style=color:#666>+</span> RPL0
+</span></span><span style=display:flex><span>SELECTOR_VIDEO equ ((VIDEO_DESC <span style=color:#666>-</span> GDT_BASE) <span style=color:#666>/</span> <span style=color:#40a070>8</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>3</span> <span style=color:#666>+</span> TI_GDT <span style=color:#666>+</span> RPL0
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>; pointer point to GDT
-</span></span><span style=display:flex><span>gdt_ptr: dw GDT_LIMIT    ; low 16 bits of GDT reg
-</span></span><span style=display:flex><span>         dd GDT_BASE     ; high 32 bits of GDT reg
+</span></span><span style=display:flex><span>gdt_ptr: dw GDT_LIMIT    ; low <span style=color:#40a070>16</span> bits of GDT reg
+</span></span><span style=display:flex><span>         dd GDT_BASE     ; high <span style=color:#40a070>32</span> bits of GDT reg
 </span></span><span style=display:flex><span>; end of GDT setup
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>LoaderStart:
-</span></span><span style=display:flex><span>; ---------- first, get the total memory of the machine ----------
-</span></span><span style=display:flex><span>; ---------- we must do it before enter the PE mode as we need the BIOS int ----------
-</span></span><span style=display:flex><span>; use bios int 0x15 sub 0xE801
-</span></span><span style=display:flex><span>    .LoaderStart_E801FailedRetry:
-</span></span><span style=display:flex><span>        mov ax,0xE801
-</span></span><span style=display:flex><span>        int 0x15
-</span></span><span style=display:flex><span>    jc .LoaderStart_E801FailedRetry
-</span></span><span style=display:flex><span>    ; calculate low 15MB memory
-</span></span><span style=display:flex><span>    mov cx,0x400
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> first, get the total memory of the machine <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> we must <span style=color:#007020;font-weight:700>do</span> it before enter the PE mode as we need the BIOS <span style=color:#007020>int</span> <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>; use bios <span style=color:#007020>int</span> <span style=color:#40a070>0x15</span> sub <span style=color:#40a070>0xE801</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>.</span>LoaderStart_E801FailedRetry:
+</span></span><span style=display:flex><span>        mov ax,<span style=color:#40a070>0xE801</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020>int</span> <span style=color:#40a070>0x15</span>
+</span></span><span style=display:flex><span>    jc <span style=color:#666>.</span>LoaderStart_E801FailedRetry
+</span></span><span style=display:flex><span>    ; calculate low <span style=color:#40a070>15</span>MB memory
+</span></span><span style=display:flex><span>    mov cx,<span style=color:#40a070>0x400</span>
 </span></span><span style=display:flex><span>    mul cx
-</span></span><span style=display:flex><span>    shl edx,16
-</span></span><span style=display:flex><span>    and eax,0x0000FFFF
-</span></span><span style=display:flex><span>    or edx,eax
-</span></span><span style=display:flex><span>    add edx,0x100000                        ; add 1MB, this is caused by the memory hole
+</span></span><span style=display:flex><span>    shl edx,<span style=color:#40a070>16</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>and</span> eax,<span style=color:#40a070>0x0000FFFF</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> edx,eax
+</span></span><span style=display:flex><span>    add edx,<span style=color:#40a070>0x100000</span>                        ; add <span style=color:#40a070>1</span>MB, this is caused by the memory hole
 </span></span><span style=display:flex><span>    mov esi,edx
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    xor eax,eax
 </span></span><span style=display:flex><span>    mov ax,bx
-</span></span><span style=display:flex><span>    mov ecx,0x10000                         ; 64 * 1024
+</span></span><span style=display:flex><span>    mov ecx,<span style=color:#40a070>0x10000</span>                         ; <span style=color:#40a070>64</span> <span style=color:#666>*</span> <span style=color:#40a070>1024</span>
 </span></span><span style=display:flex><span>    mul ecx
 </span></span><span style=display:flex><span>    add esi,eax                             ; esi store the
 </span></span><span style=display:flex><span>    mov [TOTAL_MEM_BYTES],esi               ; now TOTAL_MEM_BYTES stores the total memory
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    ; ---------- ready to enter Proctection mode ----------
-</span></span><span style=display:flex><span>    ; 1 open A20 address line
-</span></span><span style=display:flex><span>    ; 2 load GDT reg
-</span></span><span style=display:flex><span>    ; 3 set pe of cr0 to 1
+</span></span><span style=display:flex><span>    ; <span style=color:#666>----------</span> ready to enter Proctection mode <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>    ; <span style=color:#40a070>1</span> open A20 address line
+</span></span><span style=display:flex><span>    ; <span style=color:#40a070>2</span> <span style=color:#007020>load</span> GDT reg
+</span></span><span style=display:flex><span>    ; <span style=color:#40a070>3</span> set pe of cr0 to <span style=color:#40a070>1</span>
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    ; open A20
-</span></span><span style=display:flex><span>    in al,0x92   
-</span></span><span style=display:flex><span>    or al,0000_0010B                        ; save existed status
-</span></span><span style=display:flex><span>    out 0x92,al
-</span></span><span style=display:flex><span>    ; load GDT reg
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>in</span> al,<span style=color:#40a070>0x92</span>   
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> al,<span style=color:#40a070>0000</span>_0010B                        ; save existed status
+</span></span><span style=display:flex><span>    out <span style=color:#40a070>0x92</span>,al
+</span></span><span style=display:flex><span>    ; <span style=color:#007020>load</span> GDT reg
 </span></span><span style=display:flex><span>    lgdt [gdt_ptr]
-</span></span><span style=display:flex><span>    ; set cr0, let&#39;s roll!
+</span></span><span style=display:flex><span>    ; set cr0, let<span style=color:#4070a0>&#39;s roll!</span>
 </span></span><span style=display:flex><span>    mov eax,cr0
-</span></span><span style=display:flex><span>    or eax,0x00000001                       ; save existed status
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> eax,<span style=color:#40a070>0x00000001</span>                       ; save existed status
 </span></span><span style=display:flex><span>    mov cr0,eax                             ; enter Protection mode
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    jmp dword SELECTOR_CODE:ProctectionModeStart    ; reflesh assembly line
-</span></span><span style=display:flex><span>; ---------- end of function LoaderStart ----------
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> end of function LoaderStart <span style=color:#666>----------</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; ---------- now we are in 32-bits PE mode ----------
-</span></span><span style=display:flex><span>[bits 32]
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> now we are <span style=color:#007020;font-weight:700>in</span> <span style=color:#40a070>32</span><span style=color:#666>-</span>bits PE mode <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>[bits <span style=color:#40a070>32</span>]
 </span></span><span style=display:flex><span>ProctectionModeStart:
 </span></span><span style=display:flex><span>; set selectors
 </span></span><span style=display:flex><span>    mov ax,SELECTOR_DATA
@@ -147,144 +145,144 @@
 </span></span><span style=display:flex><span>    mov esp,LOADER_STACK_TOP
 </span></span><span style=display:flex><span>    mov ax,SELECTOR_VIDEO
 </span></span><span style=display:flex><span>    mov gs,ax
-</span></span><span style=display:flex><span>    mov byte [gs:160],&#39;P&#39;
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>160</span>],<span style=color:#4070a0>&#39;P&#39;</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; first thing we do is start the page mode
-</span></span><span style=display:flex><span>    ; 1 setup PDE and related PTE
+</span></span><span style=display:flex><span>; first thing we <span style=color:#007020;font-weight:700>do</span> is start the page mode
+</span></span><span style=display:flex><span>    ; <span style=color:#40a070>1</span> setup PDE <span style=color:#007020;font-weight:700>and</span> related PTE
 </span></span><span style=display:flex><span>    call SetupPage
-</span></span><span style=display:flex><span>    ; 2 modify the GDT to make it work in paging mode
+</span></span><span style=display:flex><span>    ; <span style=color:#40a070>2</span> modify the GDT to make it work <span style=color:#007020;font-weight:700>in</span> paging mode
 </span></span><span style=display:flex><span>    sgdt [gdt_ptr]
-</span></span><span style=display:flex><span>    mov ebx,[gdt_ptr + 2]
-</span></span><span style=display:flex><span>    or dword [ebx + 0x18 + 4],0xC0000000    ; modify the VIDEO_DESC
+</span></span><span style=display:flex><span>    mov ebx,[gdt_ptr <span style=color:#666>+</span> <span style=color:#40a070>2</span>]
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> dword [ebx <span style=color:#666>+</span> <span style=color:#40a070>0x18</span> <span style=color:#666>+</span> <span style=color:#40a070>4</span>],<span style=color:#40a070>0xC0000000</span>    ; modify the VIDEO_DESC
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    add dword [gdt_ptr + 2],0xC0000000      ; pre modify the GDTR value 
-</span></span><span style=display:flex><span>    add esp,0xC0000000                      ; also modify the stack 
+</span></span><span style=display:flex><span>    add dword [gdt_ptr <span style=color:#666>+</span> <span style=color:#40a070>2</span>],<span style=color:#40a070>0xC0000000</span>      ; pre modify the GDTR value 
+</span></span><span style=display:flex><span>    add esp,<span style=color:#40a070>0xC0000000</span>                      ; also modify the stack 
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    mov eax,PAGE_DIR_TABLE_POS
 </span></span><span style=display:flex><span>    mov cr3,eax
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    mov eax,cr0
-</span></span><span style=display:flex><span>    or eax,0x80000000                       ; save existed status
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> eax,<span style=color:#40a070>0x80000000</span>                       ; save existed status
 </span></span><span style=display:flex><span>    mov cr0,eax                             ; enable paging mode
 </span></span><span style=display:flex><span>  
 </span></span><span style=display:flex><span>    lgdt [gdt_ptr]                          ; change GDTR
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    mov byte [gs:162],&#39;V&#39;
-</span></span><span style=display:flex><span>    jmp $
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>162</span>],<span style=color:#4070a0>&#39;V&#39;</span>
+</span></span><span style=display:flex><span>    jmp <span style=color:#666>$</span>
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>SetupPage:
-</span></span><span style=display:flex><span>; ---------- this function setup the Page Directory Entry and Page Table Entry ----------
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> this function setup the Page <span style=color:#007020>Directory</span> Entry <span style=color:#007020;font-weight:700>and</span> Page Table Entry <span style=color:#666>----------</span>
 </span></span><span style=display:flex><span>    ; clear PTE
-</span></span><span style=display:flex><span>    mov ecx,0x1000                          ; 4K PDE
-</span></span><span style=display:flex><span>    mov esi,0                               ; use this reg the clear
-</span></span><span style=display:flex><span>    .SetupPage_ClearPDE:
-</span></span><span style=display:flex><span>        mov byte [PAGE_DIR_TABLE_POS + esi],0
+</span></span><span style=display:flex><span>    mov ecx,<span style=color:#40a070>0x1000</span>                          ; <span style=color:#40a070>4</span>K PDE
+</span></span><span style=display:flex><span>    mov esi,<span style=color:#40a070>0</span>                               ; use this reg the clear
+</span></span><span style=display:flex><span>    <span style=color:#666>.</span>SetupPage_ClearPDE:
+</span></span><span style=display:flex><span>        mov byte [PAGE_DIR_TABLE_POS <span style=color:#666>+</span> esi],<span style=color:#40a070>0</span>
 </span></span><span style=display:flex><span>        inc esi
-</span></span><span style=display:flex><span>    loop .SetupPage_ClearPDE
+</span></span><span style=display:flex><span>    loop <span style=color:#666>.</span>SetupPage_ClearPDE
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    ; setup PDE
-</span></span><span style=display:flex><span>    .SetupPage_CreatePDE:
+</span></span><span style=display:flex><span>    <span style=color:#666>.</span>SetupPage_CreatePDE:
 </span></span><span style=display:flex><span>        mov eax,PAGE_DIR_TABLE_POS
-</span></span><span style=display:flex><span>        add eax,0x1000                       ; addr of the first PTE 
+</span></span><span style=display:flex><span>        add eax,<span style=color:#40a070>0x1000</span>                       ; addr of the first PTE 
 </span></span><span style=display:flex><span>        mov ebx,eax                          ; ebx is the base addr of PTEs
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>        ; make the PDE[0] and PDE[0xC00] point to the first PTE
-</span></span><span style=display:flex><span>        or eax,PG_US_U | PG_RW_RW | PG_P     ; set user page status
-</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS + 0x0],eax   ; the first PTE&#39;s place, mapping loader&#39;s addr to itself
-</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS + 0xC00],eax ; the first PTE used by kernel, mapping to low 1M
-</span></span><span style=display:flex><span>        ; 0xC0000000 ~ 0xFFFFFFFF belongs to kernel
-</span></span><span style=display:flex><span>        sub eax,0x1000
-</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS + 0xFFC],eax  ; make the last Entry point to PDE itself
+</span></span><span style=display:flex><span>        ; make the PDE[<span style=color:#40a070>0</span>] <span style=color:#007020;font-weight:700>and</span> PDE[<span style=color:#40a070>0xC00</span>] point to the first PTE
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>or</span> eax,PG_US_U <span style=color:#666>|</span> PG_RW_RW <span style=color:#666>|</span> PG_P     ; set user page status
+</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS <span style=color:#666>+</span> <span style=color:#40a070>0x0</span>],eax   ; the first PTE<span style=color:#4070a0>&#39;s place, mapping loader&#39;</span>s addr to itself
+</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS <span style=color:#666>+</span> <span style=color:#40a070>0xC00</span>],eax ; the first PTE used by kernel, mapping to low <span style=color:#40a070>1</span>M
+</span></span><span style=display:flex><span>        ; <span style=color:#40a070>0xC0000000</span> <span style=color:#666>~</span> <span style=color:#40a070>0xFFFFFFFF</span> belongs to kernel
+</span></span><span style=display:flex><span>        sub eax,<span style=color:#40a070>0x1000</span>
+</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS <span style=color:#666>+</span> <span style=color:#40a070>0xFFC</span>],eax  ; make the last Entry point to PDE itself
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>        ; creat PTE for kernel
-</span></span><span style=display:flex><span>        mov ecx,256                          ; 1M / 4K = 256
-</span></span><span style=display:flex><span>        mov esi,0
-</span></span><span style=display:flex><span>        mov edx,PG_US_U | PG_RW_RW | PG_P    ; User, RW, P
-</span></span><span style=display:flex><span>        .SetupPage_CreatePTE:
-</span></span><span style=display:flex><span>            mov [ebx + esi * 4],edx
-</span></span><span style=display:flex><span>            add edx,0x1000
+</span></span><span style=display:flex><span>        ; creat PTE <span style=color:#007020;font-weight:700>for</span> kernel
+</span></span><span style=display:flex><span>        mov ecx,<span style=color:#40a070>256</span>                          ; <span style=color:#40a070>1</span>M <span style=color:#666>/</span> <span style=color:#40a070>4</span>K <span style=color:#666>=</span> <span style=color:#40a070>256</span>
+</span></span><span style=display:flex><span>        mov esi,<span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>        mov edx,PG_US_U <span style=color:#666>|</span> PG_RW_RW <span style=color:#666>|</span> PG_P    ; User, RW, P
+</span></span><span style=display:flex><span>        <span style=color:#666>.</span>SetupPage_CreatePTE:
+</span></span><span style=display:flex><span>            mov [ebx <span style=color:#666>+</span> esi <span style=color:#666>*</span> <span style=color:#40a070>4</span>],edx
+</span></span><span style=display:flex><span>            add edx,<span style=color:#40a070>0x1000</span>
 </span></span><span style=display:flex><span>            inc esi
-</span></span><span style=display:flex><span>        loop .SetupPage_CreatePTE
+</span></span><span style=display:flex><span>        loop <span style=color:#666>.</span>SetupPage_CreatePTE
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>        mov eax,PAGE_DIR_TABLE_POS
-</span></span><span style=display:flex><span>        add eax,0x2000                      ; second PTE
-</span></span><span style=display:flex><span>        or eax,PG_US_U | PG_RW_RW | PG_P
+</span></span><span style=display:flex><span>        add eax,<span style=color:#40a070>0x2000</span>                      ; second PTE
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>or</span> eax,PG_US_U <span style=color:#666>|</span> PG_RW_RW <span style=color:#666>|</span> PG_P
 </span></span><span style=display:flex><span>        mov ebx,PAGE_DIR_TABLE_POS
-</span></span><span style=display:flex><span>        mov ecx,254                         ; 1022 - 769 + 1
-</span></span><span style=display:flex><span>        mov esi,769                         ; start from 769,the second PTE of kernel
-</span></span><span style=display:flex><span>        .SetupPage_CreateKernelPDE:
-</span></span><span style=display:flex><span>            mov [ebx + esi * 4],eax
+</span></span><span style=display:flex><span>        mov ecx,<span style=color:#40a070>254</span>                         ; <span style=color:#40a070>1022</span> <span style=color:#666>-</span> <span style=color:#40a070>769</span> <span style=color:#666>+</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>        mov esi,<span style=color:#40a070>769</span>                         ; start from <span style=color:#40a070>769</span>,the second PTE of kernel
+</span></span><span style=display:flex><span>        <span style=color:#666>.</span>SetupPage_CreateKernelPDE:
+</span></span><span style=display:flex><span>            mov [ebx <span style=color:#666>+</span> esi <span style=color:#666>*</span> <span style=color:#40a070>4</span>],eax
 </span></span><span style=display:flex><span>            inc esi
-</span></span><span style=display:flex><span>            add eax,0x1000
-</span></span><span style=display:flex><span>        loop .SetupPage_CreateKernelPDE
+</span></span><span style=display:flex><span>            add eax,<span style=color:#40a070>0x1000</span>
+</span></span><span style=display:flex><span>        loop <span style=color:#666>.</span>SetupPage_CreateKernelPDE
 </span></span><span style=display:flex><span>        ret
-</span></span><span style=display:flex><span>; ---------- end of function SetupPage ----------
-</span></span></code></pre></div><p>更新后的 boot.inc：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>;---------- loader and kernel ----------
-</span></span><span style=display:flex><span>LOADER_BASE_ADDR equ 0x600                  ; 0x500 ~ 0x7BFF
-</span></span><span style=display:flex><span>LOADER_START_SECTOR equ 0x2
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> end of function SetupPage <span style=color:#666>----------</span>
+</span></span></code></pre></div><p>更新后的 boot.inc：</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span>;<span style=color:#666>----------</span> loader <span style=color:#007020;font-weight:700>and</span> kernel <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>LOADER_BASE_ADDR equ <span style=color:#40a070>0x600</span>                  ; <span style=color:#40a070>0x500</span> <span style=color:#666>~</span> <span style=color:#40a070>0x7BFF</span>
+</span></span><span style=display:flex><span>LOADER_START_SECTOR equ <span style=color:#40a070>0x2</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>;---------- gdt related ----------
-</span></span><span style=display:flex><span>; G, D, L, AVL sign
-</span></span><span style=display:flex><span>DESC_G_4K equ 1_00000000000000000000000b    ; set grid 4K
-</span></span><span style=display:flex><span>DESC_D_32 equ  1_0000000000000000000000b    ; set 32 bit text mode
-</span></span><span style=display:flex><span>DESC_L    equ   0_000000000000000000000b    ; turn off 64 bit text mode
-</span></span><span style=display:flex><span>DESC_AVL  equ    0_00000000000000000000b    ; unused by CPU
+</span></span><span style=display:flex><span>;<span style=color:#666>----------</span> gdt related <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>; G, D, L, AVL <span style=color:#007020>sign</span>
+</span></span><span style=display:flex><span>DESC_G_4K equ <span style=color:#40a070>1</span>_00000000000000000000000b    ; set grid <span style=color:#40a070>4</span>K
+</span></span><span style=display:flex><span>DESC_D_32 equ  <span style=color:#40a070>1</span>_0000000000000000000000b    ; set <span style=color:#40a070>32</span> bit text mode
+</span></span><span style=display:flex><span>DESC_L    equ   <span style=color:#40a070>0</span>_000000000000000000000b    ; turn off <span style=color:#40a070>64</span> bit text mode
+</span></span><span style=display:flex><span>DESC_AVL  equ    <span style=color:#40a070>0</span>_00000000000000000000b    ; unused by CPU
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; segment limit high 4 bits
-</span></span><span style=display:flex><span>DESC_LIMIT_CODEH equ 1111_0000000000000000b ; LIMIT 0xF(FFFF)
-</span></span><span style=display:flex><span>DESC_LIMIT_DATAH equ DESC_LIMIT_CODEH       ; LIMIT 0xF(FFFF)
-</span></span><span style=display:flex><span>DESC_LIMIT_VIDEOH equ 0000_0000000000000000b 
+</span></span><span style=display:flex><span>; segment limit high <span style=color:#40a070>4</span> bits
+</span></span><span style=display:flex><span>DESC_LIMIT_CODEH equ <span style=color:#40a070>1111</span>_0000000000000000b ; LIMIT <span style=color:#40a070>0xF</span>(FFFF)
+</span></span><span style=display:flex><span>DESC_LIMIT_DATAH equ DESC_LIMIT_CODEH       ; LIMIT <span style=color:#40a070>0xF</span>(FFFF)
+</span></span><span style=display:flex><span>DESC_LIMIT_VIDEOH equ <span style=color:#40a070>0000</span>_0000000000000000b 
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; Present sign
-</span></span><span style=display:flex><span>DESC_P_IN equ 1_000000000000000b            ; this segment is in RAM
+</span></span><span style=display:flex><span>; Present <span style=color:#007020>sign</span>
+</span></span><span style=display:flex><span>DESC_P_IN equ <span style=color:#40a070>1</span>_000000000000000b            ; this segment is <span style=color:#007020;font-weight:700>in</span> RAM
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; Descriptor Privilege Level (DPL sign)
-</span></span><span style=display:flex><span>DESC_DPL_RING_0 equ 00_0000000000000b       ; set RING 0 
-</span></span><span style=display:flex><span>DESC_DPL_RING_1 equ 01_0000000000000b       ; set RING 1 
-</span></span><span style=display:flex><span>DESC_DPL_RING_2 equ 10_0000000000000b       ; set RING 2 
-</span></span><span style=display:flex><span>DESC_DPL_RING_3 equ 11_0000000000000b       ; set RING 3 
+</span></span><span style=display:flex><span>; Descriptor Privilege Level (DPL <span style=color:#007020>sign</span>)
+</span></span><span style=display:flex><span>DESC_DPL_RING_0 equ <span style=color:#40a070>00</span>_0000000000000b       ; set RING <span style=color:#40a070>0</span> 
+</span></span><span style=display:flex><span>DESC_DPL_RING_1 equ <span style=color:#40a070>01</span>_0000000000000b       ; set RING <span style=color:#40a070>1</span> 
+</span></span><span style=display:flex><span>DESC_DPL_RING_2 equ <span style=color:#40a070>10</span>_0000000000000b       ; set RING <span style=color:#40a070>2</span> 
+</span></span><span style=display:flex><span>DESC_DPL_RING_3 equ <span style=color:#40a070>11</span>_0000000000000b       ; set RING <span style=color:#40a070>3</span> 
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; CPU segment status (S sign)
-</span></span><span style=display:flex><span>DESC_S_CODE equ 1_000000000000b             ; code segment
+</span></span><span style=display:flex><span>; CPU segment status (S <span style=color:#007020>sign</span>)
+</span></span><span style=display:flex><span>DESC_S_CODE equ <span style=color:#40a070>1</span>_000000000000b             ; code segment
 </span></span><span style=display:flex><span>DESC_S_DATA equ DESC_S_CODE                 ; data segment
-</span></span><span style=display:flex><span>DESC_S_SYS  equ 0_000000000000b             ; sys segment (to cpu)
+</span></span><span style=display:flex><span>DESC_S_SYS  equ <span style=color:#40a070>0</span>_000000000000b             ; sys segment (to cpu)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; OS segment status (type sign)
-</span></span><span style=display:flex><span>DESC_TYPE_CODE equ 1000_00000000b           ; code segment (r-x)
-</span></span><span style=display:flex><span>DESC_TYPE_DATA equ 0010_00000000b           ; data segment (rw-) 
+</span></span><span style=display:flex><span>; <span style=color:#007020>OS</span> segment status (type <span style=color:#007020>sign</span>)
+</span></span><span style=display:flex><span>DESC_TYPE_CODE equ <span style=color:#40a070>1000</span>_00000000b           ; code segment (r<span style=color:#666>-</span>x)
+</span></span><span style=display:flex><span>DESC_TYPE_DATA equ <span style=color:#40a070>0010</span>_00000000b           ; data segment (rw<span style=color:#666>-</span>) 
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>; normalized Descriptor
-</span></span><span style=display:flex><span>DESC_CODE_HIGH4 equ (0x00 &lt;&lt; 24) + DESC_G_4K + DESC_L + \
-</span></span><span style=display:flex><span>DESC_D_32 + DESC_AVL + DESC_P_IN + DESC_LIMIT_CODEH + \
-</span></span><span style=display:flex><span>DESC_DPL_RING_0 + DESC_S_CODE + DESC_TYPE_CODE + 0x00
+</span></span><span style=display:flex><span>DESC_CODE_HIGH4 equ (<span style=color:#40a070>0x00</span> <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>24</span>) <span style=color:#666>+</span> DESC_G_4K <span style=color:#666>+</span> DESC_L <span style=color:#666>+</span> \
+</span></span><span style=display:flex><span>DESC_D_32 <span style=color:#666>+</span> DESC_AVL <span style=color:#666>+</span> DESC_P_IN <span style=color:#666>+</span> DESC_LIMIT_CODEH <span style=color:#666>+</span> \
+</span></span><span style=display:flex><span>DESC_DPL_RING_0 <span style=color:#666>+</span> DESC_S_CODE <span style=color:#666>+</span> DESC_TYPE_CODE <span style=color:#666>+</span> <span style=color:#40a070>0x00</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>DESC_DATA_HIGH4 equ (0x00 &lt;&lt; 24) + DESC_G_4K + DESC_L + \
-</span></span><span style=display:flex><span>DESC_D_32 + DESC_AVL + DESC_P_IN + DESC_LIMIT_DATAH + \
-</span></span><span style=display:flex><span>DESC_DPL_RING_0 + DESC_S_DATA + DESC_TYPE_DATA + 0x00
+</span></span><span style=display:flex><span>DESC_DATA_HIGH4 equ (<span style=color:#40a070>0x00</span> <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>24</span>) <span style=color:#666>+</span> DESC_G_4K <span style=color:#666>+</span> DESC_L <span style=color:#666>+</span> \
+</span></span><span style=display:flex><span>DESC_D_32 <span style=color:#666>+</span> DESC_AVL <span style=color:#666>+</span> DESC_P_IN <span style=color:#666>+</span> DESC_LIMIT_DATAH <span style=color:#666>+</span> \
+</span></span><span style=display:flex><span>DESC_DPL_RING_0 <span style=color:#666>+</span> DESC_S_DATA <span style=color:#666>+</span> DESC_TYPE_DATA <span style=color:#666>+</span> <span style=color:#40a070>0x00</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>DESC_VIDEO_HIGH4 equ (0x00 &lt;&lt; 24) + DESC_G_4K + DESC_L + \
-</span></span><span style=display:flex><span>DESC_D_32 + DESC_AVL + DESC_P_IN + DESC_LIMIT_VIDEOH + \
-</span></span><span style=display:flex><span>DESC_DPL_RING_0 + DESC_S_DATA + DESC_TYPE_DATA + 0x0B
+</span></span><span style=display:flex><span>DESC_VIDEO_HIGH4 equ (<span style=color:#40a070>0x00</span> <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>24</span>) <span style=color:#666>+</span> DESC_G_4K <span style=color:#666>+</span> DESC_L <span style=color:#666>+</span> \
+</span></span><span style=display:flex><span>DESC_D_32 <span style=color:#666>+</span> DESC_AVL <span style=color:#666>+</span> DESC_P_IN <span style=color:#666>+</span> DESC_LIMIT_VIDEOH <span style=color:#666>+</span> \
+</span></span><span style=display:flex><span>DESC_DPL_RING_0 <span style=color:#666>+</span> DESC_S_DATA <span style=color:#666>+</span> DESC_TYPE_DATA <span style=color:#666>+</span> <span style=color:#40a070>0x0B</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>;---------- selector status ----------
+</span></span><span style=display:flex><span>;<span style=color:#666>----------</span> selector status <span style=color:#666>----------</span>
 </span></span><span style=display:flex><span>; Request Privilege Level
-</span></span><span style=display:flex><span>RPL0 equ 00b                                ; Ring 0
-</span></span><span style=display:flex><span>RPL1 equ 01b                                ; Ring 1
-</span></span><span style=display:flex><span>RPL2 equ 10b                                ; Ring 2
-</span></span><span style=display:flex><span>RPL3 equ 11b                                ; Ring 3
+</span></span><span style=display:flex><span>RPL0 equ <span style=color:#40a070>00</span>b                                ; Ring <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>RPL1 equ <span style=color:#40a070>01</span>b                                ; Ring <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>RPL2 equ <span style=color:#40a070>10</span>b                                ; Ring <span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>RPL3 equ <span style=color:#40a070>11</span>b                                ; Ring <span style=color:#40a070>3</span>
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>; Table Indicator
-</span></span><span style=display:flex><span>TI_GDT equ 000b                                 ; set GDT selector 
-</span></span><span style=display:flex><span>TI_LDT equ 100b                                 ; set LDT selector
+</span></span><span style=display:flex><span>TI_GDT equ <span style=color:#40a070>000</span>b                                 ; set GDT selector 
+</span></span><span style=display:flex><span>TI_LDT equ <span style=color:#40a070>100</span>b                                 ; set LDT selector
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; ---------- page related ----------
-</span></span><span style=display:flex><span>PAGE_DIR_TABLE_POS equ 0x10000              ; PDT start at 1M
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> page related <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>PAGE_DIR_TABLE_POS equ <span style=color:#40a070>0x10000</span>              ; PDT start at <span style=color:#40a070>1</span>M
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>PG_P     equ 1                              ; Present sign
-</span></span><span style=display:flex><span>PG_RW_RW equ 10                             ; page type:rw-
-</span></span><span style=display:flex><span>PG_RW_R  equ 00                             ; page type:r--
-</span></span><span style=display:flex><span>PG_US_U  equ 100                            ; User level
-</span></span><span style=display:flex><span>PG_US_S  equ 000                            ; Supervisor level
+</span></span><span style=display:flex><span>PG_P     equ <span style=color:#40a070>1</span>                              ; Present <span style=color:#007020>sign</span>
+</span></span><span style=display:flex><span>PG_RW_RW equ <span style=color:#40a070>10</span>                             ; page type:rw<span style=color:#666>-</span>
+</span></span><span style=display:flex><span>PG_RW_R  equ <span style=color:#40a070>00</span>                             ; page type:r<span style=color:#666>--</span>
+</span></span><span style=display:flex><span>PG_US_U  equ <span style=color:#40a070>100</span>                            ; User level
+</span></span><span style=display:flex><span>PG_US_S  equ <span style=color:#40a070>000</span>                            ; Supervisor level
 </span></span></code></pre></div><p>最后的效果：</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/05/364815485.png></div><p>由于已经将视频段 GDT 更新为虚拟地址，这里成功输出代表页表建立正确，成功进入分页模式。</p><h3 id=未来对页表的修改>未来对页表的修改</h3><p>在 bochs 中使用 <code>info tab</code> 指令可以显示出当前的虚拟地址映射情况。我们先注释掉循环 <code>.SetupPage_CreateKernelPDE</code>，这样在显示映射时不会有太多无关信息，输入 info tab 就可以查看当前的映射情况，如下</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>&lt;bochs:2&gt; info tab
 </span></span><span style=display:flex><span>cr3: 0x000000010000
 </span></span><span style=display:flex><span>0x00000000-0x000fffff -&gt; 0x000000000000-0x0000000fffff
@@ -296,4 +294,4 @@
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
 <a class=border></a><a class=soc href=https://www.cjovi.icu/index.xml rel=me title=Rss><i data-feather=rss></i></a>
-<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2023  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
+<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2024  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>

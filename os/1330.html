@@ -1,7 +1,5 @@
-<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>《操作系统真像还原》操作系统实现——引导内核 - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="到现在为止，我们已经进入了保护模式并做好了虚拟地址映射、开启了分页模式，loader 的历史使命也差不多该完成了，现在它需要来引导我们的内核并"><meta property="og:image" content><meta property="og:title" content="《操作系统真像还原》操作系统实现——引导内核"><meta property="og:description" content="到现在为止，我们已经进入了保护模式并做好了虚拟地址映射、开启了分页模式，loader 的历史使命也差不多该完成了，现在它需要来引导我们的内核并"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/os/1330.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-05-18T20:46:00+00:00"><meta property="article:modified_time" content="2021-05-18T20:46:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="《操作系统真像还原》操作系统实现——引导内核"><meta name=twitter:description content="到现在为止，我们已经进入了保护模式并做好了虚拟地址映射、开启了分页模式，loader 的历史使命也差不多该完成了，现在它需要来引导我们的内核并"><script src=https://www.cjovi.icu/js/feather.min.js></script>
-<link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.bfb8dec0e2220d86f104bd8230dbf2c35b583e46ccfef90bb620854db94ef7a5.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
-<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
-<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>《操作系统真像还原》操作系统实现——引导内核 - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="到现在为止，我们已经进入了保护模式并做好了虚拟地址映射、开启了分页模式，loader 的历史使命也差不多该完成了，现在它需要来引导我们的内核并"><meta property="og:image" content><meta property="og:title" content="《操作系统真像还原》操作系统实现——引导内核"><meta property="og:description" content="到现在为止，我们已经进入了保护模式并做好了虚拟地址映射、开启了分页模式，loader 的历史使命也差不多该完成了，现在它需要来引导我们的内核并"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/os/1330.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-05-18T20:46:00+00:00"><meta property="article:modified_time" content="2021-05-18T20:46:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="《操作系统真像还原》操作系统实现——引导内核"><meta name=twitter:description content="到现在为止，我们已经进入了保护模式并做好了虚拟地址映射、开启了分页模式，loader 的历史使命也差不多该完成了，现在它需要来引导我们的内核并"><script src=https://www.cjovi.icu/js/feather.min.js></script><link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.6dc922b4122291f1967a53b3e802e564596ed5068a8571e4221c9ead17563c3a.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
 <a href=/posts.html>All posts</a>
 <a href=/about.html>About</a>
 <a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>《操作系统真像还原》操作系统实现——引导内核</h1><div class=meta>Posted on May 18, 2021</div></div><section class=body><p>到现在为止，我们已经进入了保护模式并做好了虚拟地址映射、开启了分页模式，loader 的历史使命也差不多该完成了，现在它需要来引导我们的内核并移交控制权了。</p><p>内核较为复杂，全部用汇编实现显然是不现实的，类似于大多数的操作系统，我们使用 C 来完成开发。</p><h3 id=关于编译方式>关于编译方式：</h3><p>高版本的 GCC 在编译代码的时候开启了许多优化和保护，我的虚拟机为 Ubuntu 20.04，gcc 版本为 9.0，难以生成我们希望的汇编代码，解决方法为降级为 gcc 4.8，使用</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>gcc -c -o main.o main.c -m32 -fno-asynchronous-unwind-tables
@@ -42,93 +40,93 @@
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>;--------- elf related ----------
 </span></span><span style=display:flex><span>PT_NULL equ 0                               ; segment type 
-</span></span></code></pre></div><p>loader.S</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>%include &#34;boot.inc&#34;
+</span></span></code></pre></div><p>loader.S</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span><span style=color:#666>%</span>include <span style=color:#4070a0>&#34;boot.inc&#34;</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>section loader vstart=LOADER_BASE_ADDR
+</span></span><span style=display:flex><span>section loader vstart<span style=color:#666>=</span>LOADER_BASE_ADDR
 </span></span><span style=display:flex><span>LOADER_STACK_TOP equ LOADER_BASE_ADDR
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>jmp LoaderStart                         ; 3 bytes
-</span></span><span style=display:flex><span>db 0
-</span></span><span style=display:flex><span>dd 0,0,0                                ; addr align
-</span></span><span style=display:flex><span>; offset 0x10
+</span></span><span style=display:flex><span>jmp LoaderStart                         ; <span style=color:#40a070>3</span> bytes
+</span></span><span style=display:flex><span>db <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>dd <span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>,<span style=color:#40a070>0</span>                                ; addr align
+</span></span><span style=display:flex><span>; offset <span style=color:#40a070>0x10</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; set up GOT and descriptor
-</span></span><span style=display:flex><span>GDT_BASE: dd 0x00000000   
-</span></span><span style=display:flex><span>          dd 0x00000000   
+</span></span><span style=display:flex><span>; set up GOT <span style=color:#007020;font-weight:700>and</span> descriptor
+</span></span><span style=display:flex><span>GDT_BASE: dd <span style=color:#40a070>0x00000000</span>   
+</span></span><span style=display:flex><span>          dd <span style=color:#40a070>0x00000000</span>   
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>CODE_DESC: dd 0x0000FFFF                ; low 32 bits
-</span></span><span style=display:flex><span>           dd DESC_CODE_HIGH4           ; high 32 bits
+</span></span><span style=display:flex><span>CODE_DESC: dd <span style=color:#40a070>0x0000FFFF</span>                ; low <span style=color:#40a070>32</span> bits
+</span></span><span style=display:flex><span>           dd DESC_CODE_HIGH4           ; high <span style=color:#40a070>32</span> bits
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>DATA_STACK_DESC: dd 0x0000FFFF          ; used by stack and data seg
+</span></span><span style=display:flex><span>DATA_STACK_DESC: dd <span style=color:#40a070>0x0000FFFF</span>          ; used by stack <span style=color:#007020;font-weight:700>and</span> data seg
 </span></span><span style=display:flex><span>            dd DESC_DATA_HIGH4
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; text-mode display
-</span></span><span style=display:flex><span>; limit = (0xBFFFF - 0xB8000) / 4K = 0x7
-</span></span><span style=display:flex><span>VIDEO_DESC: dd 0x80000007 
+</span></span><span style=display:flex><span>; text<span style=color:#666>-</span>mode display
+</span></span><span style=display:flex><span>; limit <span style=color:#666>=</span> (<span style=color:#40a070>0xBFFFF</span> <span style=color:#666>-</span> <span style=color:#40a070>0xB8000</span>) <span style=color:#666>/</span> <span style=color:#40a070>4</span>K <span style=color:#666>=</span> <span style=color:#40a070>0x7</span>
+</span></span><span style=display:flex><span>VIDEO_DESC: dd <span style=color:#40a070>0x80000007</span> 
 </span></span><span style=display:flex><span>            dd DESC_VIDEO_HIGH4
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>GDT_SIZE  equ $ - GDT_BASE
-</span></span><span style=display:flex><span>GDT_LIMIT equ GDT_SIZE - 1
+</span></span><span style=display:flex><span>GDT_SIZE  equ <span style=color:#666>$</span> <span style=color:#666>-</span> GDT_BASE
+</span></span><span style=display:flex><span>GDT_LIMIT equ GDT_SIZE <span style=color:#666>-</span> <span style=color:#40a070>1</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>times 60 dq 0                           ; reserve 60 GDTs
+</span></span><span style=display:flex><span>times <span style=color:#40a070>60</span> dq <span style=color:#40a070>0</span>                           ; reserve <span style=color:#40a070>60</span> GDTs
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>TOTAL_MEM_BYTES dd 0                    ; memory of the machine
-</span></span><span style=display:flex><span>                                        ; addr: LOADER_BASE_ADDR + 0x10 + 0x200 = 0x800
+</span></span><span style=display:flex><span>TOTAL_MEM_BYTES dd <span style=color:#40a070>0</span>                    ; memory of the machine
+</span></span><span style=display:flex><span>                                        ; addr: LOADER_BASE_ADDR <span style=color:#666>+</span> <span style=color:#40a070>0x10</span> <span style=color:#666>+</span> <span style=color:#40a070>0x200</span> <span style=color:#666>=</span> <span style=color:#40a070>0x800</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>SELECTOR_CODE equ ((CODE_DESC - GDT_BASE) / 8) &lt;&lt; 3 + TI_GDT + RPL0
-</span></span><span style=display:flex><span>SELECTOR_DATA equ ((DATA_STACK_DESC - GDT_BASE) / 8) &lt;&lt; 3 + TI_GDT + RPL0
-</span></span><span style=display:flex><span>SELECTOR_VIDEO equ ((VIDEO_DESC - GDT_BASE) / 8) &lt;&lt; 3 + TI_GDT + RPL0
+</span></span><span style=display:flex><span>SELECTOR_CODE equ ((CODE_DESC <span style=color:#666>-</span> GDT_BASE) <span style=color:#666>/</span> <span style=color:#40a070>8</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>3</span> <span style=color:#666>+</span> TI_GDT <span style=color:#666>+</span> RPL0
+</span></span><span style=display:flex><span>SELECTOR_DATA equ ((DATA_STACK_DESC <span style=color:#666>-</span> GDT_BASE) <span style=color:#666>/</span> <span style=color:#40a070>8</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>3</span> <span style=color:#666>+</span> TI_GDT <span style=color:#666>+</span> RPL0
+</span></span><span style=display:flex><span>SELECTOR_VIDEO equ ((VIDEO_DESC <span style=color:#666>-</span> GDT_BASE) <span style=color:#666>/</span> <span style=color:#40a070>8</span>) <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>3</span> <span style=color:#666>+</span> TI_GDT <span style=color:#666>+</span> RPL0
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>; pointer point to GDT
-</span></span><span style=display:flex><span>gdt_ptr: dw GDT_LIMIT    ; low 16 bits of GDT reg
-</span></span><span style=display:flex><span>         dd GDT_BASE     ; high 32 bits of GDT reg
+</span></span><span style=display:flex><span>gdt_ptr: dw GDT_LIMIT    ; low <span style=color:#40a070>16</span> bits of GDT reg
+</span></span><span style=display:flex><span>         dd GDT_BASE     ; high <span style=color:#40a070>32</span> bits of GDT reg
 </span></span><span style=display:flex><span>; end of GDT setup
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>LoaderStart:
-</span></span><span style=display:flex><span>; ---------- first, get the total memory of the machine ----------
-</span></span><span style=display:flex><span>; ---------- we must do it before enter the PE mode as we need the BIOS int ----------
-</span></span><span style=display:flex><span>; use bios int 0x15 sub 0xE801
-</span></span><span style=display:flex><span>    .LoaderStart_E801FailedRetry:
-</span></span><span style=display:flex><span>        mov ax,0xE801
-</span></span><span style=display:flex><span>        int 0x15
-</span></span><span style=display:flex><span>    jc .LoaderStart_E801FailedRetry
-</span></span><span style=display:flex><span>    ; calculate low 15MB memory
-</span></span><span style=display:flex><span>    mov cx,0x400
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> first, get the total memory of the machine <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> we must <span style=color:#007020;font-weight:700>do</span> it before enter the PE mode as we need the BIOS <span style=color:#007020>int</span> <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>; use bios <span style=color:#007020>int</span> <span style=color:#40a070>0x15</span> sub <span style=color:#40a070>0xE801</span>
+</span></span><span style=display:flex><span>    <span style=color:#666>.</span>LoaderStart_E801FailedRetry:
+</span></span><span style=display:flex><span>        mov ax,<span style=color:#40a070>0xE801</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020>int</span> <span style=color:#40a070>0x15</span>
+</span></span><span style=display:flex><span>    jc <span style=color:#666>.</span>LoaderStart_E801FailedRetry
+</span></span><span style=display:flex><span>    ; calculate low <span style=color:#40a070>15</span>MB memory
+</span></span><span style=display:flex><span>    mov cx,<span style=color:#40a070>0x400</span>
 </span></span><span style=display:flex><span>    mul cx
-</span></span><span style=display:flex><span>    shl edx,16
-</span></span><span style=display:flex><span>    and eax,0x0000FFFF
-</span></span><span style=display:flex><span>    or edx,eax
-</span></span><span style=display:flex><span>    add edx,0x100000                        ; add 1MB, this is caused by the memory hole
+</span></span><span style=display:flex><span>    shl edx,<span style=color:#40a070>16</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>and</span> eax,<span style=color:#40a070>0x0000FFFF</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> edx,eax
+</span></span><span style=display:flex><span>    add edx,<span style=color:#40a070>0x100000</span>                        ; add <span style=color:#40a070>1</span>MB, this is caused by the memory hole
 </span></span><span style=display:flex><span>    mov esi,edx
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    xor eax,eax
 </span></span><span style=display:flex><span>    mov ax,bx
-</span></span><span style=display:flex><span>    mov ecx,0x10000                         ; 64 * 1024
+</span></span><span style=display:flex><span>    mov ecx,<span style=color:#40a070>0x10000</span>                         ; <span style=color:#40a070>64</span> <span style=color:#666>*</span> <span style=color:#40a070>1024</span>
 </span></span><span style=display:flex><span>    mul ecx
 </span></span><span style=display:flex><span>    add esi,eax                             ; esi store the
 </span></span><span style=display:flex><span>    mov [TOTAL_MEM_BYTES],esi               ; now TOTAL_MEM_BYTES stores the total memory
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    ; ---------- ready to enter Proctection mode ----------
-</span></span><span style=display:flex><span>    ; 1 open A20 address line
-</span></span><span style=display:flex><span>    ; 2 load GDT reg
-</span></span><span style=display:flex><span>    ; 3 set pe of cr0 to 1
+</span></span><span style=display:flex><span>    ; <span style=color:#666>----------</span> ready to enter Proctection mode <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>    ; <span style=color:#40a070>1</span> open A20 address line
+</span></span><span style=display:flex><span>    ; <span style=color:#40a070>2</span> <span style=color:#007020>load</span> GDT reg
+</span></span><span style=display:flex><span>    ; <span style=color:#40a070>3</span> set pe of cr0 to <span style=color:#40a070>1</span>
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    ; open A20
-</span></span><span style=display:flex><span>    in al,0x92   
-</span></span><span style=display:flex><span>    or al,0000_0010B                        ; save existed status
-</span></span><span style=display:flex><span>    out 0x92,al
-</span></span><span style=display:flex><span>    ; load GDT reg
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>in</span> al,<span style=color:#40a070>0x92</span>   
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> al,<span style=color:#40a070>0000</span>_0010B                        ; save existed status
+</span></span><span style=display:flex><span>    out <span style=color:#40a070>0x92</span>,al
+</span></span><span style=display:flex><span>    ; <span style=color:#007020>load</span> GDT reg
 </span></span><span style=display:flex><span>    lgdt [gdt_ptr]
-</span></span><span style=display:flex><span>    ; set cr0, let&#39;s roll!
+</span></span><span style=display:flex><span>    ; set cr0, let<span style=color:#4070a0>&#39;s roll!</span>
 </span></span><span style=display:flex><span>    mov eax,cr0
-</span></span><span style=display:flex><span>    or eax,0x00000001                       ; save existed status
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> eax,<span style=color:#40a070>0x00000001</span>                       ; save existed status
 </span></span><span style=display:flex><span>    mov cr0,eax                             ; enter Protection mode
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    jmp dword SELECTOR_CODE:ProctectionModeStart    ; reflesh assembly line
-</span></span><span style=display:flex><span>; ---------- end of function LoaderStart ----------
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> end of function LoaderStart <span style=color:#666>----------</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; ---------- now we are in 32-bits PE mode ----------
-</span></span><span style=display:flex><span>[bits 32]
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> now we are <span style=color:#007020;font-weight:700>in</span> <span style=color:#40a070>32</span><span style=color:#666>-</span>bits PE mode <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>[bits <span style=color:#40a070>32</span>]
 </span></span><span style=display:flex><span>ProctectionModeStart:
 </span></span><span style=display:flex><span>; set selectors
 </span></span><span style=display:flex><span>    mov ax,SELECTOR_DATA
@@ -138,95 +136,95 @@
 </span></span><span style=display:flex><span>    mov esp,LOADER_STACK_TOP
 </span></span><span style=display:flex><span>    mov ax,SELECTOR_VIDEO
 </span></span><span style=display:flex><span>    mov gs,ax
-</span></span><span style=display:flex><span>    mov byte [gs:2],&#39;P&#39;
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>2</span>],<span style=color:#4070a0>&#39;P&#39;</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; first thing we do is load the kernel.bin to the RAM 
+</span></span><span style=display:flex><span>; first thing we <span style=color:#007020;font-weight:700>do</span> is <span style=color:#007020>load</span> the kernel<span style=color:#666>.</span>bin to the RAM 
 </span></span><span style=display:flex><span>    mov esi,KERNEL_START_SECTOR
 </span></span><span style=display:flex><span>    mov edi,KERNEL_BIN_BASE_ADDR
 </span></span><span style=display:flex><span>    mov edx,KERNEL_SUM_SECTOR               ; read this much sectors
 </span></span><span style=display:flex><span>    call ReadDiskSector_32
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; second thing we do is start the page mode
-</span></span><span style=display:flex><span>    ; 1 setup PDE and related PTE
+</span></span><span style=display:flex><span>; second thing we <span style=color:#007020;font-weight:700>do</span> is start the page mode
+</span></span><span style=display:flex><span>    ; <span style=color:#40a070>1</span> setup PDE <span style=color:#007020;font-weight:700>and</span> related PTE
 </span></span><span style=display:flex><span>    call SetupPage
-</span></span><span style=display:flex><span>    ; 2 modify the GDT to make it work in paging mode
+</span></span><span style=display:flex><span>    ; <span style=color:#40a070>2</span> modify the GDT to make it work <span style=color:#007020;font-weight:700>in</span> paging mode
 </span></span><span style=display:flex><span>    sgdt [gdt_ptr]
-</span></span><span style=display:flex><span>    mov ebx,[gdt_ptr + 2]
-</span></span><span style=display:flex><span>    or dword [ebx + 0x18 + 4],0xC0000000    ; modify the VIDEO_DESC
+</span></span><span style=display:flex><span>    mov ebx,[gdt_ptr <span style=color:#666>+</span> <span style=color:#40a070>2</span>]
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> dword [ebx <span style=color:#666>+</span> <span style=color:#40a070>0x18</span> <span style=color:#666>+</span> <span style=color:#40a070>4</span>],<span style=color:#40a070>0xC0000000</span>    ; modify the VIDEO_DESC
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    add dword [gdt_ptr + 2],0xC0000000      ; pre modify the GDTR value 
-</span></span><span style=display:flex><span>    add esp,0xC0000000                      ; also modify the stack 
+</span></span><span style=display:flex><span>    add dword [gdt_ptr <span style=color:#666>+</span> <span style=color:#40a070>2</span>],<span style=color:#40a070>0xC0000000</span>      ; pre modify the GDTR value 
+</span></span><span style=display:flex><span>    add esp,<span style=color:#40a070>0xC0000000</span>                      ; also modify the stack 
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    mov eax,PAGE_DIR_TABLE_POS
 </span></span><span style=display:flex><span>    mov cr3,eax
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    mov eax,cr0
-</span></span><span style=display:flex><span>    or eax,0x80000000                       ; save existed status
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> eax,<span style=color:#40a070>0x80000000</span>                       ; save existed status
 </span></span><span style=display:flex><span>    mov cr0,eax                             ; enable paging mode
 </span></span><span style=display:flex><span>  
 </span></span><span style=display:flex><span>    lgdt [gdt_ptr]                          ; change GDTR
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    mov byte [gs:4],&#39;V&#39;
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>4</span>],<span style=color:#4070a0>&#39;V&#39;</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; last thing we do is extract the Ttext to where it belongs
+</span></span><span style=display:flex><span>; last thing we <span style=color:#007020;font-weight:700>do</span> is extract the Ttext to where it belongs
 </span></span><span style=display:flex><span>    jmp SELECTOR_CODE:EnterKernel
 </span></span><span style=display:flex><span>    EnterKernel:
 </span></span><span style=display:flex><span>    call KernelInit
-</span></span><span style=display:flex><span>    mov esp,0xC009F000                      ; set kernel stack
+</span></span><span style=display:flex><span>    mov esp,<span style=color:#40a070>0xC009F000</span>                      ; set kernel stack
 </span></span><span style=display:flex><span>    jmp KERNEL_ENTER_POINT                  ; enter kernel
 </span></span><span style=display:flex><span>; end of ProctectionModeStart
-</span></span><span style=display:flex><span>; end of loader, thank you and goodbye!
+</span></span><span style=display:flex><span>; end of loader, thank you <span style=color:#007020;font-weight:700>and</span> goodbye<span style=color:#666>!</span>
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>SetupPage:
-</span></span><span style=display:flex><span>; ---------- this function setup the Page Directory Entry and Page Table Entry ----------
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> this function setup the Page <span style=color:#007020>Directory</span> Entry <span style=color:#007020;font-weight:700>and</span> Page Table Entry <span style=color:#666>----------</span>
 </span></span><span style=display:flex><span>    ; clear PTE
-</span></span><span style=display:flex><span>    mov ecx,0x1000                          ; 4K PDE
-</span></span><span style=display:flex><span>    mov esi,0                               ; use this reg the clear
-</span></span><span style=display:flex><span>    .SetupPage_ClearPDE:
-</span></span><span style=display:flex><span>        mov byte [PAGE_DIR_TABLE_POS + esi],0
+</span></span><span style=display:flex><span>    mov ecx,<span style=color:#40a070>0x1000</span>                          ; <span style=color:#40a070>4</span>K PDE
+</span></span><span style=display:flex><span>    mov esi,<span style=color:#40a070>0</span>                               ; use this reg the clear
+</span></span><span style=display:flex><span>    <span style=color:#666>.</span>SetupPage_ClearPDE:
+</span></span><span style=display:flex><span>        mov byte [PAGE_DIR_TABLE_POS <span style=color:#666>+</span> esi],<span style=color:#40a070>0</span>
 </span></span><span style=display:flex><span>        inc esi
-</span></span><span style=display:flex><span>    loop .SetupPage_ClearPDE
+</span></span><span style=display:flex><span>    loop <span style=color:#666>.</span>SetupPage_ClearPDE
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    ; setup PDE
-</span></span><span style=display:flex><span>    .SetupPage_CreatePDE:
+</span></span><span style=display:flex><span>    <span style=color:#666>.</span>SetupPage_CreatePDE:
 </span></span><span style=display:flex><span>        mov eax,PAGE_DIR_TABLE_POS
-</span></span><span style=display:flex><span>        add eax,0x1000                       ; addr of the first PTE 
+</span></span><span style=display:flex><span>        add eax,<span style=color:#40a070>0x1000</span>                       ; addr of the first PTE 
 </span></span><span style=display:flex><span>        mov ebx,eax                          ; ebx is the base addr of PTEs
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>        ; make the PDE[0] and PDE[0xC00] point to the first PTE
-</span></span><span style=display:flex><span>        or eax,PG_US_U | PG_RW_RW | PG_P     ; set user page status
-</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS + 0x0],eax   ; the first PTE&#39;s place, mapping loader&#39;s addr to itself
-</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS + 0xC00],eax ; the first PTE used by kernel, mapping to low 1M
-</span></span><span style=display:flex><span>        ; 0xC0000000 ~ 0xFFFFFFFF belongs to kernel
-</span></span><span style=display:flex><span>        sub eax,0x1000
-</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS + 0xFFC],eax  ; make the last Entry point to PDE itself
+</span></span><span style=display:flex><span>        ; make the PDE[<span style=color:#40a070>0</span>] <span style=color:#007020;font-weight:700>and</span> PDE[<span style=color:#40a070>0xC00</span>] point to the first PTE
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>or</span> eax,PG_US_U <span style=color:#666>|</span> PG_RW_RW <span style=color:#666>|</span> PG_P     ; set user page status
+</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS <span style=color:#666>+</span> <span style=color:#40a070>0x0</span>],eax   ; the first PTE<span style=color:#4070a0>&#39;s place, mapping loader&#39;</span>s addr to itself
+</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS <span style=color:#666>+</span> <span style=color:#40a070>0xC00</span>],eax ; the first PTE used by kernel, mapping to low <span style=color:#40a070>1</span>M
+</span></span><span style=display:flex><span>        ; <span style=color:#40a070>0xC0000000</span> <span style=color:#666>~</span> <span style=color:#40a070>0xFFFFFFFF</span> belongs to kernel
+</span></span><span style=display:flex><span>        sub eax,<span style=color:#40a070>0x1000</span>
+</span></span><span style=display:flex><span>        mov [PAGE_DIR_TABLE_POS <span style=color:#666>+</span> <span style=color:#40a070>0xFFC</span>],eax  ; make the last Entry point to PDE itself
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>        ; creat PTE for kernel
-</span></span><span style=display:flex><span>        mov ecx,256                          ; 1M / 4K = 256
-</span></span><span style=display:flex><span>        mov esi,0
-</span></span><span style=display:flex><span>        mov edx,PG_US_U | PG_RW_RW | PG_P    ; User, RW, P
-</span></span><span style=display:flex><span>        .SetupPage_CreatePTE:
-</span></span><span style=display:flex><span>            mov [ebx + esi * 4],edx
-</span></span><span style=display:flex><span>            add edx,0x1000
+</span></span><span style=display:flex><span>        ; creat PTE <span style=color:#007020;font-weight:700>for</span> kernel
+</span></span><span style=display:flex><span>        mov ecx,<span style=color:#40a070>256</span>                          ; <span style=color:#40a070>1</span>M <span style=color:#666>/</span> <span style=color:#40a070>4</span>K <span style=color:#666>=</span> <span style=color:#40a070>256</span>
+</span></span><span style=display:flex><span>        mov esi,<span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>        mov edx,PG_US_U <span style=color:#666>|</span> PG_RW_RW <span style=color:#666>|</span> PG_P    ; User, RW, P
+</span></span><span style=display:flex><span>        <span style=color:#666>.</span>SetupPage_CreatePTE:
+</span></span><span style=display:flex><span>            mov [ebx <span style=color:#666>+</span> esi <span style=color:#666>*</span> <span style=color:#40a070>4</span>],edx
+</span></span><span style=display:flex><span>            add edx,<span style=color:#40a070>0x1000</span>
 </span></span><span style=display:flex><span>            inc esi
-</span></span><span style=display:flex><span>        loop .SetupPage_CreatePTE
+</span></span><span style=display:flex><span>        loop <span style=color:#666>.</span>SetupPage_CreatePTE
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>        mov eax,PAGE_DIR_TABLE_POS
-</span></span><span style=display:flex><span>        add eax,0x2000                      ; second PTE
-</span></span><span style=display:flex><span>        or eax,PG_US_U | PG_RW_RW | PG_P
+</span></span><span style=display:flex><span>        add eax,<span style=color:#40a070>0x2000</span>                      ; second PTE
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>or</span> eax,PG_US_U <span style=color:#666>|</span> PG_RW_RW <span style=color:#666>|</span> PG_P
 </span></span><span style=display:flex><span>        mov ebx,PAGE_DIR_TABLE_POS
-</span></span><span style=display:flex><span>        mov ecx,254                         ; 1022 - 769 + 1
-</span></span><span style=display:flex><span>        mov esi,769                         ; start from 769,the second PTE of kernel
-</span></span><span style=display:flex><span>        .SetupPage_CreateKernelPDE:
-</span></span><span style=display:flex><span>            mov [ebx + esi * 4],eax
+</span></span><span style=display:flex><span>        mov ecx,<span style=color:#40a070>254</span>                         ; <span style=color:#40a070>1022</span> <span style=color:#666>-</span> <span style=color:#40a070>769</span> <span style=color:#666>+</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>        mov esi,<span style=color:#40a070>769</span>                         ; start from <span style=color:#40a070>769</span>,the second PTE of kernel
+</span></span><span style=display:flex><span>        <span style=color:#666>.</span>SetupPage_CreateKernelPDE:
+</span></span><span style=display:flex><span>            mov [ebx <span style=color:#666>+</span> esi <span style=color:#666>*</span> <span style=color:#40a070>4</span>],eax
 </span></span><span style=display:flex><span>            inc esi
-</span></span><span style=display:flex><span>            add eax,0x1000
-</span></span><span style=display:flex><span>        loop .SetupPage_CreateKernelPDE
+</span></span><span style=display:flex><span>            add eax,<span style=color:#40a070>0x1000</span>
+</span></span><span style=display:flex><span>        loop <span style=color:#666>.</span>SetupPage_CreateKernelPDE
 </span></span><span style=display:flex><span>        ret
-</span></span><span style=display:flex><span>; ---------- end of function SetupPage ----------
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> end of function SetupPage <span style=color:#666>----------</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; ---------- start of function ReadDiskSector_32
-</span></span><span style=display:flex><span>; function MBR_ReadDiskSector_32(LBA_addr, writing_addr, n), read n sectors from hard-disk in 32 bit mode
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> start of function ReadDiskSector_32
+</span></span><span style=display:flex><span>; function MBR_ReadDiskSector_32(LBA_addr, writing_addr, n), read n sectors from hard<span style=color:#666>-</span>disk <span style=color:#007020;font-weight:700>in</span> <span style=color:#40a070>32</span> bit mode
 </span></span><span style=display:flex><span>; esi: LBA addr of start sector
 </span></span><span style=display:flex><span>; edi: writing addr
 </span></span><span style=display:flex><span>; edx: n
@@ -234,128 +232,128 @@
 </span></span><span style=display:flex><span>    ; read sectors
 </span></span><span style=display:flex><span>    mov ebx,edx                     ; bx keeps the n
 </span></span><span style=display:flex><span>    mov ax,bx                       ; n sectors
-</span></span><span style=display:flex><span>    mov dx,0x1F2                    ; set reg Sector count 
+</span></span><span style=display:flex><span>    mov dx,<span style=color:#40a070>0x1F2</span>                    ; set reg Sector count 
 </span></span><span style=display:flex><span>    out dx,al                       ; read n sectors
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    ; set LBA addr
 </span></span><span style=display:flex><span>    mov eax,esi
-</span></span><span style=display:flex><span>    mov dx,0x1F3                    ; set reg LBA low
-</span></span><span style=display:flex><span>    out dx,al                       ; write low 8 bits
+</span></span><span style=display:flex><span>    mov dx,<span style=color:#40a070>0x1F3</span>                    ; set reg LBA low
+</span></span><span style=display:flex><span>    out dx,al                       ; write low <span style=color:#40a070>8</span> bits
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    mov cl,8
+</span></span><span style=display:flex><span>    mov cl,<span style=color:#40a070>8</span>
 </span></span><span style=display:flex><span>    shr eax,cl
-</span></span><span style=display:flex><span>    mov dx,0x1F4                    ; set reg LBA mid
+</span></span><span style=display:flex><span>    mov dx,<span style=color:#40a070>0x1F4</span>                    ; set reg LBA mid
 </span></span><span style=display:flex><span>    out dx,al                       ; write LBA mid
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    shr eax,cl
-</span></span><span style=display:flex><span>    mov dx,0x1F5                    ; set reg LBA high
+</span></span><span style=display:flex><span>    mov dx,<span style=color:#40a070>0x1F5</span>                    ; set reg LBA high
 </span></span><span style=display:flex><span>    out dx,al                       ; write LBA high
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    shr eax,cl
-</span></span><span style=display:flex><span>    and al,0xF                      ; only 4 bits
-</span></span><span style=display:flex><span>    or al,0xE0                      ; 1110b: LBA mode, disk: master
-</span></span><span style=display:flex><span>    mov dx,0x1F6                    ; set reg device
-</span></span><span style=display:flex><span>    out dx,al                       ; set mode and LBA addr
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>and</span> al,<span style=color:#40a070>0xF</span>                      ; only <span style=color:#40a070>4</span> bits
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>or</span> al,<span style=color:#40a070>0xE0</span>                      ; <span style=color:#40a070>1110</span>b: LBA mode, disk: master
+</span></span><span style=display:flex><span>    mov dx,<span style=color:#40a070>0x1F6</span>                    ; set reg device
+</span></span><span style=display:flex><span>    out dx,al                       ; set mode <span style=color:#007020;font-weight:700>and</span> LBA addr
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    ; ready to read
-</span></span><span style=display:flex><span>    mov dx,0x1F7                    ; set reg command
-</span></span><span style=display:flex><span>    mov al,0x20                     ; mode: read
-</span></span><span style=display:flex><span>    out dx,al                       ; do read
+</span></span><span style=display:flex><span>    mov dx,<span style=color:#40a070>0x1F7</span>                    ; set reg command
+</span></span><span style=display:flex><span>    mov al,<span style=color:#40a070>0x20</span>                     ; mode: read
+</span></span><span style=display:flex><span>    out dx,al                       ; <span style=color:#007020;font-weight:700>do</span> read
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    ; check disk status
-</span></span><span style=display:flex><span>.ReadDiskSector_32_DiskNotReady:
-</span></span><span style=display:flex><span>    in al,dx                        ; get disk status
-</span></span><span style=display:flex><span>    and al,0x88                     ; result 0x8 =&gt; disk is read 
-</span></span><span style=display:flex><span>                                    ; result 0x80 =&gt; disk is busy
-</span></span><span style=display:flex><span>    cmp al,0x08
-</span></span><span style=display:flex><span>    jnz .ReadDiskSector_32_DiskNotReady
+</span></span><span style=display:flex><span><span style=color:#666>.</span>ReadDiskSector_32_DiskNotReady:
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>in</span> al,dx                        ; get disk status
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>and</span> al,<span style=color:#40a070>0x88</span>                     ; result <span style=color:#40a070>0x8</span> <span style=color:#666>=&gt;</span> disk is read 
+</span></span><span style=display:flex><span>                                    ; result <span style=color:#40a070>0x80</span> <span style=color:#666>=&gt;</span> disk is busy
+</span></span><span style=display:flex><span>    cmp al,<span style=color:#40a070>0x08</span>
+</span></span><span style=display:flex><span>    jnz <span style=color:#666>.</span>ReadDiskSector_32_DiskNotReady
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    ; read data
 </span></span><span style=display:flex><span>    mov ax,bx                       ; get n
-</span></span><span style=display:flex><span>    mov dx,256                      ; read by word, so dx = 512 / 2
-</span></span><span style=display:flex><span>    mul dx                          ; assum this mul won&#39;t overflow
+</span></span><span style=display:flex><span>    mov dx,<span style=color:#40a070>256</span>                      ; read by word, so dx <span style=color:#666>=</span> <span style=color:#40a070>512</span> <span style=color:#666>/</span> <span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>    mul dx                          ; assum this mul won<span style=color:#4070a0>&#39;t overflow</span>
 </span></span><span style=display:flex><span>    mov cx,ax                       ; sum of words need to read
-</span></span><span style=display:flex><span>    mov dx,0x1F0                    ; set reg data
-</span></span><span style=display:flex><span>.ReadDiskSector_32_ReadingLoop:
-</span></span><span style=display:flex><span>    in ax,dx                        ; read a word
+</span></span><span style=display:flex><span>    mov dx,<span style=color:#40a070>0x1F0</span>                    ; set reg data
+</span></span><span style=display:flex><span><span style=color:#666>.</span>ReadDiskSector_32_ReadingLoop:
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>in</span> ax,dx                        ; read a word
 </span></span><span style=display:flex><span>    mov [edi],ax                     ; write a word
-</span></span><span style=display:flex><span>    add edi,2
-</span></span><span style=display:flex><span>    loop .ReadDiskSector_32_ReadingLoop
+</span></span><span style=display:flex><span>    add edi,<span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>    loop <span style=color:#666>.</span>ReadDiskSector_32_ReadingLoop
 </span></span><span style=display:flex><span>    ret
 </span></span><span style=display:flex><span>; end of function ReadDiskSector_32
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>FatalKernelBroken:
-</span></span><span style=display:flex><span>    mov byte [gs:0],&#39;F&#39;  
-</span></span><span style=display:flex><span>    mov byte [gs:1],0xA4
-</span></span><span style=display:flex><span>    mov byte [gs:2],&#39;A&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:3],0xA4
-</span></span><span style=display:flex><span>    mov byte [gs:4],&#39;T&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:5],0xA4
-</span></span><span style=display:flex><span>    mov byte [gs:6],&#39;A&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:7],0xA4
-</span></span><span style=display:flex><span>    mov byte [gs:8],&#39;L&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:9],0xA4
-</span></span><span style=display:flex><span>    mov byte [gs:10],&#39;:&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:11],0xA4
-</span></span><span style=display:flex><span>    mov byte [gs:12],&#39; &#39;
-</span></span><span style=display:flex><span>    mov byte [gs:14],&#39;K&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:16],&#39;E&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:18],&#39;R&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:20],&#39;N&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:22],&#39;E&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:24],&#39;L&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:26],&#39; &#39;
-</span></span><span style=display:flex><span>    mov byte [gs:28],&#39;B&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:30],&#39;R&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:32],&#39;O&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:34],&#39;K&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:36],&#39;E&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:38],&#39;N&#39;
-</span></span><span style=display:flex><span>    jmp $
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0</span>],<span style=color:#4070a0>&#39;F&#39;</span>  
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>1</span>],<span style=color:#40a070>0xA4</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>2</span>],<span style=color:#4070a0>&#39;A&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>3</span>],<span style=color:#40a070>0xA4</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>4</span>],<span style=color:#4070a0>&#39;T&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>5</span>],<span style=color:#40a070>0xA4</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>6</span>],<span style=color:#4070a0>&#39;A&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>7</span>],<span style=color:#40a070>0xA4</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>8</span>],<span style=color:#4070a0>&#39;L&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>9</span>],<span style=color:#40a070>0xA4</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>10</span>],<span style=color:#4070a0>&#39;:&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>11</span>],<span style=color:#40a070>0xA4</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>12</span>],<span style=color:#4070a0>&#39; &#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>14</span>],<span style=color:#4070a0>&#39;K&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>16</span>],<span style=color:#4070a0>&#39;E&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>18</span>],<span style=color:#4070a0>&#39;R&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>20</span>],<span style=color:#4070a0>&#39;N&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>22</span>],<span style=color:#4070a0>&#39;E&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>24</span>],<span style=color:#4070a0>&#39;L&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>26</span>],<span style=color:#4070a0>&#39; &#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>28</span>],<span style=color:#4070a0>&#39;B&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>30</span>],<span style=color:#4070a0>&#39;R&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>32</span>],<span style=color:#4070a0>&#39;O&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>34</span>],<span style=color:#4070a0>&#39;K&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>36</span>],<span style=color:#4070a0>&#39;E&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>38</span>],<span style=color:#4070a0>&#39;N&#39;</span>
+</span></span><span style=display:flex><span>    jmp <span style=color:#666>$</span>
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>KernelInit:
 </span></span><span style=display:flex><span>    mov eax,[KERNEL_BIN_BASE_ADDR]          ; check the magic number
-</span></span><span style=display:flex><span>    cmp eax,0x464c457f
+</span></span><span style=display:flex><span>    cmp eax,<span style=color:#40a070>0x464c457f</span>
 </span></span><span style=display:flex><span>    jne FatalKernelBroken  
-</span></span><span style=display:flex><span>    mov al,[KERNEL_BIN_BASE_ADDR + 4]       ; make sure it is a 32 bits elf 
-</span></span><span style=display:flex><span>    cmp al,1
+</span></span><span style=display:flex><span>    mov al,[KERNEL_BIN_BASE_ADDR <span style=color:#666>+</span> <span style=color:#40a070>4</span>]       ; make sure it is a <span style=color:#40a070>32</span> bits elf 
+</span></span><span style=display:flex><span>    cmp al,<span style=color:#40a070>1</span>
 </span></span><span style=display:flex><span>    jne FatalKernelBroken
-</span></span><span style=display:flex><span>    mov al,[KERNEL_BIN_BASE_ADDR + 5]       ; make sure it is a LSB elf
-</span></span><span style=display:flex><span>    cmp al,1
+</span></span><span style=display:flex><span>    mov al,[KERNEL_BIN_BASE_ADDR <span style=color:#666>+</span> <span style=color:#40a070>5</span>]       ; make sure it is a LSB elf
+</span></span><span style=display:flex><span>    cmp al,<span style=color:#40a070>1</span>
 </span></span><span style=display:flex><span>    jne FatalKernelBroken
 </span></span><span style=display:flex><span>    ; check done
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    mov ebx,[KERNEL_BIN_BASE_ADDR + 28]     ; offset of program header table
+</span></span><span style=display:flex><span>    mov ebx,[KERNEL_BIN_BASE_ADDR <span style=color:#666>+</span> <span style=color:#40a070>28</span>]     ; offset of program header table
 </span></span><span style=display:flex><span>    add ebx,KERNEL_BIN_BASE_ADDR            ; address of program header table 
 </span></span><span style=display:flex><span>    xor edx,edx
-</span></span><span style=display:flex><span>    mov dx,[KERNEL_BIN_BASE_ADDR + 42]     ; program header size
-</span></span><span style=display:flex><span>    mov cx,[KERNEL_BIN_BASE_ADDR + 44]      ; sum of segments
+</span></span><span style=display:flex><span>    mov dx,[KERNEL_BIN_BASE_ADDR <span style=color:#666>+</span> <span style=color:#40a070>42</span>]     ; program header size
+</span></span><span style=display:flex><span>    mov cx,[KERNEL_BIN_BASE_ADDR <span style=color:#666>+</span> <span style=color:#40a070>44</span>]      ; sum of segments
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    .LoadKernelEachSegment:
+</span></span><span style=display:flex><span>    <span style=color:#666>.</span>LoadKernelEachSegment:
 </span></span><span style=display:flex><span>        cmp byte [ebx],PT_NULL              ; skip th null segment
-</span></span><span style=display:flex><span>        je .LoadKernelEachSegment_PT_NULL
-</span></span><span style=display:flex><span>        push dword [ebx + 16]               ; nbytes, p_filesz
-</span></span><span style=display:flex><span>        mov eax,[ebx + 4]   
+</span></span><span style=display:flex><span>        je <span style=color:#666>.</span>LoadKernelEachSegment_PT_NULL
+</span></span><span style=display:flex><span>        push dword [ebx <span style=color:#666>+</span> <span style=color:#40a070>16</span>]               ; nbytes, p_filesz
+</span></span><span style=display:flex><span>        mov eax,[ebx <span style=color:#666>+</span> <span style=color:#40a070>4</span>]   
 </span></span><span style=display:flex><span>        add eax,KERNEL_BIN_BASE_ADDR        ; src
 </span></span><span style=display:flex><span>        push eax
-</span></span><span style=display:flex><span>        push dword [ebx + 8]                ; dst
+</span></span><span style=display:flex><span>        push dword [ebx <span style=color:#666>+</span> <span style=color:#40a070>8</span>]                ; dst
 </span></span><span style=display:flex><span>        call mem_cpy  
-</span></span><span style=display:flex><span>        add esp,12                          ; unpush 3
-</span></span><span style=display:flex><span>        .LoadKernelEachSegment_PT_NULL:  
+</span></span><span style=display:flex><span>        add esp,<span style=color:#40a070>12</span>                          ; unpush <span style=color:#40a070>3</span>
+</span></span><span style=display:flex><span>        <span style=color:#666>.</span>LoadKernelEachSegment_PT_NULL:  
 </span></span><span style=display:flex><span>        add ebx,edx                         ; skip the header
-</span></span><span style=display:flex><span>    loop .LoadKernelEachSegment
+</span></span><span style=display:flex><span>    loop <span style=color:#666>.</span>LoadKernelEachSegment
 </span></span><span style=display:flex><span>    ret
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; ---------- function mem_cpy(dst,src,nbytes) ----------
+</span></span><span style=display:flex><span>; <span style=color:#666>----------</span> function mem_cpy(dst,src,nbytes) <span style=color:#666>----------</span>
 </span></span><span style=display:flex><span>mem_cpy:
 </span></span><span style=display:flex><span>    push ebp
 </span></span><span style=display:flex><span>    mov ebp,esp
 </span></span><span style=display:flex><span>    push edi
 </span></span><span style=display:flex><span>    push esi
 </span></span><span style=display:flex><span>    push ecx
-</span></span><span style=display:flex><span>    mov edi,[ebp + 8]   ; dst
-</span></span><span style=display:flex><span>    mov esi,[ebp + 12]   ; src
-</span></span><span style=display:flex><span>    mov ecx,[ebp + 16]  ; nbytes
+</span></span><span style=display:flex><span>    mov edi,[ebp <span style=color:#666>+</span> <span style=color:#40a070>8</span>]   ; dst
+</span></span><span style=display:flex><span>    mov esi,[ebp <span style=color:#666>+</span> <span style=color:#40a070>12</span>]   ; src
+</span></span><span style=display:flex><span>    mov ecx,[ebp <span style=color:#666>+</span> <span style=color:#40a070>16</span>]  ; nbytes
 </span></span><span style=display:flex><span>    cld
 </span></span><span style=display:flex><span>    rep movsb
 </span></span><span style=display:flex><span>    pop ecx
@@ -379,4 +377,4 @@
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
 <a class=border></a><a class=soc href=https://www.cjovi.icu/index.xml rel=me title=Rss><i data-feather=rss></i></a>
-<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2023  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
+<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2024  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>

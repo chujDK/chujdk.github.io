@@ -1,7 +1,5 @@
-<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>《操作系统真像还原》操作系统实现——MBR - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="最近这段时间准备学一学 OS，《现代操作系统》一书尝试了很多次都没看进去，还是先找一本轻松一点的书来看，尝试一下能不能跟着这本书写一个简单的 OS"><meta property="og:image" content><meta property="og:title" content="《操作系统真像还原》操作系统实现——MBR"><meta property="og:description" content="最近这段时间准备学一学 OS，《现代操作系统》一书尝试了很多次都没看进去，还是先找一本轻松一点的书来看，尝试一下能不能跟着这本书写一个简单的 OS"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/os/1320.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-05-14T22:44:00+00:00"><meta property="article:modified_time" content="2021-05-14T22:44:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="《操作系统真像还原》操作系统实现——MBR"><meta name=twitter:description content="最近这段时间准备学一学 OS，《现代操作系统》一书尝试了很多次都没看进去，还是先找一本轻松一点的书来看，尝试一下能不能跟着这本书写一个简单的 OS"><script src=https://www.cjovi.icu/js/feather.min.js></script>
-<link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.bfb8dec0e2220d86f104bd8230dbf2c35b583e46ccfef90bb620854db94ef7a5.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
-<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
-<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>《操作系统真像还原》操作系统实现——MBR - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="最近这段时间准备学一学 OS，《现代操作系统》一书尝试了很多次都没看进去，还是先找一本轻松一点的书来看，尝试一下能不能跟着这本书写一个简单的 OS"><meta property="og:image" content><meta property="og:title" content="《操作系统真像还原》操作系统实现——MBR"><meta property="og:description" content="最近这段时间准备学一学 OS，《现代操作系统》一书尝试了很多次都没看进去，还是先找一本轻松一点的书来看，尝试一下能不能跟着这本书写一个简单的 OS"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/os/1320.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-05-14T22:44:00+00:00"><meta property="article:modified_time" content="2021-05-14T22:44:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="《操作系统真像还原》操作系统实现——MBR"><meta name=twitter:description content="最近这段时间准备学一学 OS，《现代操作系统》一书尝试了很多次都没看进去，还是先找一本轻松一点的书来看，尝试一下能不能跟着这本书写一个简单的 OS"><script src=https://www.cjovi.icu/js/feather.min.js></script><link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.6dc922b4122291f1967a53b3e802e564596ed5068a8571e4221c9ead17563c3a.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
 <a href=/posts.html>All posts</a>
 <a href=/about.html>About</a>
 <a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>《操作系统真像还原》操作系统实现——MBR</h1><div class=meta>Posted on May 14, 2021</div></div><section class=body><p>最近这段时间准备学一学 OS，《现代操作系统》一书尝试了很多次都没看进去，还是先找一本轻松一点的书来看，尝试一下能不能跟着这本书写一个简单的 OS 出来。</p><h3 id=环境搭建>环境搭建</h3><p>书上用的虚拟机是 bochs，建议自己编译安装，我第一次编译总是通不过，过了几天就通过了，估计是第一次编译的时候有些依赖没写到环境变量里面导致编译的时候找不到，具体也不是很懂，总之我安装好了就行了。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=display:flex><span>./configure <span style=color:#4070a0;font-weight:700>\ </span> 
@@ -47,52 +45,52 @@
 </span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># attach to port 1234
 </span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># however i didn&#39;t complie with this
 </span></span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># gdbstub: enable=1, port=1234, text_base=0, data_base=0, bss_base=0
-</span></span></span></code></pre></div><p>这里的路径名需要自己设置为安装的路径。同时按照书上建议的，我在编译的时候就没编译进去 gdb 支持，所以这个 gdbstub 选项我就注释掉了。同时注意 29 行，这个是创建硬盘之后要加上的。</p><p>然后就可以起了。起了之后立马报错，原因是我们没有启动盘，所以要创建一个，用 bximage 就可以了，书上提供的指令大概也只适用于老版本，所以我是通过直接运行 bximage 来创建的。</p><h3 id=硬盘的基础知识>硬盘的基础知识</h3><p>扇区的寻址方式有 CHS（柱面-磁头-扇区）和 LBA（逻辑块地址）方式之分，LBA 对人而言简洁一些，它从零开始计数，这种寻址方式不需要考虑扇区所处的盘面和磁道，而是把硬盘抽象成了一段连续的扇区。</p><p>LBA 也分 LBA28 和 LBA48，我们这里先使用 LBA28。</p><p>硬盘为了被访问，预留了许多端口，这里不一一列举，查表就可以了。</p><h3 id=基础-mbr>基础 MBR</h3><p>BIOS 是硬件厂商写好的，对于 bochs 虚拟机 BIOS 在 <code>install_path/share/bochs/BIOS-bochs-latest</code>，其具体实现不需要过多关心。BIOS 执行完后，会调用 MBR（main boot record）主引导记录来进行进一步的引导。约定磁盘的 0 盘 0 道 1 扇区中存储 MBR，并且该扇区的最后两个字节为 0x55 和 0xaa。</p><p>BIOS 准备将下一棒交给 MBR 的时候，会判断这两个字节的魔数，如果不是 0x55 和 0xaa，就会认为这个磁盘不是可引导设备。0 盘 0 道 1 扇区中的数据会被加载到内存地址 0x7C00 中，然后交接时 jmp 过去就可以执行 MBR 了。这里内存地址为什么是 0x7C00，书上说的比较清楚，但是总归是历史原因，而且不是很重要，这里不再赘述。</p><p>MBR 要做的事情主要就是寻找并引导内核加载器，即 OBR（OS boot record），这就是我们要实现的 MBR 了。</p><p>约定内核加载器处在 0 面 0 道 3 扇区，即 LBA 模式下的第 2 扇区。我们的 mbr 要做的就是把这个扇区的数据都加载到内存中，然后 jmp 过去完成交接。很简单的操作，但是这里涉及到对硬盘的操作，就会麻烦许多。在向硬盘的 command 寄存器中写入指令前我们需要指定 LBA 地址，寻址模式，要读取的扇区数，读取的硬盘。这个的顺序其实无所谓，不过这里还是沿用书中约定的顺序:</p><ol><li>选择通道，并指定要读取的扇区数（事实上通道是通过使用的不同的寄存器来选择的，代码中不会显示的进行选择）。</li><li>指定 LBA 地址的低 24 位。</li><li>写 device 寄存器，设置读取的硬盘和寻址模式（LBA）以及 LBA 地址的高 4 位。</li><li>向 command 寄存器中写入命令。</li><li>读取 status 寄存器，直到硬盘可读。</li><li>读取数据。</li></ol><p>书上给出了一个模板，我在此模板上面做了一点微调</p><p>mbr.S:</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>%include &#34;boot.inc&#34;
+</span></span></span></code></pre></div><p>这里的路径名需要自己设置为安装的路径。同时按照书上建议的，我在编译的时候就没编译进去 gdb 支持，所以这个 gdbstub 选项我就注释掉了。同时注意 29 行，这个是创建硬盘之后要加上的。</p><p>然后就可以起了。起了之后立马报错，原因是我们没有启动盘，所以要创建一个，用 bximage 就可以了，书上提供的指令大概也只适用于老版本，所以我是通过直接运行 bximage 来创建的。</p><h3 id=硬盘的基础知识>硬盘的基础知识</h3><p>扇区的寻址方式有 CHS（柱面-磁头-扇区）和 LBA（逻辑块地址）方式之分，LBA 对人而言简洁一些，它从零开始计数，这种寻址方式不需要考虑扇区所处的盘面和磁道，而是把硬盘抽象成了一段连续的扇区。</p><p>LBA 也分 LBA28 和 LBA48，我们这里先使用 LBA28。</p><p>硬盘为了被访问，预留了许多端口，这里不一一列举，查表就可以了。</p><h3 id=基础-mbr>基础 MBR</h3><p>BIOS 是硬件厂商写好的，对于 bochs 虚拟机 BIOS 在 <code>install_path/share/bochs/BIOS-bochs-latest</code>，其具体实现不需要过多关心。BIOS 执行完后，会调用 MBR（main boot record）主引导记录来进行进一步的引导。约定磁盘的 0 盘 0 道 1 扇区中存储 MBR，并且该扇区的最后两个字节为 0x55 和 0xaa。</p><p>BIOS 准备将下一棒交给 MBR 的时候，会判断这两个字节的魔数，如果不是 0x55 和 0xaa，就会认为这个磁盘不是可引导设备。0 盘 0 道 1 扇区中的数据会被加载到内存地址 0x7C00 中，然后交接时 jmp 过去就可以执行 MBR 了。这里内存地址为什么是 0x7C00，书上说的比较清楚，但是总归是历史原因，而且不是很重要，这里不再赘述。</p><p>MBR 要做的事情主要就是寻找并引导内核加载器，即 OBR（OS boot record），这就是我们要实现的 MBR 了。</p><p>约定内核加载器处在 0 面 0 道 3 扇区，即 LBA 模式下的第 2 扇区。我们的 mbr 要做的就是把这个扇区的数据都加载到内存中，然后 jmp 过去完成交接。很简单的操作，但是这里涉及到对硬盘的操作，就会麻烦许多。在向硬盘的 command 寄存器中写入指令前我们需要指定 LBA 地址，寻址模式，要读取的扇区数，读取的硬盘。这个的顺序其实无所谓，不过这里还是沿用书中约定的顺序:</p><ol><li>选择通道，并指定要读取的扇区数（事实上通道是通过使用的不同的寄存器来选择的，代码中不会显示的进行选择）。</li><li>指定 LBA 地址的低 24 位。</li><li>写 device 寄存器，设置读取的硬盘和寻址模式（LBA）以及 LBA 地址的高 4 位。</li><li>向 command 寄存器中写入命令。</li><li>读取 status 寄存器，直到硬盘可读。</li><li>读取数据。</li></ol><p>书上给出了一个模板，我在此模板上面做了一点微调</p><p>mbr.S:</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span><span style=color:#666>%</span>include <span style=color:#4070a0>&#34;boot.inc&#34;</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>SECTION MBR vstart=0x7C00
+</span></span><span style=display:flex><span>SECTION MBR vstart<span style=color:#666>=</span><span style=color:#40a070>0x7C00</span>
 </span></span><span style=display:flex><span>    ; init
 </span></span><span style=display:flex><span>    mov ax,cx
 </span></span><span style=display:flex><span>    mov ds,ax
 </span></span><span style=display:flex><span>    mov es,ax
 </span></span><span style=display:flex><span>    mov ss,ax
 </span></span><span style=display:flex><span>    mov fs,ax
-</span></span><span style=display:flex><span>    mov sp,0x7C00
+</span></span><span style=display:flex><span>    mov sp,<span style=color:#40a070>0x7C00</span>
 </span></span><span style=display:flex><span>;    mov sp,STACK
-</span></span><span style=display:flex><span>    mov ax,0xb800
+</span></span><span style=display:flex><span>    mov ax,<span style=color:#40a070>0xb800</span>
 </span></span><span style=display:flex><span>    mov gs,ax
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    ; clear screen
-</span></span><span style=display:flex><span>    mov ax,0x0600                   ; AH:clear. AL:colum to clear, 0 as all
-</span></span><span style=display:flex><span>    mov bx,0x0700                   ; BH:colum nature
-</span></span><span style=display:flex><span>    mov cx,0                        ; (CL,CH) (x,y) of left-up corner
-</span></span><span style=display:flex><span>    mov dx,0x184F                   ; (DL,DH) (x,y) of right-down corner (80-1,25-1)
-</span></span><span style=display:flex><span>    int 0x10                        ; use bios interrupt
+</span></span><span style=display:flex><span>    mov ax,<span style=color:#40a070>0x0600</span>                   ; AH:clear<span style=color:#666>.</span> AL:colum to clear, <span style=color:#40a070>0</span> as all
+</span></span><span style=display:flex><span>    mov bx,<span style=color:#40a070>0x0700</span>                   ; BH:colum nature
+</span></span><span style=display:flex><span>    mov cx,<span style=color:#40a070>0</span>                        ; (CL,CH) (x,y) of left<span style=color:#666>-</span>up corner
+</span></span><span style=display:flex><span>    mov dx,<span style=color:#40a070>0x184F</span>                   ; (DL,DH) (x,y) of right<span style=color:#666>-</span>down corner (<span style=color:#40a070>80</span><span style=color:#666>-</span><span style=color:#40a070>1</span>,<span style=color:#40a070>25</span><span style=color:#666>-</span><span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>    <span style=color:#007020>int</span> <span style=color:#40a070>0x10</span>                        ; use bios interrupt
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    ; display &#34;1 MBR&#34;
-</span></span><span style=display:flex><span>    mov byte [gs:0x00],&#39;1&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:0x01],0xA4
+</span></span><span style=display:flex><span>    ; display <span style=color:#4070a0>&#34;1 MBR&#34;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0x00</span>],<span style=color:#4070a0>&#39;1&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0x01</span>],<span style=color:#40a070>0xA4</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    mov byte [gs:0x02],&#39; &#39;
-</span></span><span style=display:flex><span>    mov byte [gs:0x03],0xA4
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0x02</span>],<span style=color:#4070a0>&#39; &#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0x03</span>],<span style=color:#40a070>0xA4</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    mov byte [gs:0x04],&#39;M&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:0x05],0xA4
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0x04</span>],<span style=color:#4070a0>&#39;M&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0x05</span>],<span style=color:#40a070>0xA4</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    mov byte [gs:0x06],&#39;B&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:0x07],0xA4
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0x06</span>],<span style=color:#4070a0>&#39;B&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0x07</span>],<span style=color:#40a070>0xA4</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    mov byte [gs:0x08],&#39;R&#39;
-</span></span><span style=display:flex><span>    mov byte [gs:0x09],0xA4
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0x08</span>],<span style=color:#4070a0>&#39;R&#39;</span>
+</span></span><span style=display:flex><span>    mov byte [gs:<span style=color:#40a070>0x09</span>],<span style=color:#40a070>0xA4</span>
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>    ; ready to call kernel loader
 </span></span><span style=display:flex><span>    mov esi,LOADER_START_SECTOR     ; LBA addr of start sector
 </span></span><span style=display:flex><span>    mov di,LOADER_BASE_ADDR         ; writing addr
-</span></span><span style=display:flex><span>    mov dx,1                        ; sectors waiting to read
+</span></span><span style=display:flex><span>    mov dx,<span style=color:#40a070>1</span>                        ; sectors waiting to read
 </span></span><span style=display:flex><span>    call MBR_ReadDiskSector_16
 </span></span><span style=display:flex><span>    jmp LOADER_BASE_ADDR           ; call loader
-</span></span><span style=display:flex><span>;---------- end of mbr ----------
+</span></span><span style=display:flex><span>;<span style=color:#666>----------</span> end of mbr <span style=color:#666>----------</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>; function MBR_ReadDiskSector_16(LBA_addr, writing_addr, n), read n sectors from hard-disk in 16 bit mode
+</span></span><span style=display:flex><span>; function MBR_ReadDiskSector_16(LBA_addr, writing_addr, n), read n sectors from hard<span style=color:#666>-</span>disk <span style=color:#007020;font-weight:700>in</span> <span style=color:#40a070>16</span> bit mode
 </span></span><span style=display:flex><span>; esi: LBA addr of start sector
 </span></span><span style=display:flex><span>; di: writing addr
 </span></span><span style=display:flex><span>; dx: n
@@ -100,66 +98,66 @@
 </span></span><span style=display:flex><span>        ; read sectors
 </span></span><span style=display:flex><span>        mov bx,dx                       ; bx keeps the n
 </span></span><span style=display:flex><span>        mov al,bl                       ; n sectors
-</span></span><span style=display:flex><span>        mov dx,0x1F2                    ; set reg Sector count 
+</span></span><span style=display:flex><span>        mov dx,<span style=color:#40a070>0x1F2</span>                    ; set reg Sector count 
 </span></span><span style=display:flex><span>        out dx,al                       ; read n sectors
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>        ; set LBA addr
 </span></span><span style=display:flex><span>        mov eax,esi
-</span></span><span style=display:flex><span>        mov dx,0x1F3                    ; set reg LBA low
-</span></span><span style=display:flex><span>        out dx,al                       ; write low 8 bits
+</span></span><span style=display:flex><span>        mov dx,<span style=color:#40a070>0x1F3</span>                    ; set reg LBA low
+</span></span><span style=display:flex><span>        out dx,al                       ; write low <span style=color:#40a070>8</span> bits
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>        mov cl,8
+</span></span><span style=display:flex><span>        mov cl,<span style=color:#40a070>8</span>
 </span></span><span style=display:flex><span>        shr eax,cl
-</span></span><span style=display:flex><span>        mov dx,0x1F4                    ; set reg LBA mid
+</span></span><span style=display:flex><span>        mov dx,<span style=color:#40a070>0x1F4</span>                    ; set reg LBA mid
 </span></span><span style=display:flex><span>        out dx,al                       ; write LBA mid
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>        shr eax,cl
-</span></span><span style=display:flex><span>        mov dx,0x1F5                    ; set reg LBA high
+</span></span><span style=display:flex><span>        mov dx,<span style=color:#40a070>0x1F5</span>                    ; set reg LBA high
 </span></span><span style=display:flex><span>        out dx,al                       ; write LBA high
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>        shr eax,cl
-</span></span><span style=display:flex><span>        and al,0xF                      ; only 4 bits
-</span></span><span style=display:flex><span>        or al,0xE0                      ; 1110b: LBA mode, disk: master
-</span></span><span style=display:flex><span>        mov dx,0x1F6                    ; set reg device
-</span></span><span style=display:flex><span>        out dx,al                       ; set mode and LBA addr
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>and</span> al,<span style=color:#40a070>0xF</span>                      ; only <span style=color:#40a070>4</span> bits
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>or</span> al,<span style=color:#40a070>0xE0</span>                      ; <span style=color:#40a070>1110</span>b: LBA mode, disk: master
+</span></span><span style=display:flex><span>        mov dx,<span style=color:#40a070>0x1F6</span>                    ; set reg device
+</span></span><span style=display:flex><span>        out dx,al                       ; set mode <span style=color:#007020;font-weight:700>and</span> LBA addr
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>        ; ready to read
-</span></span><span style=display:flex><span>        mov dx,0x1F7                    ; set reg command
-</span></span><span style=display:flex><span>        mov al,0x20                     ; mode: read
-</span></span><span style=display:flex><span>        out dx,al                       ; do read
+</span></span><span style=display:flex><span>        mov dx,<span style=color:#40a070>0x1F7</span>                    ; set reg command
+</span></span><span style=display:flex><span>        mov al,<span style=color:#40a070>0x20</span>                     ; mode: read
+</span></span><span style=display:flex><span>        out dx,al                       ; <span style=color:#007020;font-weight:700>do</span> read
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>        ; check disk status
-</span></span><span style=display:flex><span>    .MBR_ReadDiskSector_16_DiskNotReady:
-</span></span><span style=display:flex><span>        in al,dx                        ; get disk status
-</span></span><span style=display:flex><span>        and al,0x88                     ; result 0x8 =&gt; disk is read 
-</span></span><span style=display:flex><span>                                        ; result 0x80 =&gt; disk is busy
-</span></span><span style=display:flex><span>        cmp al,0x08
-</span></span><span style=display:flex><span>        jnz .MBR_ReadDiskSector_16_DiskNotReady
+</span></span><span style=display:flex><span>    <span style=color:#666>.</span>MBR_ReadDiskSector_16_DiskNotReady:
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>in</span> al,dx                        ; get disk status
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>and</span> al,<span style=color:#40a070>0x88</span>                     ; result <span style=color:#40a070>0x8</span> <span style=color:#666>=&gt;</span> disk is read 
+</span></span><span style=display:flex><span>                                        ; result <span style=color:#40a070>0x80</span> <span style=color:#666>=&gt;</span> disk is busy
+</span></span><span style=display:flex><span>        cmp al,<span style=color:#40a070>0x08</span>
+</span></span><span style=display:flex><span>        jnz <span style=color:#666>.</span>MBR_ReadDiskSector_16_DiskNotReady
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>        ; read data
 </span></span><span style=display:flex><span>        mov ax,bx                       ; get n
-</span></span><span style=display:flex><span>        mov dx,256                      ; read by word, so dx = 512 / 2
-</span></span><span style=display:flex><span>        mul dx                          ; assum this mul won&#39;t overflow
+</span></span><span style=display:flex><span>        mov dx,<span style=color:#40a070>256</span>                      ; read by word, so dx <span style=color:#666>=</span> <span style=color:#40a070>512</span> <span style=color:#666>/</span> <span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>        mul dx                          ; assum this mul won<span style=color:#4070a0>&#39;t overflow</span>
 </span></span><span style=display:flex><span>        mov cx,ax                       ; sum of words need to read
-</span></span><span style=display:flex><span>        mov dx,0x1F0                    ; set reg data
-</span></span><span style=display:flex><span>    .MBR_ReadDiskSector_16_ReadingLoop:
-</span></span><span style=display:flex><span>        in ax,dx                        ; read a word
+</span></span><span style=display:flex><span>        mov dx,<span style=color:#40a070>0x1F0</span>                    ; set reg data
+</span></span><span style=display:flex><span>    <span style=color:#666>.</span>MBR_ReadDiskSector_16_ReadingLoop:
+</span></span><span style=display:flex><span>        <span style=color:#007020;font-weight:700>in</span> ax,dx                        ; read a word
 </span></span><span style=display:flex><span>        mov [di],ax                     ; write a word
-</span></span><span style=display:flex><span>        add di,2
-</span></span><span style=display:flex><span>        loop .MBR_ReadDiskSector_16_ReadingLoop
+</span></span><span style=display:flex><span>        add di,<span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>        loop <span style=color:#666>.</span>MBR_ReadDiskSector_16_ReadingLoop
 </span></span><span style=display:flex><span>        ret
 </span></span><span style=display:flex><span>; end of function MBR_ReadDiskSector_16
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>;STACK:
-</span></span><span style=display:flex><span>;    times 0x10 dw 0
+</span></span><span style=display:flex><span>;    times <span style=color:#40a070>0x10</span> dw <span style=color:#40a070>0</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>    times 510 - ($ - $$) db 0
-</span></span><span style=display:flex><span>    db 0x55,0xaa                        ; magic number
-</span></span></code></pre></div><p>boot.inc:</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>;---------- loader and kernel ----------
-</span></span><span style=display:flex><span>LOADER_BASE_ADDR equ 0x600              ; 0x500 ~ 0x7BFF
-</span></span><span style=display:flex><span>LOADER_START_SECTOR que 0x2
+</span></span><span style=display:flex><span>    times <span style=color:#40a070>510</span> <span style=color:#666>-</span> (<span style=color:#666>$</span> <span style=color:#666>-</span> <span style=color:#666>$$</span>) db <span style=color:#40a070>0</span>
+</span></span><span style=display:flex><span>    db <span style=color:#40a070>0x55</span>,<span style=color:#40a070>0xaa</span>                        ; magic number
+</span></span></code></pre></div><p>boot.inc:</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span>;<span style=color:#666>----------</span> loader <span style=color:#007020;font-weight:700>and</span> kernel <span style=color:#666>----------</span>
+</span></span><span style=display:flex><span>LOADER_BASE_ADDR equ <span style=color:#40a070>0x600</span>              ; <span style=color:#40a070>0x500</span> <span style=color:#666>~</span> <span style=color:#40a070>0x7BFF</span>
+</span></span><span style=display:flex><span>LOADER_START_SECTOR que <span style=color:#40a070>0x2</span>
 </span></span></code></pre></div><p>loader.S 在这里只是为了证明 mbr 引导成功了而已，所以就不放代码了。</p><p>到这里我们基本上写好了 mbr。</p><p>最后的显示情况：</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/05/2193084466.png></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/os>OS</a></li></ul></nav></div><script src=https://giscus.app/client.js data-repo=chujDK/chujdk.github.io data-repo-id=R_kgDOI__mNg data-category=Announcements data-category-id=DIC_kwDOI__mNs4CYoyP data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=top data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
 <a class=border></a><a class=soc href=https://www.cjovi.icu/index.xml rel=me title=Rss><i data-feather=rss></i></a>
-<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2023  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
+<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2024  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>

