@@ -1,5 +1,9 @@
 config = {
-  locateFile: (filename) => `./sqljs-wasm/${filename}`,
+  locateFile: (filename) => {
+    if (filename == "sql-wasm.wasm") {
+      return "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.wasm";
+    }
+  },
 };
 
 const initApp = () => {
