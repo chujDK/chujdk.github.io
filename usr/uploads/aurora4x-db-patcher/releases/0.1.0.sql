@@ -131,14 +131,14 @@ UPDATE DIM_StandingOrders SET Description = '勘探最近的小行星' WHERE Ord
 UPDATE DIM_StandingOrders SET Description = '勘探最近的卫星' WHERE OrderID = 2; /* Survey Nearest Moon */
 UPDATE DIM_StandingOrders SET Description = '勘探最近的行星' WHERE OrderID = 3; /* Survey Nearest Planet */
 UPDATE DIM_StandingOrders SET Description = '勘探最近的天体' WHERE OrderID = 4; /* Survey Nearest Body */
-UPDATE DIM_StandingOrders SET Description = '勘测最近的引力勘测点' WHERE OrderID = 5; /* Survey Nearest Survey Location */
+UPDATE DIM_StandingOrders SET Description = '探测最近的重力场位置' WHERE OrderID = 5; /* Survey Nearest Survey Location */
 UPDATE DIM_StandingOrders SET Description = '移动到需要地质勘探的恒星系' WHERE OrderID = 6; /* Move to System Requiring Geosurvey */
 UPDATE DIM_StandingOrders SET Description = '移动到入口跳点' WHERE OrderID = 7; /* Move to Entry Jump Point */
 UPDATE DIM_StandingOrders SET Description = '补充燃料--从殖民地或中心' WHERE OrderID = 8; /* Refuel from Colony or Hub */
 UPDATE DIM_StandingOrders SET Description = '勘探最近的行星或卫星' WHERE OrderID = 9; /* Survey Nearest Planet or Moon */
-UPDATE DIM_StandingOrders SET Description = '移动到需要引力勘测的恒星系' WHERE OrderID = 10; /* Move to System Requiring Gravsurvey */
+UPDATE DIM_StandingOrders SET Description = '移动到需要重力场探测的恒星系' WHERE OrderID = 10; /* Move to System Requiring Gravsurvey */
 UPDATE DIM_StandingOrders SET Description = '勘探本恒星系下五个星球' WHERE OrderID = 13; /* Survey Next Five System Bodies  */
-UPDATE DIM_StandingOrders SET Description = '勘测本恒星系下三个引力勘测点' WHERE OrderID = 14; /* Survey Next Three System Locations */
+UPDATE DIM_StandingOrders SET Description = '探测本恒星系下三个重力场位置' WHERE OrderID = 14; /* Survey Next Three System Locations */
 UPDATE DIM_StandingOrders SET Description = '装载殖民者--从殖民者来源地' WHERE OrderID = 15; /* Load Colonists from Colonist Source */
 UPDATE DIM_StandingOrders SET Description = '装载殖民者--从首都' WHERE OrderID = 16; /* Load Colonists at Capital */
 UPDATE DIM_StandingOrders SET Description = '卸载殖民者' WHERE OrderID = 17; /* Unload Colonists */
@@ -168,11 +168,11 @@ UPDATE DIM_StandingOrders SET Description = '采气 转移和返回' WHERE Order
 UPDATE DIM_StandingOrders SET Description = '补给--在殖民地' WHERE OrderID = 43; /* Resupply at Colony */
 UPDATE DIM_StandingOrders SET Description = '调查最近的兴趣点' WHERE OrderID = 46; /* Investigate Closest Point of Interest */
 UPDATE DIM_StandingOrders SET Description = '移到最近的集合点' WHERE OrderID = 47; /* Move to Closest Rendezvous Point */
-UPDATE DIM_StandingOrders SET Description = '加入到行动组' WHERE OrderID = 48; /* Join Operational Group */
+UPDATE DIM_StandingOrders SET Description = '加入到运作组' WHERE OrderID = 48; /* Join Operational Group */
 UPDATE DIM_StandingOrders SET Description = '调查下30个恒星系内的天体' WHERE OrderID = 49; /* Survey Next Thirty System Bodies */
 UPDATE DIM_StandingOrders SET Description = '拾起最近的生命舱' WHERE OrderID = 50; /* Pick up nearest lifepod */
 UPDATE DIM_StandingOrders SET Description = '在殖民地加油、补给和检修' WHERE OrderID = 51; /* Refuel, Resupply and Overhaul at Colony */
-UPDATE DIM_StandingOrders SET Description = '调查接下来的三个星系或引力勘测点' WHERE OrderID = 52; /* Survey Next Three System Bodies or Locations */
+UPDATE DIM_StandingOrders SET Description = '调查接下来的三个星系或位置' WHERE OrderID = 52; /* Survey Next Three System Bodies or Locations */
 UPDATE DIM_EmpireTitles SET Title = '帝国' WHERE EmpireTitleID = 1; /* Empire */
 UPDATE DIM_EmpireTitles SET Title = '帝国' WHERE EmpireTitleID = 2; /* Imperium */
 UPDATE DIM_EmpireTitles SET Title = '联邦' WHERE EmpireTitleID = 3; /* Confederation */
@@ -369,7 +369,7 @@ UPDATE FCT_TechSystem SET Name = '货舱 - 小' WHERE TechSystemID = 3; /* Cargo
 UPDATE FCT_TechSystem SET Name = '货舱 - 穿梭机' WHERE TechSystemID = 4; /* Cargo Hold - Shuttle */
 UPDATE FCT_TechSystem SET Name = '船员舱' WHERE TechSystemID = 8; /* Crew Quarters */
 UPDATE FCT_TechSystem SET Name = '舰桥' WHERE TechSystemID = 18; /* Bridge */
-UPDATE FCT_TechSystem SET Name = '引力勘测传感器' WHERE TechSystemID = 24; /* Gravitational Survey Sensors */
+UPDATE FCT_TechSystem SET Name = '重力测量传感器' WHERE TechSystemID = 24; /* Gravitational Survey Sensors */
 UPDATE FCT_TechSystem SET Name = '激光战斗部伤害效率 20%' WHERE TechSystemID = 25; /* Laser Warhead Damage Efficiency 20% */
 UPDATE FCT_TechSystem SET Name = '激光战斗部伤害效率 25%' WHERE TechSystemID = 26; /* Laser Warhead Damage Efficiency 25% */
 UPDATE FCT_TechSystem SET Name = '激光战斗部伤害效率 32%' WHERE TechSystemID = 27; /* Laser Warhead Damage Efficiency 32% */
@@ -443,10 +443,10 @@ UPDATE FCT_TechSystem SET Name = '旗舰舰桥' WHERE TechSystemID = 225; /* Fla
 UPDATE FCT_TechSystem SET Name = '超牛顿资源货机' WHERE TechSystemID = 345; /* Trans-Newtonian Cargo Shuttles */
 UPDATE FCT_TechSystem SET Name = '改进型货机' WHERE TechSystemID = 418; /* Improved Cargo Shuttles */
 UPDATE FCT_TechSystem SET Name = '先进货运穿梭机' WHERE TechSystemID = 437; /* Advanced Cargo Shuttles */
-UPDATE FCT_TechSystem SET Name = '改进的引力勘测传感器' WHERE TechSystemID = 442; /* Improved Gravitational Sensors */
+UPDATE FCT_TechSystem SET Name = '改进的重力传感器' WHERE TechSystemID = 442; /* Improved Gravitational Sensors */
 UPDATE FCT_TechSystem SET Name = '低温休眠仓' WHERE TechSystemID = 479; /* Cryogenic Transport */
 UPDATE FCT_TechSystem SET Name = '地质勘探传感器' WHERE TechSystemID = 480; /* Geological Survey Sensors */
-UPDATE FCT_TechSystem SET Name = '改进的地质勘测传感器' WHERE TechSystemID = 481; /* Improved Geological Sensors */
+UPDATE FCT_TechSystem SET Name = '改进的地质传感器' WHERE TechSystemID = 481; /* Improved Geological Sensors */
 UPDATE FCT_TechSystem SET Name = '电子战' WHERE TechSystemID = 510; /* Electronic Warfare */
 UPDATE FCT_TechSystem SET Name = '燃料舱' WHERE TechSystemID = 600; /* Fuel Storage */
 UPDATE FCT_TechSystem SET Name = '建造速度 12 BP' WHERE TechSystemID = 666; /* Construction Rate 12 BP */
@@ -861,10 +861,10 @@ UPDATE FCT_TechSystem SET Name = '工程分段' WHERE TechSystemID = 25147; /* E
 UPDATE FCT_TechSystem SET Name = '气矿采集器' WHERE TechSystemID = 25148; /* Sorium Harvester */
 UPDATE FCT_TechSystem SET Name = '环境改造模块' WHERE TechSystemID = 25241; /* Terraforming Module */
 UPDATE FCT_TechSystem SET Name = '没有超驱动器功能' WHERE TechSystemID = 25283; /* No Hyper Drive Capability */
-UPDATE FCT_TechSystem SET Name = '先进地质勘测传感器' WHERE TechSystemID = 25333; /* Advanced Geological Sensors */
-UPDATE FCT_TechSystem SET Name = '先进引力勘测传感器' WHERE TechSystemID = 25334; /* Advanced Gravitational Sensors */
-UPDATE FCT_TechSystem SET Name = '相位地质勘测传感器' WHERE TechSystemID = 25335; /* Phased Geological Sensors */
-UPDATE FCT_TechSystem SET Name = '相位引力勘测传感器' WHERE TechSystemID = 25336; /* Phased Gravitational Sensors */
+UPDATE FCT_TechSystem SET Name = '先进地质传感器' WHERE TechSystemID = 25333; /* Advanced Geological Sensors */
+UPDATE FCT_TechSystem SET Name = '先进引力传感器' WHERE TechSystemID = 25334; /* Advanced Gravitational Sensors */
+UPDATE FCT_TechSystem SET Name = '相位地质传感器' WHERE TechSystemID = 25335; /* Phased Geological Sensors */
+UPDATE FCT_TechSystem SET Name = '相位重力传感器' WHERE TechSystemID = 25336; /* Phased Gravitational Sensors */
 UPDATE FCT_TechSystem SET Name = 'ξ护盾' WHERE TechSystemID = 25504; /* Xi Shields */
 UPDATE FCT_TechSystem SET Name = '奥米克罗护盾' WHERE TechSystemID = 25505; /* Omicron Shields */
 UPDATE FCT_TechSystem SET Name = '护盾再生率 12' WHERE TechSystemID = 25506; /* Shield Regeneration Rate 12 */
@@ -1166,7 +1166,7 @@ UPDATE FCT_TechSystem SET Name = '弹舱进给系统效率 - 94%' WHERE TechSyst
 UPDATE FCT_TechSystem SET Name = '弹舱进给系统效率 - 96%' WHERE TechSystemID = 30366; /* Magazine Feed System Efficiency - 96% */
 UPDATE FCT_TechSystem SET Name = '弹舱进给系统效率 - 98%' WHERE TechSystemID = 30367; /* Magazine Feed System Efficiency - 98% */
 UPDATE FCT_TechSystem SET Name = '弹舱进给系统效率 - 99%' WHERE TechSystemID = 30368; /* Magazine Feed System Efficiency - 99% */
-UPDATE FCT_TechSystem SET Name = '百万 TN 工人创造财富：120' WHERE TechSystemID = 30851; /* Wealth Generation per Million TN Workers: 120 */
+UPDATE FCT_TechSystem SET Name = '百万TN工人创造财富：120' WHERE TechSystemID = 30851; /* Wealth Generation per Million TN Workers: 120 */
 UPDATE FCT_TechSystem SET Name = '小跳点稳定模块' WHERE TechSystemID = 33215; /* Small Jump Point Stabilisation Module */
 UPDATE FCT_TechSystem SET Name = '军事跃迁引擎' WHERE TechSystemID = 33302; /* Military Jump Drive */
 UPDATE FCT_TechSystem SET Name = '商业跃迁引擎' WHERE TechSystemID = 33303; /* Commercial Jump Drive */
@@ -1259,15 +1259,15 @@ UPDATE FCT_TechSystem SET Name = '龙骨炮座' WHERE TechSystemID = 55407; /* S
 UPDATE FCT_TechSystem SET Name = '先进龙骨炮座' WHERE TechSystemID = 55408; /* Advanced Spinal Mount */
 UPDATE FCT_TechSystem SET Name = '部队运输与投送舱 - 大型' WHERE TechSystemID = 55437; /* Troop Transport Drop Bay - Large */
 UPDATE FCT_TechSystem SET Name = '部队运输与投送舱 - 标准' WHERE TechSystemID = 55438; /* Troop Transport Drop Bay - Standard */
-UPDATE FCT_TechSystem SET Name = '百万 TN 工人创造财富：140' WHERE TechSystemID = 59278; /* Wealth Generation per Million TN Workers: 140 */
-UPDATE FCT_TechSystem SET Name = '百万 TN 工人创造财富：160' WHERE TechSystemID = 59279; /* Wealth Generation per Million TN Workers: 160 */
-UPDATE FCT_TechSystem SET Name = '百万 TN 工人创造财富：200' WHERE TechSystemID = 59280; /* Wealth Generation per Million TN Workers: 200 */
-UPDATE FCT_TechSystem SET Name = '百万 TN 工人创造财富：250' WHERE TechSystemID = 59281; /* Wealth Generation per Million TN Workers: 250 */
-UPDATE FCT_TechSystem SET Name = '百万 TN 工人创造财富：300' WHERE TechSystemID = 59282; /* Wealth Generation per Million TN Workers: 300 */
-UPDATE FCT_TechSystem SET Name = '百万 TN 工人创造财富：360' WHERE TechSystemID = 59283; /* Wealth Generation per Million TN Workers: 360 */
-UPDATE FCT_TechSystem SET Name = '百万 TN 工人创造财富：420' WHERE TechSystemID = 59284; /* Wealth Generation per Million TN Workers: 420 */
-UPDATE FCT_TechSystem SET Name = '百万 TN 工人创造财富：500' WHERE TechSystemID = 59285; /* Wealth Generation per Million TN Workers: 500 */
-UPDATE FCT_TechSystem SET Name = '百万 TN 工人创造财富：600' WHERE TechSystemID = 59286; /* Wealth Generation per Million TN Workers: 600 */
+UPDATE FCT_TechSystem SET Name = '百万TN工人创造财富：140' WHERE TechSystemID = 59278; /* Wealth Generation per Million TN Workers: 140 */
+UPDATE FCT_TechSystem SET Name = '百万TN工人创造财富：160' WHERE TechSystemID = 59279; /* Wealth Generation per Million TN Workers: 160 */
+UPDATE FCT_TechSystem SET Name = '百万TN工人创造财富：200' WHERE TechSystemID = 59280; /* Wealth Generation per Million TN Workers: 200 */
+UPDATE FCT_TechSystem SET Name = '百万TN工人创造财富：250' WHERE TechSystemID = 59281; /* Wealth Generation per Million TN Workers: 250 */
+UPDATE FCT_TechSystem SET Name = '百万TN工人创造财富：300' WHERE TechSystemID = 59282; /* Wealth Generation per Million TN Workers: 300 */
+UPDATE FCT_TechSystem SET Name = '百万TN工人创造财富：360' WHERE TechSystemID = 59283; /* Wealth Generation per Million TN Workers: 360 */
+UPDATE FCT_TechSystem SET Name = '百万TN工人创造财富：420' WHERE TechSystemID = 59284; /* Wealth Generation per Million TN Workers: 420 */
+UPDATE FCT_TechSystem SET Name = '百万TN工人创造财富：500' WHERE TechSystemID = 59285; /* Wealth Generation per Million TN Workers: 500 */
+UPDATE FCT_TechSystem SET Name = '百万TN工人创造财富：600' WHERE TechSystemID = 59286; /* Wealth Generation per Million TN Workers: 600 */
 UPDATE FCT_TechSystem SET Name = '船员舱 - 战斗机' WHERE TechSystemID = 62453; /* Crew Quarters - Fighter */
 UPDATE FCT_TechSystem SET Name = '船坞 - 小' WHERE TechSystemID = 62489; /* Boat Bay - Small */
 UPDATE FCT_TechSystem SET Name = '火控 1.8x 尺寸 1.8x 跟踪速度' WHERE TechSystemID = 62534; /* Fire Control 1.8x Size 1.8x Tracking Speed */
@@ -1541,7 +1541,7 @@ UPDATE FCT_TechSystem SET Name = '多武器火控' WHERE TechSystemID = 82477; /
 UPDATE FCT_TechSystem SET Name = '单武器火控' WHERE TechSystemID = 82478; /* Single-Weapon Fire Control */
 UPDATE FCT_TechSystem SET Name = '超重型轰炸武器 AP 3，DAM 9，SHOTS 3' WHERE TechSystemID = 86937; /* Super-Heavy Bombardment Weapon AP 3, DAM 9, SHOTS 3 */
 UPDATE FCT_TechSystem SET Name = '常规主动传感器强度 2' WHERE TechSystemID = 92175; /* Conventional Active Sensor Strength 2 */
-UPDATE FCT_TechSystem SET Name = '常规地质勘探传感器' WHERE TechSystemID = 92176; /* Conventional Geological Survey Sensors */
+UPDATE FCT_TechSystem SET Name = '常规地质调查传感器' WHERE TechSystemID = 92176; /* Conventional Geological Survey Sensors */
 UPDATE FCT_TechSystem SET Name = '部队运输舱 - 常规' WHERE TechSystemID = 92177; /* Troop Transport Bay - Conventional */
 UPDATE FCT_TechSystem SET Name = '低温运输 - 常规' WHERE TechSystemID = 92178; /* Cryogenic Transport - Conventional */
 UPDATE FCT_TechSystem SET Name = '小型船只加油系统：10,000 LPH' WHERE TechSystemID = 97493; /* Small Craft Refuelling System: 10,000 LPH */
@@ -1634,8 +1634,8 @@ UPDATE FCT_TechSystem SET TechDescription = '用于船舶和基地装卸货物�
 UPDATE FCT_TechSystem SET TechDescription = '用于船舶和基地装卸货物。每个港口减少 5 装填时间' WHERE TechSystemID = 437; /* Used by ships and bases to load and unload cargo. Reduces Load Time by 5 per Bay */
 UPDATE FCT_TechSystem SET TechDescription = '允许舰船通过访问勘测位置来勘测跳点。每小时提供 2 个勘测点' WHERE TechSystemID = 442; /* Allows a ship to survey for jump points by visiting survey locations. Provides 2 survey points per hour */
 UPDATE FCT_TechSystem SET TechDescription = '为殖民者提供交通工具。每个低温运输模块可以运输 10,000 名殖民者。' WHERE TechSystemID = 479; /* Provides transport for colonists. Each Cryogenic Transport module can transport 10,000 colonists. */
-UPDATE FCT_TechSystem SET TechDescription = '允许舰船勘探星系的矿藏或外星遗迹。 每小时提供 1 个勘测点' WHERE TechSystemID = 480; /* Allows a ship to survey system bodies for mineral deposits or alien ruins. Provides 1 survey point per hour */
-UPDATE FCT_TechSystem SET TechDescription = '允许舰船勘探星系的矿藏或外星遗迹。 每小时提供 2 个勘测点' WHERE TechSystemID = 481; /* Allows a ship to survey system bodies for mineral deposits or alien ruins. Provides 2 survey points per hour */
+UPDATE FCT_TechSystem SET TechDescription = '允许舰船调查星系的矿藏或外星遗迹。 每小时提供 1 个勘测点' WHERE TechSystemID = 480; /* Allows a ship to survey system bodies for mineral deposits or alien ruins. Provides 1 survey point per hour */
+UPDATE FCT_TechSystem SET TechDescription = '允许舰船调查星系的矿藏或外星遗迹。 每小时提供 2 个勘测点' WHERE TechSystemID = 481; /* Allows a ship to survey system bodies for mineral deposits or alien ruins. Provides 2 survey points per hour */
 UPDATE FCT_TechSystem SET TechDescription = '电子对抗与电子反制的前置技术' WHERE TechSystemID = 510; /* Prerequisite technology for Electronic countermeasures and Electronic counter-countermeasures */
 UPDATE FCT_TechSystem SET TechDescription = '船舶燃料储存。每个燃油存储模块可存储 50,000 升燃油。' WHERE TechSystemID = 600; /* Fuel storage for ships. Each Fuel Storage module can hold 50,000 litres of fuel. */
 UPDATE FCT_TechSystem SET TechDescription = '一个工业生产单位的年度建造率' WHERE TechSystemID = 666; /* Annual construction rate for one unit of Industrial Capacity */
@@ -1896,18 +1896,18 @@ UPDATE FCT_TechSystem SET TechDescription = '传感器组件每个船体空间�
 UPDATE FCT_TechSystem SET TechDescription = '传感器组件每个船体空间的热感应强度。热传感器检测外星舰船的发动机输出' WHERE TechSystemID = 24394; /* Thermal sensor strength per hull space of the sensor component. Thermal sensors detect the engine output of alien ships */
 UPDATE FCT_TechSystem SET TechDescription = '传感器组件每个船体空间的热感应强度。热传感器检测外星舰船的发动机输出' WHERE TechSystemID = 24395; /* Thermal sensor strength per hull space of the sensor component. Thermal sensors detect the engine output of alien ships */
 UPDATE FCT_TechSystem SET TechDescription = '传感器组件每个船体空间的热感应强度。热传感器检测外星舰船的发动机输出' WHERE TechSystemID = 24396; /* Thermal sensor strength per hull space of the sensor component. Thermal sensors detect the engine output of alien ships */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24397; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24398; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24399; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24400; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24401; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24402; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24403; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24404; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24405; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24406; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24407; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 24408; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24397; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24398; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24399; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24400; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24401; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24402; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24403; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24404; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24405; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24406; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24407; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 24408; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
 UPDATE FCT_TechSystem SET TechDescription = '一个允许船舶在不需要造船厂的情况下就可以进行紧急损坏修理的系统。' WHERE TechSystemID = 24476; /* A system that allows ship to carry out emergency damage repairs without the need for a shipyard. */
 UPDATE FCT_TechSystem SET TechDescription = '一个允许船舶在不需要造船厂的情况下就可以进行紧急损坏修理的系统。' WHERE TechSystemID = 24477; /* A system that allows ship to carry out emergency damage repairs without the need for a shipyard. */
 UPDATE FCT_TechSystem SET TechDescription = '一个允许船舶在不需要造船厂的情况下就可以进行紧急损坏修理的系统。' WHERE TechSystemID = 24478; /* A system that allows ship to carry out emergency damage repairs without the need for a shipyard. */
@@ -2050,9 +2050,9 @@ UPDATE FCT_TechSystem SET TechDescription = '工程舱。减少故障机会并�
 UPDATE FCT_TechSystem SET TechDescription = '一种飞船模块，允许飞船从一个气体巨星中提取气矿并将其转化为燃料。如果飞船在一个气态巨星的轨道上，它会自动工作。' WHERE TechSystemID = 25148; /* A ship module that allows a ship to extract sorium from a gas giant and convert it into fuel. This works automatically if the ship is in orbit of a gas giant. */
 UPDATE FCT_TechSystem SET TechDescription = '一种船部件，当船在殖民地的轨道上时，允许船执行与地形装置相同的任务' WHERE TechSystemID = 25241; /* A ship component that allows a ship to perform the same task as a terraforming installation when it is in orbit of a colony */
 UPDATE FCT_TechSystem SET TechDescription = '没有细节' WHERE TechSystemID = 25283; /* No details */
-UPDATE FCT_TechSystem SET TechDescription = '允许舰船勘探星系的矿藏或外星遗迹。 每小时提供 3 个勘测点' WHERE TechSystemID = 25333; /* Allows a ship to survey system bodies for mineral deposits or alien ruins. Provides 3 survey points per hour */
+UPDATE FCT_TechSystem SET TechDescription = '允许舰船调查星系的矿藏或外星遗迹。 每小时提供 3 个勘测点' WHERE TechSystemID = 25333; /* Allows a ship to survey system bodies for mineral deposits or alien ruins. Provides 3 survey points per hour */
 UPDATE FCT_TechSystem SET TechDescription = '允许舰船通过访问勘测位置来勘测跳点。每小时提供 3 个勘测点' WHERE TechSystemID = 25334; /* Allows a ship to survey for jump points by visiting survey locations. Provides 3 survey points per hour */
-UPDATE FCT_TechSystem SET TechDescription = '允许舰船勘探星系的矿藏或外星遗迹。 每小时提供 5 个勘测点' WHERE TechSystemID = 25335; /* Allows a ship to survey system bodies for mineral deposits or alien ruins. Provides 5 survey points per hour */
+UPDATE FCT_TechSystem SET TechDescription = '允许舰船调查星系的矿藏或外星遗迹。 每小时提供 5 个勘测点' WHERE TechSystemID = 25335; /* Allows a ship to survey system bodies for mineral deposits or alien ruins. Provides 5 survey points per hour */
 UPDATE FCT_TechSystem SET TechDescription = '允许舰船通过访问勘测位置来勘测跳点。每小时提供 5 个勘测点' WHERE TechSystemID = 25336; /* Allows a ship to survey for jump points by visiting survey locations. Provides 5 survey points per hour */
 UPDATE FCT_TechSystem SET TechDescription = '护盾技术水平。更高级别的护盾为相同尺寸的护盾发生器提供更多保护。护盾会随着时间而再生' WHERE TechSystemID = 25504; /* The level of shield technology. Higher level shields provide more protection for the same size shield generator. Shields regenerate over time */
 UPDATE FCT_TechSystem SET TechDescription = '护盾技术水平。更高级别的护盾为相同尺寸的护盾发生器提供更多保护。护盾会随着时间而再生' WHERE TechSystemID = 25505; /* The level of shield technology. Higher level shields provide more protection for the same size shield generator. Shields regenerate over time */
@@ -2729,8 +2729,8 @@ UPDATE FCT_TechSystem SET TechDescription = '允许舰船携带额外的维护�
 UPDATE FCT_TechSystem SET TechDescription = '可用于控制多种武器的火控系统' WHERE TechSystemID = 82477; /* Fire control can be used to control multiple weapons */
 UPDATE FCT_TechSystem SET TechDescription = '只能用于控制单一武器的火控系统' WHERE TechSystemID = 82478; /* Fire control can only be used to control a single weapon */
 UPDATE FCT_TechSystem SET TechDescription = '轰炸武器。可供前线部队或支援位置部队使用' WHERE TechSystemID = 86937; /* Bombardment weapon. Can be used by front-line units or units in a support position */
-UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为主动传感器提供输出脉冲的强度，用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到主动脉冲' WHERE TechSystemID = 92175; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
-UPDATE FCT_TechSystem SET TechDescription = '允许舰船勘探星系的矿藏或外星遗迹。 每小时提供 1 个勘测点' WHERE TechSystemID = 92176; /* Allows a ship to survey system bodies for mineral deposits or alien ruins. Provides 1 survey point per hour */
+UPDATE FCT_TechSystem SET TechDescription = '此组件每个船体空间的主动传感器强度。为有源传感器提供输出脉冲的强度，这些传感器用于根据外星飞船的大小来检测它们。GPD 传感器可以检测到有源脉冲' WHERE TechSystemID = 92175; /* Active sensor strength per hull space of the component. Provides the strength of the output pulse for active sensors, which are used to detect alien ships based on their size. The active pulse can be detected by GPD sensors */
+UPDATE FCT_TechSystem SET TechDescription = '允许舰船调查星系的矿藏或外星遗迹。 每小时提供 1 个勘测点' WHERE TechSystemID = 92176; /* Allows a ship to survey system bodies for mineral deposits or alien ruins. Provides 1 survey point per hour */
 UPDATE FCT_TechSystem SET TechDescription = '获得运输地面部队的条件' WHERE TechSystemID = 92177; /* Enables the transport of ground forces */
 UPDATE FCT_TechSystem SET TechDescription = '为殖民者提供交通工具。每个低温运输模块可以运输 10,000 名殖民者。' WHERE TechSystemID = 92178; /* Provides transport for colonists. Each Cryogenic Transport module can transport 10,000 colonists. */
 UPDATE FCT_TechSystem SET TechDescription = '用于重量在 1000 吨或以下的船只给其他重量在 1000 吨或以下的船只加油' WHERE TechSystemID = 97493; /* Used by ships of 1000 tons or less to refuel other ship of 1000 tons or less */
@@ -2828,8 +2828,8 @@ UPDATE DIM_MoveAction SET Description = '加入并为目标舰队加油' WHERE M
 UPDATE DIM_MoveAction SET Description = '卸载殖民者' WHERE MoveActionID = 6; /* Unload Colonists */
 UPDATE DIM_MoveAction SET Description = '补充燃料--从殖民地' WHERE MoveActionID = 7; /* Refuel from Colony */
 UPDATE DIM_MoveAction SET Description = '按单舰拆分舰队' WHERE MoveActionID = 8; /* Divide Fleet into Single Ships */
-UPDATE DIM_MoveAction SET Description = '地质勘探' WHERE MoveActionID = 9; /* Geological Survey */
-UPDATE DIM_MoveAction SET Description = '引力勘测' WHERE MoveActionID = 12; /* Gravitational Survey */
+UPDATE DIM_MoveAction SET Description = '地质调查' WHERE MoveActionID = 9; /* Geological Survey */
+UPDATE DIM_MoveAction SET Description = '重力场探测' WHERE MoveActionID = 12; /* Gravitational Survey */
 UPDATE DIM_MoveAction SET Description = '补充燃料--从本舰队的油轮' WHERE MoveActionID = 30; /* Refuel from own Tankers */
 UPDATE DIM_MoveAction SET Description = '从殖民地装载军械' WHERE MoveActionID = 33; /* Load Ordnance from Colony */
 UPDATE DIM_MoveAction SET Description = '中队跃迁' WHERE MoveActionID = 37; /* Squadron Transit */
@@ -2939,8 +2939,8 @@ UPDATE DIM_MoveAction SET Description = '为固定舰队加油' WHERE MoveAction
 UPDATE DIM_MoveAction SET Description = '为固定舰队补给' WHERE MoveActionID = 231; /* Resupply Stationary Fleet */
 UPDATE DIM_MoveAction SET Description = '装载分配的地面模板' WHERE MoveActionID = 232; /* Load Assigned Ground Templates */
 UPDATE DIM_OperationalGroup SET Description = '导弹战斗舰队' WHERE OperationalGroupID = 1; /* Missile Battle Fleet */
-UPDATE DIM_OperationalGroup SET Description = '地质勘探' WHERE OperationalGroupID = 2; /* Geological Survey */
-UPDATE DIM_OperationalGroup SET Description = '引力勘测' WHERE OperationalGroupID = 3; /* Gravitational Survey */
+UPDATE DIM_OperationalGroup SET Description = '地质调查' WHERE OperationalGroupID = 2; /* Geological Survey */
+UPDATE DIM_OperationalGroup SET Description = '重力场探测' WHERE OperationalGroupID = 3; /* Gravitational Survey */
 UPDATE DIM_OperationalGroup SET Description = '轨道防御' WHERE OperationalGroupID = 4; /* Orbital Defences */
 UPDATE DIM_OperationalGroup SET Description = '侦察' WHERE OperationalGroupID = 5; /* Scout */
 UPDATE DIM_OperationalGroup SET Description = 'FAC 猎杀中队' WHERE OperationalGroupID = 6; /* FAC Hunter Squadron */
@@ -2978,7 +2978,7 @@ UPDATE DIM_OperationalGroup SET Description = '超大型蜂巢舰队' WHERE Oper
 UPDATE DIM_OperationalGroup SET Description = '蜂群突击中队' WHERE OperationalGroupID = 41; /* Swarm Assault Squadron */
 UPDATE DIM_OperationalGroup SET Description = '蜂群攻击中队' WHERE OperationalGroupID = 42; /* Swarm Attack Squadron */
 UPDATE DIM_OperationalGroup SET Description = '蜂群地质勘探' WHERE OperationalGroupID = 43; /* Swarm Geological Survey */
-UPDATE DIM_OperationalGroup SET Description = '蜂群引力勘测' WHERE OperationalGroupID = 44; /* Swarm Gravitational Survey */
+UPDATE DIM_OperationalGroup SET Description = '蜂群重力场测量' WHERE OperationalGroupID = 44; /* Swarm Gravitational Survey */
 UPDATE DIM_OperationalGroup SET Description = '星群捕获船' WHERE OperationalGroupID = 31; /* StarSwarmCapturedShip */
 UPDATE DIM_OperationalGroup SET Description = '外交船' WHERE OperationalGroupID = 45; /* Diplomatic Ship */
 UPDATE DIM_OperationalGroup SET Description = '轨道防御-仅波束' WHERE OperationalGroupID = 46; /* Orbital Defences - Beam Only */
@@ -3010,7 +3010,7 @@ UPDATE DIM_OperationalGroupElement SET Description = '光束武器 护航驱逐�
 UPDATE DIM_OperationalGroupElement SET Description = '光束武器 重型巡洋舰' WHERE rowid = 4; /* Beam CA */
 UPDATE DIM_OperationalGroupElement SET Description = '防空驱逐舰' WHERE rowid = 5; /* Fighter Killer DD */
 UPDATE DIM_OperationalGroupElement SET Description = '地质勘探' WHERE rowid = 6; /* Geosurvey */
-UPDATE DIM_OperationalGroupElement SET Description = '引力勘测' WHERE rowid = 7; /* Gravsurvey */
+UPDATE DIM_OperationalGroupElement SET Description = '重力场测量' WHERE rowid = 7; /* Gravsurvey */
 UPDATE DIM_OperationalGroupElement SET Description = '导弹防御基地' WHERE rowid = 8; /* Missile Defence Base */
 UPDATE DIM_OperationalGroupElement SET Description = '光束武器 防御基地' WHERE rowid = 9; /* Beam Defence Base */
 UPDATE DIM_OperationalGroupElement SET Description = '侦察' WHERE rowid = 10; /* Scout */
@@ -3095,9 +3095,9 @@ UPDATE DIM_OperationalGroupElement SET Description = '超大型蜂巢船' WHERE 
 UPDATE DIM_OperationalGroupElement SET Description = '蜂群巡洋舰' WHERE rowid = 89; /* Swarm Cruiser */
 UPDATE DIM_OperationalGroupElement SET Description = '护航船' WHERE rowid = 90; /* Escort */
 UPDATE DIM_OperationalGroupElement SET Description = '生化战快速攻击载具' WHERE rowid = 91; /* BioAcid FAC */
-UPDATE DIM_OperationalGroupElement SET Description = '蜂群微波快速攻击载具' WHERE rowid = 92; /* Swarm Microwave FAC */
+UPDATE DIM_OperationalGroupElement SET Description = '群微波快速攻击载具' WHERE rowid = 92; /* Swarm Microwave FAC */
 UPDATE DIM_OperationalGroupElement SET Description = '蜂群地质勘探' WHERE rowid = 93; /* Swarm Geosurvey */
-UPDATE DIM_OperationalGroupElement SET Description = '蜂群引力勘测' WHERE rowid = 94; /* Swarm Gravsurvey */
+UPDATE DIM_OperationalGroupElement SET Description = '蜂群重要力探测' WHERE rowid = 94; /* Swarm Gravsurvey */
 UPDATE DIM_OperationalGroupElement SET Description = '群跳快速攻击载具' WHERE rowid = 95; /* Swarm Jump FAC */
 UPDATE DIM_OperationalGroupElement SET Description = '群跳快速攻击载具' WHERE rowid = 96; /* Swarm Jump FAC */
 UPDATE DIM_OperationalGroupElement SET Description = '群跳快速攻击载具' WHERE rowid = 97; /* Swarm Jump FAC */
@@ -3392,7 +3392,6 @@ UPDATE DIM_ShipyardCompanies SET Suffix = '造船工程公司' WHERE NameID = 84
 UPDATE DIM_ShipyardCompanies SET Suffix = '海军造船' WHERE NameID = 92; /* Naval Shipbuilding */
 UPDATE DIM_ShipyardCompanies SET Suffix = '航运' WHERE NameID = 94; /* Shipping */
 UPDATE DIM_ShipyardCompanies SET Suffix = '船坞和工程' WHERE NameID = 96; /* Dockyard and Engineering Works */
-UPDATE DIM_ShipyardCompanies SET Suffix = '通用造船厂' WHERE NameID = 112; /* General Shipyard */
 UPDATE DIM_ShipyardCompanies SET Suffix = '海军造船厂' WHERE NameID = 119; /* Navy Yard */
 UPDATE DIM_ShipyardCompanies SET Suffix = '干船坞公司' WHERE NameID = 134; /* Drydock Company */
 UPDATE DIM_ShipyardCompanies SET Suffix = '造船与海洋工程' WHERE NameID = 139; /* Shipbuilding & Marine Engineering */
@@ -3928,7 +3927,7 @@ UPDATE DIM_ComponentType SET TypeDescription = '船员舱' WHERE ComponentTypeID
 UPDATE DIM_ComponentType SET TypeDescription = '燃料舱' WHERE ComponentTypeID = 3; /* Fuel Storage */
 UPDATE DIM_ComponentType SET TypeDescription = '货舱' WHERE ComponentTypeID = 4; /* Cargo Hold */
 UPDATE DIM_ComponentType SET TypeDescription = '弹舱' WHERE ComponentTypeID = 5; /* Magazine */
-UPDATE DIM_ComponentType SET TypeDescription = '引力勘测传感器' WHERE ComponentTypeID = 6; /* Gravitational Survey Sensors */
+UPDATE DIM_ComponentType SET TypeDescription = '重力测量传感器' WHERE ComponentTypeID = 6; /* Gravitational Survey Sensors */
 UPDATE DIM_ComponentType SET TypeDescription = '地质勘探传感器' WHERE ComponentTypeID = 7; /* Geological Survey Sensors */
 UPDATE DIM_ComponentType SET TypeDescription = '热探测传感器' WHERE ComponentTypeID = 8; /* Thermal Detection Sensors */
 UPDATE DIM_ComponentType SET TypeDescription = '指挥和控制' WHERE ComponentTypeID = 10; /* Command and Control */
@@ -3988,8 +3987,8 @@ UPDATE DIM_ComponentType SET RatingDescription = '生命支持' WHERE ComponentT
 UPDATE DIM_ComponentType SET RatingDescription = '升燃料' WHERE ComponentTypeID = 3; /* Litres of Fuel */
 UPDATE DIM_ComponentType SET RatingDescription = '载货量' WHERE ComponentTypeID = 4; /* Cargo Capacity */
 UPDATE DIM_ComponentType SET RatingDescription = '弹药库' WHERE ComponentTypeID = 5; /* Ordnance Storage */
-UPDATE DIM_ComponentType SET RatingDescription = '引力勘测点' WHERE ComponentTypeID = 6; /* Grav Survey Points */
-UPDATE DIM_ComponentType SET RatingDescription = 'SB 勘测点' WHERE ComponentTypeID = 7; /* SB Survey Points */
+UPDATE DIM_ComponentType SET RatingDescription = '重力测量点' WHERE ComponentTypeID = 6; /* Grav Survey Points */
+UPDATE DIM_ComponentType SET RatingDescription = 'SB测量点' WHERE ComponentTypeID = 7; /* SB Survey Points */
 UPDATE DIM_ComponentType SET RatingDescription = '传感器强度' WHERE ComponentTypeID = 8; /* Sensor Strength */
 UPDATE DIM_ComponentType SET RatingDescription = '指挥控制' WHERE ComponentTypeID = 10; /* Command Control */
 UPDATE DIM_ComponentType SET RatingDescription = '装甲强度' WHERE ComponentTypeID = 11; /* Armour Strength */
@@ -4090,7 +4089,7 @@ UPDATE FCT_HullDescription SET Description = '重型航母' WHERE HullDescriptio
 UPDATE FCT_HullDescription SET Description = '巡洋舰' WHERE HullDescriptionID = 25; /* Cruiser */
 UPDATE FCT_HullDescription SET Description = '巡逻巡洋舰' WHERE HullDescriptionID = 26; /* Patrol Cruiser */
 UPDATE FCT_HullDescription SET Description = '殖民船' WHERE HullDescriptionID = 27; /* Colony Ship */
-UPDATE FCT_HullDescription SET Description = '勘测船' WHERE HullDescriptionID = 28; /* Survey Ship */
+UPDATE FCT_HullDescription SET Description = '测量船' WHERE HullDescriptionID = 28; /* Survey Ship */
 UPDATE FCT_HullDescription SET Description = '科学船' WHERE HullDescriptionID = 30; /* Science Vessel */
 UPDATE FCT_HullDescription SET Description = '导弹巡洋舰' WHERE HullDescriptionID = 31; /* Missile Cruiser */
 UPDATE FCT_HullDescription SET Description = '跳跃巡洋舰' WHERE HullDescriptionID = 32; /* Jump Cruiser */
@@ -4117,7 +4116,7 @@ UPDATE FCT_HullDescription SET Description = '打捞舰' WHERE HullDescriptionID
 UPDATE FCT_HullDescription SET Description = '区域防御巡洋舰' WHERE HullDescriptionID = 54; /* Area Defence Cruiser */
 UPDATE FCT_HullDescription SET Description = '跳跃货船' WHERE HullDescriptionID = 55; /* Jump Freighter */
 UPDATE FCT_HullDescription SET Description = '舰队侦察舰' WHERE HullDescriptionID = 56; /* Fleet Scout */
-UPDATE FCT_HullDescription SET Description = '地质勘探船' WHERE HullDescriptionID = 57; /* Geosurvey Ship */
+UPDATE FCT_HullDescription SET Description = '地质调查船' WHERE HullDescriptionID = 57; /* Geosurvey Ship */
 UPDATE FCT_HullDescription SET Description = '轰炸巡洋舰' WHERE HullDescriptionID = 58; /* Bombardment Cruiser */
 UPDATE FCT_HullDescription SET Description = '行星防御中心' WHERE HullDescriptionID = 59; /* Planetary Defence Centre */
 UPDATE FCT_HullDescription SET Description = '行星战斗机基地' WHERE HullDescriptionID = 60; /* Planetary Fighter Base */
@@ -4125,14 +4124,14 @@ UPDATE FCT_HullDescription SET Description = '侦察兵护卫舰' WHERE HullDesc
 UPDATE FCT_HullDescription SET Description = '弹药补给船' WHERE HullDescriptionID = 62; /* Collier */
 UPDATE FCT_HullDescription SET Description = '突击运输船' WHERE HullDescriptionID = 63; /* Assault Transport */
 UPDATE FCT_HullDescription SET Description = '跳跃护卫舰' WHERE HullDescriptionID = 64; /* Jump Frigate */
-UPDATE FCT_HullDescription SET Description = '勘测指挥舰' WHERE HullDescriptionID = 65; /* Survey Command Ship */
-UPDATE FCT_HullDescription SET Description = '引力勘测船' WHERE HullDescriptionID = 66; /* Gravsurvey Ship */
+UPDATE FCT_HullDescription SET Description = '测量指挥舰' WHERE HullDescriptionID = 65; /* Survey Command Ship */
+UPDATE FCT_HullDescription SET Description = '重力场测量船' WHERE HullDescriptionID = 66; /* Gravsurvey Ship */
 UPDATE FCT_HullDescription SET Description = '导弹基地' WHERE HullDescriptionID = 67; /* Missile Base */
 UPDATE FCT_HullDescription SET Description = '炮艇' WHERE HullDescriptionID = 68; /* Gunboat */
 UPDATE FCT_HullDescription SET Description = '母舰' WHERE HullDescriptionID = 69; /* Mothership */
 UPDATE FCT_HullDescription SET Description = '预警艇' WHERE HullDescriptionID = 70; /* Early Warning Craft */
 UPDATE FCT_HullDescription SET Description = '穿梭机' WHERE HullDescriptionID = 71; /* Shuttle */
-UPDATE FCT_HullDescription SET Description = '勘测支持舰' WHERE HullDescriptionID = 73; /* Survey Support */
+UPDATE FCT_HullDescription SET Description = '调查支持舰' WHERE HullDescriptionID = 73; /* Survey Support */
 UPDATE FCT_HullDescription SET Description = '侦察巡洋舰' WHERE HullDescriptionID = 74; /* Scout Cruiser */
 UPDATE FCT_HullDescription SET Description = '支援船' WHERE HullDescriptionID = 75; /* Support Vessel */
 UPDATE FCT_HullDescription SET Description = '攻击' WHERE HullDescriptionID = 76; /* Attack Craft */
@@ -4146,7 +4145,7 @@ UPDATE FCT_HullDescription SET Description = '轻型战斗机' WHERE HullDescrip
 UPDATE FCT_HullDescription SET Description = '侦察战斗机' WHERE HullDescriptionID = 84; /* Recon Fighter */
 UPDATE FCT_HullDescription SET Description = '攻击战斗机' WHERE HullDescriptionID = 85; /* Strikefighter */
 UPDATE FCT_HullDescription SET Description = '传感器前哨站' WHERE HullDescriptionID = 86; /* Sensor Outpost */
-UPDATE FCT_HullDescription SET Description = '勘测轻型护卫舰' WHERE HullDescriptionID = 87; /* Survey Corvette */
+UPDATE FCT_HullDescription SET Description = '调查轻型护卫舰' WHERE HullDescriptionID = 87; /* Survey Corvette */
 UPDATE FCT_HullDescription SET Description = '战斗机基地' WHERE HullDescriptionID = 88; /* Fighter Base */
 UPDATE FCT_HullDescription SET Description = '导弹艇' WHERE HullDescriptionID = 89; /* Missile Boat */
 UPDATE FCT_HullDescription SET Description = '补给基地' WHERE HullDescriptionID = 90; /* Resupply Base */
@@ -4170,13 +4169,13 @@ UPDATE FCT_HullDescription SET Description = '太空堡垒' WHERE HullDescriptio
 UPDATE FCT_HullDescription SET Description = '侦察护卫舰' WHERE HullDescriptionID = 108; /* Recon Frigate */
 UPDATE FCT_HullDescription SET Description = '补给船' WHERE HullDescriptionID = 109; /* Replenishment Ship */
 UPDATE FCT_HullDescription SET Description = '维修基地' WHERE HullDescriptionID = 110; /* Maintenance Base */
-UPDATE FCT_HullDescription SET Description = '远程勘测船' WHERE HullDescriptionID = 111; /* Long Range Survey Ship */
-UPDATE FCT_HullDescription SET Description = '远程引力勘测船' WHERE HullDescriptionID = 112; /* Long Range Gravsurvey Vessel */
+UPDATE FCT_HullDescription SET Description = '远程测量船' WHERE HullDescriptionID = 111; /* Long Range Survey Ship */
+UPDATE FCT_HullDescription SET Description = '远程重力场测量船' WHERE HullDescriptionID = 112; /* Long Range Gravsurvey Vessel */
 UPDATE FCT_HullDescription SET Description = '登陆艇' WHERE HullDescriptionID = 113; /* Dropship */
 UPDATE FCT_HullDescription SET Description = '攻击穿梭机' WHERE HullDescriptionID = 114; /* Assault Shuttle */
 UPDATE FCT_HullDescription SET Description = '豪华游轮' WHERE HullDescriptionID = 115; /* Luxury Liner */
-UPDATE FCT_HullDescription SET Description = '引力勘测船' WHERE HullDescriptionID = 116; /* Gravitational Survey Vessel */
-UPDATE FCT_HullDescription SET Description = '地质勘探船' WHERE HullDescriptionID = 117; /* Geological Survey Vessel */
+UPDATE FCT_HullDescription SET Description = '重力测量船' WHERE HullDescriptionID = 116; /* Gravitational Survey Vessel */
+UPDATE FCT_HullDescription SET Description = '地质调查船' WHERE HullDescriptionID = 117; /* Geological Survey Vessel */
 UPDATE FCT_HullDescription SET Description = '突击航母' WHERE HullDescriptionID = 118; /* Assault Carrier */
 UPDATE FCT_HullDescription SET Description = '命令空投' WHERE HullDescriptionID = 119; /* Command Dropship */
 UPDATE FCT_HullDescription SET Description = '货船' WHERE HullDescriptionID = 120; /* Cargo Ship */
@@ -4198,7 +4197,7 @@ UPDATE FCT_HullDescription SET Description = '直销护送' WHERE HullDescriptio
 UPDATE FCT_HullDescription SET Description = '船队拖船' WHERE HullDescriptionID = 136; /* Fleet Tug */
 UPDATE FCT_HullDescription SET Description = '轨道栖息地' WHERE HullDescriptionID = 150; /* Orbital Habitat */
 UPDATE FCT_HullDescription SET Description = '空间站' WHERE HullDescriptionID = 151; /* Space Station */
-UPDATE FCT_HullDescription SET Description = '勘测船' WHERE HullDescriptionID = 153; /* Survey Craft */
+UPDATE FCT_HullDescription SET Description = '测量工艺' WHERE HullDescriptionID = 153; /* Survey Craft */
 UPDATE FCT_HullDescription SET Description = '勘探船' WHERE HullDescriptionID = 155; /* Exploration Ship */
 UPDATE FCT_HullDescription SET Description = '跳跃侦察兵' WHERE HullDescriptionID = 156; /* Jump Scout */
 UPDATE FCT_HullDescription SET Description = '童子军基地' WHERE HullDescriptionID = 157; /* Scout Base */
@@ -4238,7 +4237,7 @@ UPDATE FCT_HullDescription SET Description = '动能护卫舰' WHERE HullDescrip
 UPDATE FCT_HullDescription SET Description = '跳跃殖民地船' WHERE HullDescriptionID = 192; /* Jump Colony Ship */
 UPDATE FCT_HullDescription SET Description = '移动跳闸门' WHERE HullDescriptionID = 193; /* Mobile Jump Gate */
 UPDATE FCT_HullDescription SET Description = '动能战列巡洋舰' WHERE HullDescriptionID = 195; /* Kinetic Battlecruiser */
-UPDATE FCT_HullDescription SET Description = '勘测支援基地' WHERE HullDescriptionID = 197; /* Survey Support Base */
+UPDATE FCT_HullDescription SET Description = '调查支援基地' WHERE HullDescriptionID = 197; /* Survey Support Base */
 UPDATE FCT_HullDescription SET Description = '辅助母舰' WHERE HullDescriptionID = 198; /* Auxiliary Carrier */
 UPDATE FCT_HullDescription SET Description = '舰队基地（维护）' WHERE HullDescriptionID = 199; /* Fleet Base (Maintenance) */
 UPDATE FCT_HullDescription SET Description = '舰队基地（维修）' WHERE HullDescriptionID = 200; /* Fleet Base (Repair) */
@@ -4255,19 +4254,19 @@ UPDATE FCT_HullDescription SET Description = '未知' WHERE HullDescriptionID = 
 UPDATE FCT_HullDescription SET Description = '情报船' WHERE HullDescriptionID = 212; /* Intelligence Ship */
 UPDATE FCT_HullDescription SET Description = '轨道防御基地' WHERE HullDescriptionID = 213; /* Orbital Defence Base */
 UPDATE FCT_HullDescription SET Description = '蜂巢船' WHERE HullDescriptionID = 214; /* Hive Ship */
-UPDATE FCT_HullDescription SET Description = '勘测巡洋舰' WHERE HullDescriptionID = 215; /* Survey Cruiser */
+UPDATE FCT_HullDescription SET Description = '调查巡洋舰' WHERE HullDescriptionID = 215; /* Survey Cruiser */
 UPDATE FCT_HullDescription SET Description = '稳定船' WHERE HullDescriptionID = 216; /* Stabilisation Ship */
 UPDATE FCT_HullDescription SET Description = '跳点稳定空间站' WHERE HullDescriptionID = 217; /* Jump Stabilisation Station */
 UPDATE FCT_HullDescription SET Description = '挖矿平台' WHERE HullDescriptionID = 218; /* Mining Platform */
 UPDATE FCT_HullDescription SET Description = '登陆舰' WHERE HullDescriptionID = 219; /* Landing Ship */
 UPDATE FCT_HullDescription SET Description = '跃迁引导空间站' WHERE HullDescriptionID = 220; /* Jump Tender Station */
-UPDATE FCT_HullDescription SET Description = '勘测指挥巡洋舰' WHERE HullDescriptionID = 221; /* Survey Command Cruiser */
-UPDATE FCT_HullDescription SET Description = '勘测支援巡洋舰' WHERE HullDescriptionID = 222; /* Survey Support Cruiser */
+UPDATE FCT_HullDescription SET Description = '测量指挥巡洋舰' WHERE HullDescriptionID = 221; /* Survey Command Cruiser */
+UPDATE FCT_HullDescription SET Description = '测量支援巡洋舰' WHERE HullDescriptionID = 222; /* Survey Support Cruiser */
 UPDATE FCT_HullDescription SET Description = '快速加油船' WHERE HullDescriptionID = 223; /* Fast Tanker */
 UPDATE FCT_HullDescription SET Description = '防御监视船' WHERE HullDescriptionID = 224; /* Defence Monitor */
 UPDATE FCT_HullDescription SET Description = '地形改造空间站' WHERE HullDescriptionID = 225; /* Terraforming Station */
 UPDATE FCT_HullDescription SET Description = '轨道防御平台' WHERE HullDescriptionID = 226; /* Orbital Defence Platform */
-UPDATE FCT_HullDescription SET Description = '引力勘测船' WHERE HullDescriptionID = 227; /* Gravitational Survey Craft */
+UPDATE FCT_HullDescription SET Description = '引力测量船' WHERE HullDescriptionID = 227; /* Gravitational Survey Craft */
 UPDATE FCT_HullDescription SET Description = '著陆器' WHERE HullDescriptionID = 228; /* Lander */
 UPDATE FCT_HullDescription SET Description = '轻型跳跃巡洋舰' WHERE HullDescriptionID = 229; /* Light Jump Cruiser */
 UPDATE FCT_HullDescription SET Description = '探索巡洋舰' WHERE HullDescriptionID = 230; /* Exploration Cruiser */
@@ -4278,7 +4277,7 @@ UPDATE FCT_HullDescription SET Description = '轨道采矿平台' WHERE HullDesc
 UPDATE FCT_HullDescription SET Description = '侦察艇' WHERE HullDescriptionID = 235; /* Reconnaissance Craft */
 UPDATE FCT_HullDescription SET Description = '启动平台' WHERE HullDescriptionID = 236; /* Launch Platform */
 UPDATE FCT_HullDescription SET Description = '侦察船' WHERE HullDescriptionID = 237; /* Recon Craft */
-UPDATE FCT_HullDescription SET Description = '地质勘探船' WHERE HullDescriptionID = 238; /* Geological Survey Craft */
+UPDATE FCT_HullDescription SET Description = '地质调查船' WHERE HullDescriptionID = 238; /* Geological Survey Craft */
 UPDATE FCT_HullDescription SET Description = '锚地' WHERE HullDescriptionID = 239; /* Anchorage */
 UPDATE FCT_HullDescription SET Description = '受保护的巡洋舰' WHERE HullDescriptionID = 240; /* Protected Cruiser */
 UPDATE FCT_HullDescription SET Description = '二等巡洋舰' WHERE HullDescriptionID = 241; /* Second Class Cruiser */
@@ -4292,7 +4291,6 @@ UPDATE FCT_HullDescription SET Description = '军用油轮' WHERE HullDescriptio
 UPDATE FCT_HullDescription SET Description = '部队穿梭机' WHERE HullDescriptionID = 249; /* Troop Shuttle */
 UPDATE FCT_HullDescription SET Description = '情报轻型护卫舰' WHERE HullDescriptionID = 250; /* Intelligence Corvette */
 UPDATE FCT_HullDescription SET Description = '对地支援战斗机' WHERE HullDescriptionID = 251; /* Ground Support Fighter */
-UPDATE FCT_HullDescription SET Description = '勘测引导船' WHERE HullDescriptionID = 252; /* Survey Tender */
 UPDATE FCT_HullDescription SET Description = '登入舱' WHERE HullDescriptionID = 253; /* Breaching Pod */
 UPDATE FCT_HullDescription SET Description = '护航护卫舰' WHERE HullDescriptionID = 254; /* Escort Frigate */
 UPDATE FCT_HullDescription SET Description = '警用切割舰' WHERE HullDescriptionID = 255; /* Police Cutter */
@@ -4303,11 +4301,11 @@ UPDATE FCT_HullDescription SET Description = '奴隶运输船' WHERE HullDescrip
 UPDATE FCT_HullDescription SET Description = '鱼雷巡洋舰' WHERE HullDescriptionID = 260; /* Torpedo Cruiser */
 UPDATE FCT_HullDescription SET Description = '一等巡洋舰' WHERE HullDescriptionID = 261; /* First Class Cruiser */
 UPDATE FCT_HullDescription SET Description = '反潜驱逐舰' WHERE HullDescriptionID = 264; /* ASW Destroyer */
-UPDATE FCT_HullDescription SET Description = '勘测船' WHERE HullDescriptionID = 265; /* Survey Vessel */
+UPDATE FCT_HullDescription SET Description = '调查船只' WHERE HullDescriptionID = 265; /* Survey Vessel */
 UPDATE FCT_HullDescription SET Description = '跳跃运输船' WHERE HullDescriptionID = 266; /* Jump Transport */
 UPDATE FCT_HullDescription SET Description = '侦察无人机' WHERE HullDescriptionID = 267; /* Drone Scout */
 UPDATE FCT_HullDescription SET Description = '维修空间站' WHERE HullDescriptionID = 268; /* Repair Station */
-UPDATE FCT_HullDescription SET Description = '勘测猎杀船' WHERE HullDescriptionID = 269; /* Survey Hunter */
+UPDATE FCT_HullDescription SET Description = '调查猎人' WHERE HullDescriptionID = 269; /* Survey Hunter */
 UPDATE FCT_HullDescription SET Description = '殖民者运输舱' WHERE HullDescriptionID = 270; /* Colonist Transport Pod */
 UPDATE FCT_HullDescription SET Description = '行星歼灭者' WHERE HullDescriptionID = 271; /* Planet Killer */
 UPDATE FCT_HullDescription SET Description = '浮标部署船' WHERE HullDescriptionID = 272; /* Buoy Deployment Craft */
@@ -4318,21 +4316,21 @@ UPDATE FCT_HullDescription SET Description = '供应运输舰' WHERE HullDescrip
 UPDATE FCT_HullDescription SET Description = '军事补给船' WHERE HullDescriptionID = 278; /* Military Replenishment Ship */
 UPDATE FCT_HullDescription SET Description = '俯冲轰炸机' WHERE HullDescriptionID = 279; /* Dive Bomber */
 UPDATE FCT_HullDescription SET Description = '星舰' WHERE HullDescriptionID = 280; /* Starship */
-UPDATE FCT_HullDescription SET Description = '引力勘测穿梭机' WHERE HullDescriptionID = 281; /* Gravitational Survey Shuttle */
-UPDATE FCT_HullDescription SET Description = '地质勘探穿梭机' WHERE HullDescriptionID = 282; /* Geological Survey Shuttle */
+UPDATE FCT_HullDescription SET Description = '重力探测穿梭机' WHERE HullDescriptionID = 281; /* Gravitational Survey Shuttle */
+UPDATE FCT_HullDescription SET Description = '地质调查穿梭机' WHERE HullDescriptionID = 282; /* Geological Survey Shuttle */
 UPDATE FCT_HullDescription SET Description = '多功能穿梭机' WHERE HullDescriptionID = 283; /* Utility Shuttle */
 UPDATE FCT_HullDescription SET Description = '星际基地' WHERE HullDescriptionID = 284; /* Starbase */
 UPDATE FCT_HullDescription SET Description = '国防卫星' WHERE HullDescriptionID = 285; /* Defence Satellite */
 UPDATE FCT_HullDescription SET Description = '歼星舰' WHERE HullDescriptionID = 286; /* Star Destroyer */
 UPDATE FCT_HullDescription SET Description = 'TIE 轰炸机' WHERE HullDescriptionID = 287; /* TIE Bomber */
-UPDATE FCT_HullDescription SET Description = '勘测母舰' WHERE HullDescriptionID = 288; /* Survey Carrier */
+UPDATE FCT_HullDescription SET Description = '探测母舰' WHERE HullDescriptionID = 288; /* Survey Carrier */
 UPDATE FCT_HullDescription SET Description = '船坞' WHERE HullDescriptionID = 289; /* Dockyard */
 UPDATE FCT_HullDescription SET Description = '殖民者运输船' WHERE HullDescriptionID = 290; /* Colonist Transport */
 UPDATE FCT_HullDescription SET Description = '跃迁轻型护卫舰' WHERE HullDescriptionID = 291; /* Jump Corvette */
 UPDATE FCT_HullDescription SET Description = '军事跃迁引导舰' WHERE HullDescriptionID = 292; /* Military Jump Tender */
 UPDATE FCT_HullDescription SET Description = '安全穿梭机' WHERE HullDescriptionID = 293; /* Security Shuttle */
 UPDATE FCT_HullDescription SET Description = '武装穿梭机' WHERE HullDescriptionID = 294; /* Armed Shuttle */
-UPDATE FCT_HullDescription SET Description = '勘测穿梭机' WHERE HullDescriptionID = 295; /* Survey Shuttle */
+UPDATE FCT_HullDescription SET Description = '调查穿梭机' WHERE HullDescriptionID = 295; /* Survey Shuttle */
 UPDATE FCT_HullDescription SET Description = '搜救穿梭机' WHERE HullDescriptionID = 296; /* Search and Rescue Shuttle */
 UPDATE FCT_HullDescription SET Description = '小快艇' WHERE HullDescriptionID = 297; /* Runabout */
 UPDATE DIM_NamingThemeTypes SET Description = '名字加数字' WHERE ThemeID = 1; /* Name Plus Number */
@@ -4749,8 +4747,8 @@ UPDATE DIM_AssignmentTypeFilter SET Description = '舰队司令' WHERE Assignmen
 UPDATE DIM_AssignmentTypeFilter SET Description = '学院指挥官' WHERE AssignmentTypeID = 18; /* Academy Commandant */
 UPDATE DIM_AssignmentTypeFilter SET Description = '商务执行官' WHERE AssignmentTypeID = 19; /* Executive Officer - Commercial */
 UPDATE DIM_OperationalGroupProgression SET Description = '轨道防御' WHERE rowid = 1; /* Orbital Defences */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 2; /* Geological Survey */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 3; /* Gravitational Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 2; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力场探测' WHERE rowid = 3; /* Gravitational Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '导弹战斗舰队' WHERE rowid = 4; /* Missile Battle Fleet */
 UPDATE DIM_OperationalGroupProgression SET Description = '轨道防御' WHERE rowid = 5; /* Orbital Defences */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 6; /* Scout */
@@ -4758,8 +4756,8 @@ UPDATE DIM_OperationalGroupProgression SET Description = '导弹战斗舰队' WH
 UPDATE DIM_OperationalGroupProgression SET Description = '轨道防御' WHERE rowid = 8; /* Orbital Defences */
 UPDATE DIM_OperationalGroupProgression SET Description = 'FAC 猎杀中队' WHERE rowid = 9; /* FAC Hunter Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '跳点稳定中队' WHERE rowid = 10; /* Stabilisation Squadron */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 11; /* Geological Survey */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 12; /* Gravitational Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 11; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力场探测' WHERE rowid = 12; /* Gravitational Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 13; /* Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = '打捞中队' WHERE rowid = 14; /* Salvage Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '环境改造组' WHERE rowid = 15; /* Terraformer Group */
@@ -4770,7 +4768,7 @@ UPDATE DIM_OperationalGroupProgression SET Description = '打捞中队' WHERE ro
 UPDATE DIM_OperationalGroupProgression SET Description = '环境改造组' WHERE rowid = 20; /* Terraformer Group */
 UPDATE DIM_OperationalGroupProgression SET Description = '轨道防御' WHERE rowid = 21; /* Orbital Defences */
 UPDATE DIM_OperationalGroupProgression SET Description = '导弹战斗舰队' WHERE rowid = 22; /* Missile Battle Fleet */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 23; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 23; /* Geological Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 24; /* Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = 'FAC 猎杀中队' WHERE rowid = 25; /* FAC Hunter Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '跳点稳定中队' WHERE rowid = 26; /* Stabilisation Squadron */
@@ -4806,8 +4804,8 @@ UPDATE DIM_OperationalGroupProgression SET Description = '仅限光束武器 作
 UPDATE DIM_OperationalGroupProgression SET Description = '仅限光束武器 驱逐舰中队' WHERE rowid = 56; /* Beam-Only DD Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '跳点防御' WHERE rowid = 57; /* Jump Point Defence */
 UPDATE DIM_OperationalGroupProgression SET Description = '轨道防御' WHERE rowid = 58; /* Orbital Defences */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 59; /* Geological Survey */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 60; /* Gravitational Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 59; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力场探测' WHERE rowid = 60; /* Gravitational Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '导弹战斗舰队-跃迁' WHERE rowid = 61; /* Missile Battle Fleet - Jump */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 62; /* Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = '导弹战斗舰队-跃迁' WHERE rowid = 63; /* Missile Battle Fleet - Jump */
@@ -4815,8 +4813,8 @@ UPDATE DIM_OperationalGroupProgression SET Description = '轨道防御' WHERE ro
 UPDATE DIM_OperationalGroupProgression SET Description = '轨道防御' WHERE rowid = 65; /* Orbital Defences */
 UPDATE DIM_OperationalGroupProgression SET Description = 'FAC 猎杀中队-跃迁' WHERE rowid = 66; /* FAC Hunter Squadron - Jump */
 UPDATE DIM_OperationalGroupProgression SET Description = '跳点稳定中队' WHERE rowid = 67; /* Stabilisation Squadron */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 68; /* Geological Survey */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 69; /* Gravitational Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 68; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力场探测' WHERE rowid = 69; /* Gravitational Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 70; /* Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = '打捞中队' WHERE rowid = 71; /* Salvage Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '环境改造组' WHERE rowid = 72; /* Terraformer Group */
@@ -4836,7 +4834,7 @@ UPDATE DIM_OperationalGroupProgression SET Description = '环境改造组' WHERE
 UPDATE DIM_OperationalGroupProgression SET Description = '轨道防御' WHERE rowid = 86; /* Orbital Defences */
 UPDATE DIM_OperationalGroupProgression SET Description = '导弹战斗舰队-跃迁' WHERE rowid = 87; /* Missile Battle Fleet - Jump */
 UPDATE DIM_OperationalGroupProgression SET Description = '跳点防御' WHERE rowid = 88; /* Jump Point Defence */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 89; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 89; /* Geological Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 90; /* Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = 'FAC 猎杀中队-跃迁' WHERE rowid = 91; /* FAC Hunter Squadron - Jump */
 UPDATE DIM_OperationalGroupProgression SET Description = '轨道采矿组' WHERE rowid = 92; /* Orbital Miner Group */
@@ -4861,14 +4859,14 @@ UPDATE DIM_OperationalGroupProgression SET Description = '超大型蜂巢舰队'
 UPDATE DIM_OperationalGroupProgression SET Description = '蜂群突击中队' WHERE rowid = 111; /* Swarm Assault Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '蜂群攻击中队' WHERE rowid = 112; /* Swarm Attack Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '蜂群地质勘探' WHERE rowid = 113; /* Swarm Geosurvey */
-UPDATE DIM_OperationalGroupProgression SET Description = '蜂群引力勘测' WHERE rowid = 114; /* Swarm Gravsurvey */
+UPDATE DIM_OperationalGroupProgression SET Description = '蜂群重要力探测' WHERE rowid = 114; /* Swarm Gravsurvey */
 UPDATE DIM_OperationalGroupProgression SET Description = '外交船' WHERE rowid = 115; /* Diplomatic Ship */
 UPDATE DIM_OperationalGroupProgression SET Description = '外交船' WHERE rowid = 116; /* Diplomatic Ship */
 UPDATE DIM_OperationalGroupProgression SET Description = '外交船' WHERE rowid = 117; /* Diplomatic Ship */
 UPDATE DIM_OperationalGroupProgression SET Description = '外交船' WHERE rowid = 118; /* Diplomatic Ship */
 UPDATE DIM_OperationalGroupProgression SET Description = '波束轨道防御' WHERE rowid = 119; /* Beam Orbital Defences */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 120; /* Geological Survey */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 121; /* Gravitational Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 120; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力场探测' WHERE rowid = 121; /* Gravitational Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '波束战斗舰队' WHERE rowid = 122; /* Beam Battle Fleet */
 UPDATE DIM_OperationalGroupProgression SET Description = '波束轨道防御' WHERE rowid = 123; /* Beam Orbital Defences */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 124; /* Scout */
@@ -4878,8 +4876,8 @@ UPDATE DIM_OperationalGroupProgression SET Description = '仅光束DD中队' WHE
 UPDATE DIM_OperationalGroupProgression SET Description = '油轮' WHERE rowid = 128; /* Tanker */
 UPDATE DIM_OperationalGroupProgression SET Description = '运兵团-运兵团' WHERE rowid = 129; /* Troop Transport Group - Beam Escort */
 UPDATE DIM_OperationalGroupProgression SET Description = '稳定中队-光束护送' WHERE rowid = 130; /* Stabilisation Squadron - Beam Escort */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 131; /* Geological Survey */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 132; /* Gravitational Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 131; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力场探测' WHERE rowid = 132; /* Gravitational Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '外交船' WHERE rowid = 133; /* Diplomatic Ship */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 134; /* Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = '跳跃点防御-仅限横梁' WHERE rowid = 135; /* Jump Point Defence - Beam Only */
@@ -4898,7 +4896,7 @@ UPDATE DIM_OperationalGroupProgression SET Description = '地形群-波束护卫
 UPDATE DIM_OperationalGroupProgression SET Description = '轨道防御' WHERE rowid = 148; /* Orbital Defences */
 UPDATE DIM_OperationalGroupProgression SET Description = '波束战斗舰队' WHERE rowid = 149; /* Beam Battle Fleet */
 UPDATE DIM_OperationalGroupProgression SET Description = '跳跃点防御-仅限横梁' WHERE rowid = 150; /* Jump Point Defence - Beam Only */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 151; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 151; /* Geological Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 152; /* Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = '外交船' WHERE rowid = 153; /* Diplomatic Ship */
 UPDATE DIM_OperationalGroupProgression SET Description = '仅光束DD中队' WHERE rowid = 154; /* Beam-only DD squadron */
@@ -4912,33 +4910,33 @@ UPDATE DIM_OperationalGroupProgression SET Description = '环境改造组' WHERE
 UPDATE DIM_OperationalGroupProgression SET Description = '波束战斗舰队' WHERE rowid = 162; /* Beam Battle Fleet */
 UPDATE DIM_OperationalGroupProgression SET Description = '跳点防御' WHERE rowid = 163; /* Jump Point Defence */
 UPDATE DIM_OperationalGroupProgression SET Description = '仅光束DD中队' WHERE rowid = 164; /* Beam-only DD squadron */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 165; /* Grav survey */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 166; /* Grav survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力测量' WHERE rowid = 165; /* Grav survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力测量' WHERE rowid = 166; /* Grav survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '入侵者侦察兵' WHERE rowid = 167; /* Invader Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = '攻击中队' WHERE rowid = 168; /* Attack Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '稳定中队-仅限横梁' WHERE rowid = 169; /* Stabilisation Squadron - Beam Only */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 170; /* Grav survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力测量' WHERE rowid = 170; /* Grav survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '攻击中队' WHERE rowid = 171; /* Attack Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '稳定中队-仅限横梁' WHERE rowid = 172; /* Stabilisation Squadron - Beam Only */
 UPDATE DIM_OperationalGroupProgression SET Description = '作战中队' WHERE rowid = 173; /* Battle Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '入侵者侦察兵' WHERE rowid = 174; /* Invader Scout */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 175; /* Grav survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力测量' WHERE rowid = 175; /* Grav survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '作战中队' WHERE rowid = 176; /* Battle Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '稳定中队-仅限横梁' WHERE rowid = 177; /* Stabilisation Squadron - Beam Only */
 UPDATE DIM_OperationalGroupProgression SET Description = '攻击中队' WHERE rowid = 178; /* Attack Squadron */
 UPDATE DIM_OperationalGroupProgression SET Description = '入侵者侦察兵' WHERE rowid = 179; /* Invader Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = '舰队' WHERE rowid = 180; /* Battle Fleet */
 UPDATE DIM_OperationalGroupProgression SET Description = '稳定中队-仅限横梁' WHERE rowid = 181; /* Stabilisation Squadron - Beam Only */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 182; /* Grav survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力测量' WHERE rowid = 182; /* Grav survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '舰队' WHERE rowid = 183; /* Battle Fleet */
 UPDATE DIM_OperationalGroupProgression SET Description = '入侵者侦察兵' WHERE rowid = 184; /* Invader Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = '稳定中队-仅限横梁' WHERE rowid = 185; /* Stabilisation Squadron - Beam Only */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 186; /* Grav survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力测量' WHERE rowid = 186; /* Grav survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '侵略者大型作战舰队' WHERE rowid = 187; /* Invader Large Battle Fleet */
 UPDATE DIM_OperationalGroupProgression SET Description = '侵略者大型作战舰队' WHERE rowid = 188; /* Invader Large Battle Fleet */
 UPDATE DIM_OperationalGroupProgression SET Description = '波束轨道防御' WHERE rowid = 189; /* Beam Orbital Defences */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 190; /* Geological Survey */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 191; /* Gravitational Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 190; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力场探测' WHERE rowid = 191; /* Gravitational Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '波束战斗舰队跳跃' WHERE rowid = 192; /* Beam Battle Fleet Jump */
 UPDATE DIM_OperationalGroupProgression SET Description = '波束轨道防御' WHERE rowid = 193; /* Beam Orbital Defences */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 194; /* Scout */
@@ -4948,8 +4946,8 @@ UPDATE DIM_OperationalGroupProgression SET Description = '仅光束DD中队-跳�
 UPDATE DIM_OperationalGroupProgression SET Description = '油轮' WHERE rowid = 198; /* Tanker */
 UPDATE DIM_OperationalGroupProgression SET Description = '运兵团-运梁护送-跳跃' WHERE rowid = 199; /* Troop Transport Group - Beam Escort - Jump */
 UPDATE DIM_OperationalGroupProgression SET Description = '稳定中队-光束护送' WHERE rowid = 200; /* Stabilisation Squadron - Beam Escort */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 201; /* Geological Survey */
-UPDATE DIM_OperationalGroupProgression SET Description = '引力勘测' WHERE rowid = 202; /* Gravitational Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 201; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '重力场探测' WHERE rowid = 202; /* Gravitational Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '外交船' WHERE rowid = 203; /* Diplomatic Ship */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 204; /* Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = '跳跃点防御-仅限横梁' WHERE rowid = 205; /* Jump Point Defence - Beam Only */
@@ -4968,7 +4966,7 @@ UPDATE DIM_OperationalGroupProgression SET Description = '地形群-波束护卫
 UPDATE DIM_OperationalGroupProgression SET Description = '轨道防御' WHERE rowid = 218; /* Orbital Defences */
 UPDATE DIM_OperationalGroupProgression SET Description = '波束战斗舰队跳跃' WHERE rowid = 219; /* Beam Battle Fleet Jump */
 UPDATE DIM_OperationalGroupProgression SET Description = '跳跃点防御-仅限横梁' WHERE rowid = 220; /* Jump Point Defence - Beam Only */
-UPDATE DIM_OperationalGroupProgression SET Description = '地质勘探' WHERE rowid = 221; /* Geological Survey */
+UPDATE DIM_OperationalGroupProgression SET Description = '地质调查' WHERE rowid = 221; /* Geological Survey */
 UPDATE DIM_OperationalGroupProgression SET Description = '侦察' WHERE rowid = 222; /* Scout */
 UPDATE DIM_OperationalGroupProgression SET Description = '外交船' WHERE rowid = 223; /* Diplomatic Ship */
 UPDATE DIM_OperationalGroupProgression SET Description = '仅光束DD中队-跳跃' WHERE rowid = 224; /* Beam-only DD squadron - Jump */
@@ -5337,7 +5335,7 @@ UPDATE FCT_ShipDesignComponents SET Name = '货舱 - 小' WHERE SDComponentID = 
 UPDATE FCT_ShipDesignComponents SET Name = '货舱 - 穿梭机' WHERE SDComponentID = 4; /* Cargo Hold - Shuttle */
 UPDATE FCT_ShipDesignComponents SET Name = '船员舱' WHERE SDComponentID = 8; /* Crew Quarters */
 UPDATE FCT_ShipDesignComponents SET Name = '舰桥' WHERE SDComponentID = 18; /* Bridge */
-UPDATE FCT_ShipDesignComponents SET Name = '引力勘测传感器' WHERE SDComponentID = 24; /* Gravitational Survey Sensors */
+UPDATE FCT_ShipDesignComponents SET Name = '重力测量传感器' WHERE SDComponentID = 24; /* Gravitational Survey Sensors */
 UPDATE FCT_ShipDesignComponents SET Name = '货运穿棱机舱' WHERE SDComponentID = 53; /* Cargo Shuttle Bay */
 UPDATE FCT_ShipDesignComponents SET Name = '导弹干扰器 1' WHERE SDComponentID = 55; /* Missile Jammer 1 */
 UPDATE FCT_ShipDesignComponents SET Name = '导弹干扰器 2' WHERE SDComponentID = 56; /* Missile Jammer 2 */
@@ -5350,10 +5348,10 @@ UPDATE FCT_ShipDesignComponents SET Name = '导弹干扰器 8' WHERE SDComponent
 UPDATE FCT_ShipDesignComponents SET Name = '导弹干扰器 9' WHERE SDComponentID = 63; /* Missile Jammer 9 */
 UPDATE FCT_ShipDesignComponents SET Name = '导弹干扰器 10' WHERE SDComponentID = 64; /* Missile Jammer 10 */
 UPDATE FCT_ShipDesignComponents SET Name = '旗舰舰桥' WHERE SDComponentID = 225; /* Flag Bridge */
-UPDATE FCT_ShipDesignComponents SET Name = '改进的引力勘测传感器' WHERE SDComponentID = 442; /* Improved Gravitational Sensors */
+UPDATE FCT_ShipDesignComponents SET Name = '改进的重力传感器' WHERE SDComponentID = 442; /* Improved Gravitational Sensors */
 UPDATE FCT_ShipDesignComponents SET Name = '低温休眠仓' WHERE SDComponentID = 479; /* Cryogenic Transport */
 UPDATE FCT_ShipDesignComponents SET Name = '地质勘探传感器' WHERE SDComponentID = 480; /* Geological Survey Sensors */
-UPDATE FCT_ShipDesignComponents SET Name = '改进的地质勘测传感器' WHERE SDComponentID = 481; /* Improved Geological Sensors */
+UPDATE FCT_ShipDesignComponents SET Name = '改进的地质传感器' WHERE SDComponentID = 481; /* Improved Geological Sensors */
 UPDATE FCT_ShipDesignComponents SET Name = '燃料舱' WHERE SDComponentID = 600; /* Fuel Storage - Standard */
 UPDATE FCT_ShipDesignComponents SET Name = '部队运输舱 - 大型' WHERE SDComponentID = 728; /* Troop Transport Bay - Large */
 UPDATE FCT_ShipDesignComponents SET Name = '贫铀装甲' WHERE SDComponentID = 3136; /* Duranium Armour */
@@ -5402,10 +5400,10 @@ UPDATE FCT_ShipDesignComponents SET Name = '跳点稳定模块- 20' WHERE SDComp
 UPDATE FCT_ShipDesignComponents SET Name = '工程舱' WHERE SDComponentID = 25147; /* Engineering Spaces */
 UPDATE FCT_ShipDesignComponents SET Name = '气矿采集器' WHERE SDComponentID = 25148; /* Sorium Harvester */
 UPDATE FCT_ShipDesignComponents SET Name = '环境改造模块' WHERE SDComponentID = 25241; /* Terraforming Module */
-UPDATE FCT_ShipDesignComponents SET Name = '先进地质勘测传感器' WHERE SDComponentID = 25333; /* Advanced Geological Sensors */
-UPDATE FCT_ShipDesignComponents SET Name = '先进引力勘测传感器' WHERE SDComponentID = 25334; /* Advanced Gravitational Sensors */
-UPDATE FCT_ShipDesignComponents SET Name = '相位地质勘测传感器' WHERE SDComponentID = 25335; /* Phased Geological Sensors */
-UPDATE FCT_ShipDesignComponents SET Name = '相位引力勘测传感器' WHERE SDComponentID = 25336; /* Phased Gravitational Sensors */
+UPDATE FCT_ShipDesignComponents SET Name = '先进地质传感器' WHERE SDComponentID = 25333; /* Advanced Geological Sensors */
+UPDATE FCT_ShipDesignComponents SET Name = '先进引力传感器' WHERE SDComponentID = 25334; /* Advanced Gravitational Sensors */
+UPDATE FCT_ShipDesignComponents SET Name = '相位地质传感器' WHERE SDComponentID = 25335; /* Phased Geological Sensors */
+UPDATE FCT_ShipDesignComponents SET Name = '相位重力传感器' WHERE SDComponentID = 25336; /* Phased Gravitational Sensors */
 UPDATE FCT_ShipDesignComponents SET Name = '牵引光束' WHERE SDComponentID = 25607; /* Tractor Beam */
 UPDATE FCT_ShipDesignComponents SET Name = '轨道采矿舱' WHERE SDComponentID = 25720; /* Orbital Mining Module */
 UPDATE FCT_ShipDesignComponents SET Name = '打捞模块 500' WHERE SDComponentID = 25722; /* Salvage Module 500 */
@@ -5505,7 +5503,7 @@ UPDATE FCT_ShipDesignComponents SET Name = '低温运输 - 大型' WHERE SDCompo
 UPDATE FCT_ShipDesignComponents SET Name = '部队运输舱 - 超大型' WHERE SDComponentID = 78589; /* Troop Transport Bay - Very Large */
 UPDATE FCT_ShipDesignComponents SET Name = '部队运输与投送舱 - 非常大' WHERE SDComponentID = 78590; /* Troop Transport Drop Bay - Very Large */
 UPDATE FCT_ShipDesignComponents SET Name = '战斗机维修储藏室' WHERE SDComponentID = 82471; /* Fighter Maintenance Storage Bay */
-UPDATE FCT_ShipDesignComponents SET Name = '常规地质勘探传感器' WHERE SDComponentID = 92176; /* Conventional Geological Survey Sensors */
+UPDATE FCT_ShipDesignComponents SET Name = '常规地质调查传感器' WHERE SDComponentID = 92176; /* Conventional Geological Survey Sensors */
 UPDATE FCT_ShipDesignComponents SET Name = '部队运输舱 - 常规' WHERE SDComponentID = 92177; /* Troop Transport Bay - Conventional */
 UPDATE FCT_ShipDesignComponents SET Name = '低温运输 - 常规' WHERE SDComponentID = 92178; /* Cryogenic Transport - Conventional */
 UPDATE FCT_ShipDesignComponents SET Name = '小型船只加油系统：10,000 LPH' WHERE SDComponentID = 97493; /* Small Craft Refuelling System: 10,000 LPH */
@@ -5564,7 +5562,7 @@ UPDATE DIM_TechType SET Description = '装甲' WHERE TechTypeID = 84; /* Armour 
 UPDATE DIM_TechType SET Description = '跳点理论' WHERE TechTypeID = 85; /* Jump Point Theory */
 UPDATE DIM_TechType SET Description = '弹舱' WHERE TechTypeID = 86; /* Magazine */
 UPDATE DIM_TechType SET Description = '指挥和控制' WHERE TechTypeID = 87; /* Command and Control */
-UPDATE DIM_TechType SET Description = '引力勘测传感器' WHERE TechTypeID = 88; /* Grav Survey Sensors */
+UPDATE DIM_TechType SET Description = '重力场探测传感器' WHERE TechTypeID = 88; /* Grav Survey Sensors */
 UPDATE DIM_TechType SET Description = '地质勘探传感器' WHERE TechTypeID = 89; /* Geo Survey Sensors */
 UPDATE DIM_TechType SET Description = '部队运输间' WHERE TechTypeID = 91; /* Troop Transport Bay */
 UPDATE DIM_TechType SET Description = '损伤控制' WHERE TechTypeID = 92; /* Damage Control */
@@ -5740,7 +5738,7 @@ UPDATE DIM_GroundComponentType SET ComponentName = '蜂群近战战士' WHERE Co
 UPDATE DIM_GroundComponentType SET ComponentName = '改进的单兵武器' WHERE ComponentTypeID = 18; /* Improved Personal Weapons */
 UPDATE DIM_GroundComponentType SET ComponentName = '射击方位指示器' WHERE ComponentTypeID = 20; /* Forward Fire Direction */
 UPDATE DIM_GroundComponentType SET ComponentName = '施工设备' WHERE ComponentTypeID = 25; /* Construction Equipment */
-UPDATE DIM_GroundComponentType SET ComponentName = '地质勘探设备' WHERE ComponentTypeID = 26; /* Geosurvey Equipment */
+UPDATE DIM_GroundComponentType SET ComponentName = '地质勘测设备' WHERE ComponentTypeID = 26; /* Geosurvey Equipment */
 UPDATE DIM_GroundComponentType SET ComponentName = '单兵轻武器' WHERE ComponentTypeID = 27; /* Light Personal Weapons */
 UPDATE DIM_GroundComponentType SET ComponentName = '地对轨武器' WHERE ComponentTypeID = 41; /* Surface-to-Orbit Weapon */
 UPDATE DIM_GroundComponentType SET ComponentName = '后勤模块' WHERE ComponentTypeID = 57; /* Logistics Module */
@@ -5803,6 +5801,6 @@ UPDATE DIM_CommanderBonusType SET Description = '地面作战演习' WHERE Bonus
 UPDATE DIM_CommanderBonusType SET Description = '地面作战后勤' WHERE BonusID = 33; /* Ground Combat Logistics */
 UPDATE DIM_CommanderBonusType SET Description = '地面战-防空' WHERE BonusID = 35; /* Ground Combat Anti-Aircraft */
 UPDATE DIM_CommanderBonusType SET Description = '地面火力支持' WHERE BonusID = 36; /* Ground Support */
-UPDATE DIM_CommanderBonusType SET Description = '勘测' WHERE BonusID = 2; /* Survey */
+UPDATE DIM_CommanderBonusType SET Description = '勘探' WHERE BonusID = 2; /* Survey */
 UPDATE DIM_CommanderBonusType SET Description = '舰队训练' WHERE BonusID = 37; /* Fleet Training */
 UPDATE DIM_CommanderBonusType SET Description = '净化' WHERE BonusID = 38; /* Decontamination */
