@@ -1,0 +1,2 @@
+all:
+  cp ./index.js ./apply.sql ./index.css ./index.html ./releases -r ../../hugo-blog-src/legacy/usr/uploads/aurora4x-db-patcher/
