@@ -108,9 +108,11 @@ img {
 .recent-post-item >.recent-post-info {
   display: inline-block;
   overflow: hidden;
+  height: 100%;
   padding: 0 40px;
   width: 50%;
 }
+
 .recent-post-item .post_cover {
   overflow: hidden;
   width: 50%;
