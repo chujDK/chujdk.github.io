@@ -1,4 +1,6 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>blog of chuj</title><link>https://chujdk.github.io/</link><description>Recent content on blog of chuj</description><generator>Hugo</generator><language>zh-cn</language><managingEditor>chujj31@gmail.com (chuj)</managingEditor><webMaster>chujj31@gmail.com (chuj)</webMaster><copyright>© chuj</copyright><lastBuildDate>Sun, 13 Aug 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://chujdk.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>About</title><link>https://chujdk.github.io/about-cn.html</link><pubDate>Sun, 13 Aug 2023 00:00:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/about-cn.html</guid><description>&lt;p>&lt;a href="./about.html">EN ver&lt;/a>&lt;/p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>blog of chuj</title><link>https://chujdk.github.io/</link><description>Recent content on blog of chuj</description><generator>Hugo</generator><language>zh-cn</language><managingEditor>chujj31@gmail.com (chuj)</managingEditor><webMaster>chujj31@gmail.com (chuj)</webMaster><copyright>© chuj</copyright><lastBuildDate>Mon, 09 Jun 2025 10:03:43 +0800</lastBuildDate><atom:link href="https://chujdk.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>fuse + {get,set}xattr 利用模板</title><link>https://chujdk.github.io/mess/fuse--getsetxattr-%E5%88%A9%E7%94%A8%E6%A8%A1%E6%9D%BF.html</link><pubDate>Mon, 09 Jun 2025 10:03:43 +0800</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/mess/fuse--getsetxattr-%E5%88%A9%E7%94%A8%E6%A8%A1%E6%9D%BF.html</guid><description>&lt;h2 id="起因">起因&lt;/h2>
+&lt;p>最近由于一些原因，需要使用 fuse + getxattr 这个 gadget。关于这种方法，可以参考这两篇文章：&lt;a href="https://arttnba3.cn/2021/11/29/PWN-0X02-LINUX-KERNEL-PWN-PART-II/#setxattr-userfaultfd-FUSE-%E5%A0%86%E5%8D%A0%E4%BD%8D%E6%8A%80%E6%9C%AF">ref1&lt;/a>，&lt;a href="https://arttnba3.cn/2021/03/03/PWN-0X00-LINUX-KERNEL-PWN-PART-I/#FUSE-%E5%9F%BA%E6%9C%AC%E7%94%A8%E6%B3%95">ref2&lt;/a>。&lt;/p>
+&lt;p>&lt;a href="https://arttnba3.cn/2021/03/03/PWN-0X00-LINUX-KERNEL-PWN-PART-I/#FUSE-%E5%9F%BA%E6%9C%AC%E7%94%A8%E6%B3%95">ref2&lt;/a> 里面有给出一个模板，但是遗憾的是此模板使用的是 libfuse 提供的类 VFS 接口。使用 libfuse 就需要我们能够把 libfuse 的库链接到 exp 中，许多时候这并非太大的难度，但是有些时候这样比较麻烦。&lt;/p></description></item><item><title>About</title><link>https://chujdk.github.io/about-cn.html</link><pubDate>Sun, 13 Aug 2023 00:00:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/about-cn.html</guid><description>&lt;p>&lt;a href="./about.html">EN ver&lt;/a>&lt;/p>
 &lt;h2 id="whoami">whoami&lt;/h2>
 &lt;p>一个简单的二进制安全研究员，简单在我只会挖非常简单的洞&lt;/p>
 &lt;p>当前我主要研究 Linux 内核安全&lt;/p>
@@ -165,8 +167,7 @@
 &lt;p>这是开学的第一个月，大一下了，对大学也有了更多的了解，但是似乎在活动方面，还是毫无接触，一方面是没什么活动能够吸引到我，另一方面也是时间不太够。想想还是有些遗憾，没在大学认识多少人，也没让多少人认识我，社交圈都是同班同学，比较孤独，客观来说这并不符合我的性格。但是也不多考虑了，先提升自己的技术再说吧。&lt;/p></description></item><item><title>PWNABLE.TW-unexploitable-WP</title><link>https://chujdk.github.io/wp/1232.html</link><pubDate>Wed, 31 Mar 2021 20:00:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/1232.html</guid><description>&lt;p>此题是一个 rop，分数挺高，难度不大。&lt;/p>
 &lt;blockquote>
 &lt;p>The original challenge is on pwnable.kr and it is solvable.&lt;/p>
-&lt;p>This time we fix the vulnerability and now we promise that the service is unexploitable.&lt;/p>
-&lt;/blockquote>
+&lt;p>This time we fix the vulnerability and now we promise that the service is unexploitable.&lt;/p>&lt;/blockquote>
 &lt;p>题目描述是这样的，&lt;a href="pwnable.kr">pwnable.kr&lt;/a> 没刷过，也不知道原题是什么，反正先 IDA 里面看一下再说&lt;/p></description></item><item><title>PWNABLE.TW-De-ASLR-WP</title><link>https://chujdk.github.io/wp/1227.html</link><pubDate>Tue, 30 Mar 2021 14:53:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/1227.html</guid><description>&lt;p>这个 ROP 非常的麻烦&lt;/p>
 &lt;h3 id="分析">分析&lt;/h3>
 &lt;p>流程就两句话&lt;/p>
@@ -283,7 +284,7 @@
 &lt;li>&lt;a href="#%E5%8D%9A%E5%AE%A2">维护了自己的博客&lt;/a>&lt;/li>
 &lt;li>&lt;a href="#%E6%96%87%E5%8C%96%E8%AF%BE">文化课上没有落下太多&lt;/a>&lt;/li>
 &lt;/ul>
-&lt;h3 id="发展的方向content">&lt;a href="#content">发展的方向&lt;/a>&lt;/h3>
+&lt;h3 id="发展的方向">&lt;a href="#content">发展的方向&lt;/a>&lt;/h3>
 &lt;p>高考考的很不理想，也是失落了一段时间，到杭电读书其实也是有点小小的遗憾的。我校虽然就业情况十分乐观，但是挺难拿到高端岗位，职业寿命就无法得到保障。为了避免 35 岁被企业无情地优化掉，摆在面前似乎只有两条路，一是科研，二是竞赛。我的心气还是比较高的，即使在杭电，也希望能够在某些方面超过 985 的学生。就我校而言，由于各种原因，科研实力确实比不过 985 211 双一流高校，然而竞赛上面还是可以和这些学校竞争的。于是我决定要在一门竞赛上搞出成绩，也算是安慰、证明一下自己并不比 985 的学生差。高中的时候我搞过信息学竞赛，还算有点基础，按说 ACM 应该是最好的选择，但是我这个人是兴趣驱动的，不爱做的事情是肯定做不好的。两年多的 OI 生涯，学到的不是多少算法，而是明白了自己其实不喜欢研究算法。于是我在 10 月份的时候彻底与 ACM 断了关系，全面投入对 CTF-PWN 的学习当中。这个决定还是明智的，事实证明我确实是对计算机底层实现原理感兴趣，客观的来说 PWN 的学习门槛是很高的，许多利用方式在理解前看来都&lt;strong>与魔法无异&lt;/strong>，但是我还是比较享受这个学习过程的。&lt;/p></description></item><item><title>HGAME-WEEK3-WP</title><link>https://chujdk.github.io/wp/1100.html</link><pubDate>Sun, 21 Feb 2021 20:00:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/1100.html</guid><description>&lt;h2 id="pwn">pwn&lt;/h2>
 &lt;h3 id="blackgive">blackgive&lt;/h3>
 &lt;p>栈迁移，不要想复杂了&lt;/p>

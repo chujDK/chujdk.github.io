@@ -1,5 +1,4 @@
-<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>初探 Windows 用户态堆利用——SCTF-easyheap 和 OgeekCTF2019 babyheap wp - blog of chuj</title><link rel=icon type=image/png href=https://chujdk.github.io/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1">
-<meta name=description content="最近这段时间学习了一下 Windows heap 利用，大致感触为
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>初探 Windows 用户态堆利用——SCTF-easyheap 和 OgeekCTF2019 babyheap wp - blog of chuj</title><link rel=icon type=image/png href=https://chujdk.github.io/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="最近这段时间学习了一下 Windows heap 利用，大致感触为
 
 Windows 的 heap 利用比起 Linux 要繁琐许多，因为 Windows 中并没有类似于 __free_hook 这些可以劫持执行流的指针，类似于 Linux got 表的 IAT 表也是只读的，所以要最终实现利用往往需要通过一系列冗长的 leak 找到栈地址然后 rop。
 Windows 闭源，虽然微软提供了 pdb 文件，但是想要通过逆向搞懂整个流程还是很有逆向难度的，现在我只能跟着大佬们的总结学习流程，仿佛又回到了之前学 Linux heap exploit 之初看不懂源码意识流 pwn 的时候。
@@ -325,4 +324,4 @@ Windows 的 heap 利用比起 Linux 要繁琐许多，因为 Windows 中并没�
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
 <a class=border></a><a class=soc href=https://chujdk.github.io/index.xml rel=me title=Rss><i data-feather=rss></i></a>
-<a class=border></a></div><div class=footer-info>2024 © chuj | Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
+<a class=border></a></div><div class=footer-info>2025 © chuj | Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>

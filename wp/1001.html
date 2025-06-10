@@ -1,5 +1,4 @@
-<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>BUU-picoctf_2018_buffer overflow 0-WP - blog of chuj</title><link rel=icon type=image/png href=https://chujdk.github.io/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1">
-<meta name=description content="今天好像都是水题嘛。不过这题使用ssh连接直接给了一个没root权限的shell
+<!doctype html><html><head lang=en><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><title>BUU-picoctf_2018_buffer overflow 0-WP - blog of chuj</title><link rel=icon type=image/png href=https://chujdk.github.io/favicon.ico><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="今天好像都是水题嘛。不过这题使用ssh连接直接给了一个没root权限的shell
 
 不过有一个vuln，就是题目给出的elf。
 payload很好写，就是payload = &#34;./vuln &#34; + 'a' * 0x18 + p32(elf.plt[&#34;puts&#34;]) + 'reta' + p32(0x804A080)，这个输进去就可以了，然后我发现pwntools输不进去，蛮奇怪的。向大佬请教之后后来才知道是用法错了，文档里面是这样写的"><meta property="og:image" content><meta property="og:url" content="https://chujdk.github.io/wp/1001.html"><meta property="og:site_name" content="blog of chuj"><meta property="og:title" content="BUU-picoctf_2018_buffer overflow 0-WP"><meta property="og:description" content="今天好像都是水题嘛。不过这题使用ssh连接直接给了一个没root权限的shell
@@ -26,4 +25,4 @@ payload很好写，就是payload = &#34;./vuln &#34; + 'a' * 0x18 + p32(elf.plt[
 <a class=border></a><a class=soc href=https://twitter.com/chujdk rel=me title=Twitter><i data-feather=twitter></i></a>
 <a class=border></a><a class=soc href=mailto:chujj31@gmail.com rel=me title=Mail><i data-feather=mail></i></a>
 <a class=border></a><a class=soc href=https://chujdk.github.io/index.xml rel=me title=Rss><i data-feather=rss></i></a>
-<a class=border></a></div><div class=footer-info>2024 © chuj | Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
+<a class=border></a></div><div class=footer-info>2025 © chuj | Based on <a href=https://github.com/athul/archie>Archie</a> | Built with <a href=https://gohugo.io>Hugo</a> | <a href=#>Goto Top</a></div></footer><script>feather.replace()</script></div></body></html>
