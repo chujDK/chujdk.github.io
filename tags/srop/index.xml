@@ -1,25 +1,25 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Srop on blog of chuj</title><link>https://chujdk.github.io/tags/srop.html</link><description>Recent content in Srop on blog of chuj</description><generator>Hugo</generator><language>zh-cn</language><managingEditor>chujj31@gmail.com (chuj)</managingEditor><webMaster>chujj31@gmail.com (chuj)</webMaster><copyright>© chuj</copyright><lastBuildDate>Sat, 28 Nov 2020 19:13:00 +0000</lastBuildDate><atom:link href="https://chujdk.github.io/tags/srop/index.xml" rel="self" type="application/rss+xml"/><item><title>srop总结</title><link>https://chujdk.github.io/wp/srop%E6%80%BB%E7%BB%93.html</link><pubDate>Sat, 28 Nov 2020 19:13:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/srop%E6%80%BB%E7%BB%93.html</guid><description>&lt;!-- wp:paragraph -->
-&lt;p>srop技术，是一种利用&lt;strong>sigreturn系统调用&lt;/strong>（主要是Linux在信号处理时为了保存进程上下文而使用的）来修改寄存器的技术。ctfwiki上写得很好，但是有几点应该强调一下，可以更好得理解。&lt;/p></description></item><item><title>BUU-ciscn_2019_es_7-WP</title><link>https://chujdk.github.io/wp/buu-ciscn_2019_es_7-wp.html</link><pubDate>Sat, 28 Nov 2020 18:56:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/buu-ciscn_2019_es_7-wp.html</guid><description>&lt;!-- wp:paragraph -->
-&lt;p>这是一道国赛题，当然做之前我还不知道，到了我发现我不会做的时候才知道..这也是我做的第一道srop，虽然wp发的是三道里面最晚的，做完&lt;strong>&lt;a href="https://chujdk.github.io/WP/buu-rootersctf_2019_srop-wp.html">rootersctf_2019_srop&lt;/a>&lt;/strong>这题我才能说我真正理解了。&lt;/p></description></item><item><title>BUU-rootersctf_2019_srop-WP</title><link>https://chujdk.github.io/wp/buu-rootersctf_2019_srop-wp.html</link><pubDate>Sat, 28 Nov 2020 18:17:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/buu-rootersctf_2019_srop-wp.html</guid><description>&lt;!-- wp:image {"align":"center","id":675,"sizeSlug":"large"} -->
-&lt;div class="wp-block-image">&lt;figure class="aligncenter size-large">&lt;img src="https://chujdk.github.io/usr/uploads/2020/11/QQ截图20201128160138.png" alt="" class="wp-image-675"/>&lt;/figure>&lt;/div>
-&lt;!-- /wp:image -->
-&lt;!-- wp:image {"align":"center","id":676,"sizeSlug":"large"} -->
-&lt;div class="wp-block-image">&lt;figure class="aligncenter size-large">&lt;img src="https://chujdk.github.io/usr/uploads/2020/11/QQ截图20201128160155.png" alt="" class="wp-image-676"/>&lt;/figure>&lt;/div>
-&lt;!-- /wp:image -->
-&lt;!-- wp:paragraph -->
-&lt;p>只开了NX，只存在syscall的gadgets，基本上就是srop了。无非就是做两件事，注入"/bin/sh\x00"和执行execve的系统调用，我们发现在syscall前面存在&lt;code>pop rax&lt;/code>所以execve是容易实现的，然后就是注入"/bin/sh\x00"&lt;/p></description></item><item><title>BUU-360chunqiu2017_smallest-WP</title><link>https://chujdk.github.io/wp/buu-360chunqiu2017_smallest-wp.html</link><pubDate>Sat, 28 Nov 2020 10:28:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/buu-360chunqiu2017_smallest-wp.html</guid><description>&lt;!-- wp:paragraph -->
-&lt;p>这篇博客写了两天，我也花了很久来理解srop，现在我可以说我会srop了。&lt;/p>
-&lt;!-- /wp:paragraph -->
-&lt;!-- wp:paragraph -->
-&lt;p>这道题的代码非常短&lt;/p>
-&lt;!-- /wp:paragraph -->
-&lt;!-- wp:code -->
-&lt;pre class="wp-block-code">&lt;code>xor rax, rax
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Srop on blog of chuj</title><link>https://chujdk.github.io/tags/srop.html</link><description>Recent content in Srop on blog of chuj</description><generator>Hugo</generator><language>zh-cn</language><managingEditor>chujj31@gmail.com (chuj)</managingEditor><webMaster>chujj31@gmail.com (chuj)</webMaster><copyright>© chuj</copyright><lastBuildDate>Sat, 28 Nov 2020 19:13:00 +0000</lastBuildDate><atom:link href="https://chujdk.github.io/tags/srop/index.xml" rel="self" type="application/rss+xml"/><item><title>srop总结</title><link>https://chujdk.github.io/wp/srop%E6%80%BB%E7%BB%93.html</link><pubDate>Sat, 28 Nov 2020 19:13:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/srop%E6%80%BB%E7%BB%93.html</guid><description>&lt;!-- wp:paragraph --&gt;
+&lt;p&gt;srop技术，是一种利用&lt;strong&gt;sigreturn系统调用&lt;/strong&gt;（主要是Linux在信号处理时为了保存进程上下文而使用的）来修改寄存器的技术。ctfwiki上写得很好，但是有几点应该强调一下，可以更好得理解。&lt;/p&gt;</description></item><item><title>BUU-ciscn_2019_es_7-WP</title><link>https://chujdk.github.io/wp/buu-ciscn_2019_es_7-wp.html</link><pubDate>Sat, 28 Nov 2020 18:56:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/buu-ciscn_2019_es_7-wp.html</guid><description>&lt;!-- wp:paragraph --&gt;
+&lt;p&gt;这是一道国赛题，当然做之前我还不知道，到了我发现我不会做的时候才知道..这也是我做的第一道srop，虽然wp发的是三道里面最晚的，做完&lt;strong&gt;&lt;a href="https://chujdk.github.io/WP/buu-rootersctf_2019_srop-wp.html"&gt;rootersctf_2019_srop&lt;/a&gt;&lt;/strong&gt;这题我才能说我真正理解了。&lt;/p&gt;</description></item><item><title>BUU-rootersctf_2019_srop-WP</title><link>https://chujdk.github.io/wp/buu-rootersctf_2019_srop-wp.html</link><pubDate>Sat, 28 Nov 2020 18:17:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/buu-rootersctf_2019_srop-wp.html</guid><description>&lt;!-- wp:image {"align":"center","id":675,"sizeSlug":"large"} --&gt;
+&lt;div class="wp-block-image"&gt;&lt;figure class="aligncenter size-large"&gt;&lt;img src="https://chujdk.github.io/usr/uploads/2020/11/QQ截图20201128160138.png" alt="" class="wp-image-675"/&gt;&lt;/figure&gt;&lt;/div&gt;
+&lt;!-- /wp:image --&gt;
+&lt;!-- wp:image {"align":"center","id":676,"sizeSlug":"large"} --&gt;
+&lt;div class="wp-block-image"&gt;&lt;figure class="aligncenter size-large"&gt;&lt;img src="https://chujdk.github.io/usr/uploads/2020/11/QQ截图20201128160155.png" alt="" class="wp-image-676"/&gt;&lt;/figure&gt;&lt;/div&gt;
+&lt;!-- /wp:image --&gt;
+&lt;!-- wp:paragraph --&gt;
+&lt;p&gt;只开了NX，只存在syscall的gadgets，基本上就是srop了。无非就是做两件事，注入"/bin/sh\x00"和执行execve的系统调用，我们发现在syscall前面存在&lt;code&gt;pop rax&lt;/code&gt;所以execve是容易实现的，然后就是注入"/bin/sh\x00"&lt;/p&gt;</description></item><item><title>BUU-360chunqiu2017_smallest-WP</title><link>https://chujdk.github.io/wp/buu-360chunqiu2017_smallest-wp.html</link><pubDate>Sat, 28 Nov 2020 10:28:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/buu-360chunqiu2017_smallest-wp.html</guid><description>&lt;!-- wp:paragraph --&gt;
+&lt;p&gt;这篇博客写了两天，我也花了很久来理解srop，现在我可以说我会srop了。&lt;/p&gt;
+&lt;!-- /wp:paragraph --&gt;
+&lt;!-- wp:paragraph --&gt;
+&lt;p&gt;这道题的代码非常短&lt;/p&gt;
+&lt;!-- /wp:paragraph --&gt;
+&lt;!-- wp:code --&gt;
+&lt;pre class="wp-block-code"&gt;&lt;code&gt;xor rax, rax
 mov edx, 400h ; count
 mov rsi, rsp ; buf
 mov rdi, rax ; fd
 syscall ; LINUX - sys_read
-retn&lt;/code>&lt;/pre>
-&lt;!-- /wp:code -->
-&lt;!-- wp:paragraph -->
-&lt;p>仅此六行。由于有syscall和一个read函数，我们可以通过改变read的字节数来控制rax的值，借此实现任意系统调用。于是我们的思路是先调用sys_write泄露栈地址，然后构造signal frame劫持rsp使栈迁移至一个&lt;strong>可读写&lt;/strong>的&lt;strong>确定&lt;/strong>空间（就是我们泄露的地址）。最后再构造一个signal frame指定execve的四个参数并设置系统调用号位execve的调用号，再注入“/bin/sh”，就获得了shell。&lt;/p></description></item></channel></rss>
+retn&lt;/code&gt;&lt;/pre&gt;
+&lt;!-- /wp:code --&gt;
+&lt;!-- wp:paragraph --&gt;
+&lt;p&gt;仅此六行。由于有syscall和一个read函数，我们可以通过改变read的字节数来控制rax的值，借此实现任意系统调用。于是我们的思路是先调用sys_write泄露栈地址，然后构造signal frame劫持rsp使栈迁移至一个&lt;strong&gt;可读写&lt;/strong&gt;的&lt;strong&gt;确定&lt;/strong&gt;空间（就是我们泄露的地址）。最后再构造一个signal frame指定execve的四个参数并设置系统调用号位execve的调用号，再注入“/bin/sh”，就获得了shell。&lt;/p&gt;</description></item></channel></rss>
