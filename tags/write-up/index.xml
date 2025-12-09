@@ -56,7 +56,8 @@
 &lt;p&gt;可见这里会在读入的字符串末尾加零，那么只要我们申请形如 0x18 的大小的空间，写入 0x18 个字符，就可以溢出一个字节，将下一个 chunk 的 size 域的 prev_inuse 位置零，然后把下一个 chunk free 掉，两个 chunk就可以合并。&lt;/p&gt;</description></item><item><title>PWNABLE.TW-unexploitable-WP</title><link>https://chujdk.github.io/wp/1232.html</link><pubDate>Wed, 31 Mar 2021 20:00:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/1232.html</guid><description>&lt;p&gt;此题是一个 rop，分数挺高，难度不大。&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;The original challenge is on pwnable.kr and it is solvable.&lt;/p&gt;
-&lt;p&gt;This time we fix the vulnerability and now we promise that the service is unexploitable.&lt;/p&gt;&lt;/blockquote&gt;
+&lt;p&gt;This time we fix the vulnerability and now we promise that the service is unexploitable.&lt;/p&gt;
+&lt;/blockquote&gt;
 &lt;p&gt;题目描述是这样的，&lt;a href="pwnable.kr"&gt;pwnable.kr&lt;/a&gt; 没刷过，也不知道原题是什么，反正先 IDA 里面看一下再说&lt;/p&gt;</description></item><item><title>PWNABLE.TW-De-ASLR-WP</title><link>https://chujdk.github.io/wp/1227.html</link><pubDate>Tue, 30 Mar 2021 14:53:00 +0000</pubDate><author>chujj31@gmail.com (chuj)</author><guid>https://chujdk.github.io/wp/1227.html</guid><description>&lt;p&gt;这个 ROP 非常的麻烦&lt;/p&gt;
 &lt;h3 id="分析"&gt;分析&lt;/h3&gt;
 &lt;p&gt;流程就两句话&lt;/p&gt;
